@@ -1,0 +1,7 @@
+Input file for running entropy calculations using NMode
+&general
+   startframe=10,
+/
+&gb
+  igb=2, saltcon=0.100
+/
