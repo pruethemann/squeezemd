@@ -1,3 +1,0 @@
-ligand,target,mutation_all,input
-BD001,C1s,WT,input/proteases/11_C1s_BD001_HIS.pdb
-BD001,C1s,Y117E_Y119E_Y121E,input/proteases/11_C1s_BD001_HIS.pdb
