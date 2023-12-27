@@ -1,0 +1,51 @@
+=========
+squeezeMD
+=========
+
+
+.. image:: https://img.shields.io/pypi/v/squeezemd.svg
+        :target: https://pypi.python.org/pypi/squeezemd
+
+.. image:: https://img.shields.io/travis/pruethemann/squeezemd.svg
+        :target: https://travis-ci.com/pruethemann/squeezemd
+
+.. image:: https://readthedocs.org/projects/squeezemd/badge/?version=latest
+        :target: https://squeezemd.readthedocs.io/en/latest/?version=latest
+        :alt: Documentation Status
+
+
+
+
+Molecular Dynamics pipeline
+
+
+* Free software: GNU General Public License v3
+* Documentation: https://squeezemd.readthedocs.io.
+
+
+Features
+--------
+
+* TODO
+
+Infos
+----
+
+- Python Package and terminal: https://python-packaging.readthedocs.io/en/latest/command-line-scripts.html
+
+Execute
+---
+
+python3 setup.py sdist
+pip3 install --upgrade .
+
+
+
+Credits
+-------
+
+This package was created with Cookiecutter_ and the `audreyr/cookiecutter-pypackage`_ project template.
+
+.. _Cookiecutter: https://github.com/audreyr/cookiecutter
+.. _`audreyr/cookiecutter-pypackage`: https://github.com/audreyr/cookiecutter-pypackage
+
