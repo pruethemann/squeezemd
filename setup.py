@@ -29,6 +29,8 @@ setup(
         'Programming Language :: Python :: 3.8',
     ],
     description="Molecular Dynamics pipeline",
+    long_description_content_type="text/markdown",
+    long_description=readme + '\n\n' + history,
     entry_points={
         'console_scripts': [
             'squeezemd=squeezemd.cli:main',
@@ -36,7 +38,7 @@ setup(
     },
     install_requires=requirements,
     license="GNU General Public License v3",
-    long_description=readme + '\n\n' + history,
+
     include_package_data=True,
     data_files=[('', ['Snakefile', 'config/tleap_nosolvent.in'])],
     keywords='squeezemd',
