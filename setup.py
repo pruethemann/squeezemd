@@ -48,7 +48,7 @@ setup(
     test_suite='tests',
     tests_require=test_requirements,
     url='https://github.com/pruethemann/squeezemd',
-    version='0.1.7',
+    version='0.1.8',
     zip_safe=False,
     scripts=['bin/squeeze','bin/1_mutation.py', 'bin/2_createleap.py', 'bin/2_SplitChains.py', 'bin/3_MD.py',
              'bin/4_center.py','bin/5_interactionFingerprint.py', 'bin/6_ExplorativeTrajectoryAnalysis.py',
