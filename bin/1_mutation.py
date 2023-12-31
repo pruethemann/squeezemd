@@ -1,26 +1,17 @@
 #!/usr/bin/env python
-"""
-Further infos:
-https://blog.matteoferla.com/2020/07/filling-missing-loops-proper-way.html
-
-python3 1_Mutate.py --csv config/simulations_tmp.csv --seed 2007 --name C1s_BD001_D18E_G36R
 
 """
+    Performs site directed mutatagensis of one or multiple mutations in a protein.
+    This script prepares the files for foldX which is doing the local minimsiaotn.
 
+    Further infos:
+    https://blog.matteoferla.com/2020/07/filling-missing-loops-proper-way.html
 
+    There used to be a function called extract_ligand_sequence which tried to extract the sequences directly from the pdb
+"""
 
 import argparse
-import MDAnalysis as mda
-from collections import defaultdict
-
-
-
-def save_file(content, output_file):
-    f = open(output_file, "w")
-    f.write(content)
-    f.close()
-
-
+from Helper import save_file
 
 if __name__ == '__main__':
 
@@ -31,15 +22,14 @@ if __name__ == '__main__':
 
     args = parser.parse_args()
 
-
+    # TODO: Decide where to extract that from
     WT_seq = "AKKKLPKCQKQEDCGSWDLKCNNVTKKCECRNQVCGRGCPKERYQRDKYGCRKCLCKGCDGFKCRLGCTYGFKTDKKGCEAFCTCNTKETACVNIWCTDPYKCNPESGRCEDPNEEYEYDYE"
     WT_original = WT_seq
 
+    # Get all mutations
     mutations = args.mutation.split('_')
 
-    print(mutations)
-
-
+    # Only execute if mutagensis necessary
     if not 'WT' in mutations:
         WT_seq = WT_original
 
@@ -48,6 +38,7 @@ if __name__ == '__main__':
             aa_after = mutation[-1]
             resid = int(mutation[1:-1])
 
+            # Checks whether the orginal resname is correct
             if WT_seq[resid-1] != aa_before:
                 raise Exception(f"You are mutating the wrong amino acid. AA before: {aa_before} AA expected: {WT_seq[resid-1]} position: {resid}")
 
@@ -58,42 +49,11 @@ if __name__ == '__main__':
 
             print(aa_before, " Mutate position ", resid, " with amino acid: ", aa_after)
 
-            print(mut_seq)
             WT_seq = mut_seq
 
-        print(mut_seq)
         mut_seq = WT_original + '\n' + mut_seq
         save_file(mut_seq, args.output)
 
-    else:
+    else: # Save Wildtype sequence again to make sure Snakemake is happy
         seq = WT_original + '\n' + WT_original
         save_file(seq, args.output)
-
-
-def extract_ligand_sequence():
-    """
-    deprecated
-    Extracts the amino acid sequence of the ligand. Chain ID must be I
-    :return: amino acid sequence in 1 letter code
-    """
-    sequence = defaultdict(list)
-
-    # Load PDB file
-    u = mda.Universe("input.pdb")
-
-    # Get protein atoms
-    protein = u.select_atoms("protein")
-
-    # Extract amino acid sequence and chain IDs
-    seq = []
-    chains = []
-    for residue in protein.residues:
-
-        resname = mda.lib.util.convert_aa_code(residue.resname)
-        sequence[residue.segid].append(resname)
-
-
-    for chain, seq in sequence.items():
-        sequence[chain] = ''.join(seq)
-
-    return sequence['I']

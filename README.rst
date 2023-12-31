@@ -36,8 +36,8 @@ Infos
 Execute
 ---
 
-python3 setup.py sdist
-pip3 install --upgrade .
+python3 setup.py sdist && pip3 install --upgrade .
+
 
 
 

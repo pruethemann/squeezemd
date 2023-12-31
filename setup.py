@@ -10,7 +10,7 @@ with open('README.rst') as readme_file:
 with open('HISTORY.rst') as history_file:
     history = history_file.read()
 
-requirements = [ ]
+requirements = []
 
 test_requirements = ['pytest>=3', ]
 
@@ -38,16 +38,17 @@ setup(
     license="GNU General Public License v3",
     long_description=readme + '\n\n' + history,
     include_package_data=True,
-    package_data={'': ['bin/7_interaction_csv.x', 'bin/7_interaction-analyzer.x']},
-    data_files=[('', ['Snakefile'])],
+    data_files=[('', ['Snakefile', 'config/tleap_nosolvent.in'])],
     keywords='squeezemd',
     name='squeezemd',
     packages=find_packages(include=['squeezemd', 'squeezemd.*']),
+    package_data={'': ['Snakefile']},
     test_suite='tests',
     tests_require=test_requirements,
     url='https://github.com/pruethemann/squeezemd',
-    version='0.1.4',
+    version='0.1.5',
     zip_safe=False,
     scripts=['bin/squeeze','bin/1_mutation.py', 'bin/2_createleap.py', 'bin/2_SplitChains.py', 'bin/3_MD.py',
-             'bin/4_center.py','bin/5_interactionFingerprint.py', 'bin/6_ExplorativeTrajectoryAnalysis.py', 'bin/run.py'],
+             'bin/4_center.py','bin/5_interactionFingerprint.py', 'bin/6_ExplorativeTrajectoryAnalysis.py',
+             'bin/Helper.py', 'bin/11_AnaFingerprint.py', 'bin/8_InteractionMartin.py'],
 )

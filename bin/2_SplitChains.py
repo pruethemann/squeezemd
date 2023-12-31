@@ -1,4 +1,9 @@
 #!/usr/bin/env python
+
+"""
+    Currently depracted. Used to split chains for Free Energy calculations
+
+"""
 import argparse
 import MDAnalysis
 

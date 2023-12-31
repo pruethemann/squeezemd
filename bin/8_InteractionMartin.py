@@ -357,5 +357,4 @@ if __name__ == '__main__':
     args = parser.parse_args()
     job_id = args.output.split('/')[-3]
 
-
     init(args)

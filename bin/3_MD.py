@@ -1,30 +1,19 @@
 #!/usr/bin/env python
+"""
+    Module performs Molecular Dynamics using OpenMM
+    - Import of amber prepared pdb structure
+    - Adding water box with 150 mM NaCl
+    - Performs MD
+
+NOTES:
+    A seed is set for the integrator and the initial velocities
+"""
+
 import argparse
 from openmm import *
 from openmm.app import *
 from openmm.unit import *
-#from Helper import import_yaml, save_yaml
-import yaml
-
-def import_yaml(yaml_path: os.path):
-    """
-    Opens yaml file containing hyper parameters.
-
-    :param yaml_path: File path to yaml
-    :return: dictionary with parameters
-    """
-    try:
-        with open(yaml_path, 'r') as stream:
-            return yaml.safe_load(stream)
-    except yaml.YAMLError as exc:
-        print(exc)
-
-
-def save_yaml(d, filepath):
-    with open(filepath, 'w') as file:
-        documents = yaml.dump(d, file)
-
-
+from Helper import import_yaml, save_yaml
 
 def simulate(args, params):
     """
@@ -56,10 +45,7 @@ def simulate(args, params):
         pdb (PDBFile): The PDB file object.
     """
 
-    # Input Files
-
-
-    # Define forcefield
+    # Define amber forcefield
     forcefield = ForceField('amber14-all.xml', 'amber14/tip3pfb.xml')
 
     # System Configuration
@@ -69,11 +55,11 @@ def simulate(args, params):
     hydrogenMass = 1.5 * amu
     constraints = {'HBonds': HBonds, 'AllBonds': AllBonds, 'None': None}
 
-    dt = params['dt'] * picoseconds
-    temperature = 310 * kelvin
+    dt = params['dt'] * picoseconds     # Simulation time steps
+    temperature = 310 * kelvin          # Simulation temperature
     friction = 1.0 / picosecond
-    pressure = 1.0 * atmospheres # TODO
-    barostatInterval = 25  # TODO
+    pressure = 1.0 * atmospheres        # Simulation pressure
+    barostatInterval = 25               # Fix Barostat every 25 simulations steps
     steps = int(args.steps)
     equilibrationSteps = params['equilibrationSteps']
 
@@ -84,10 +70,10 @@ def simulate(args, params):
     # Define integrator
     integrator = LangevinMiddleIntegrator(temperature, friction, dt)
     integrator.setConstraintTolerance(constraintTolerance)
-    integrator.setRandomNumberSeed(int(args.seed))
+    integrator.setRandomNumberSeed(args.seed)
 
     # Init MD model
-    pdb = PDBFile(args.tleap)
+    pdb = PDBFile(args.input_pdb)
     modeller = Modeller(pdb.topology, pdb.positions)
 
     print('Adding hydrogens..')
@@ -123,10 +109,6 @@ def simulate(args, params):
     dcdReporter = DCDReporter(args.traj,
                               recordInterval)
 
-    #import mdtraj.reporters
-
-    #h5Reporter = mdtraj.reporters.HDF5Reporter('h5md.h5', recordInterval)
-
     dataReporter = StateDataReporter(args.stats,
                                      recordInterval,
                                      totalSteps=steps,
@@ -143,138 +125,50 @@ def simulate(args, params):
     simulation.minimizeEnergy()
 
     print('Equilibrating..')
-    simulation.context.setVelocitiesToTemperature(temperature)
+    simulation.context.setVelocitiesToTemperature(temperature, args.seed)
     simulation.step(equilibrationSteps)
 
     print('Simulating..')
     simulation.reporters.append(dcdReporter)
     simulation.reporters.append(dataReporter)
-    #simulation.reporters.append(h5Reporter)
     simulation.currentStep = 0
     simulation.step(steps)
 
-    print('Save final frame')
-    # 1. Standard export
-    state = simulation.context.getState(getPositions=True,
-                                        enforcePeriodicBox=system.usesPeriodicBoundaryConditions())
-
-    # 2. Try
-    with open('end1.pdb', mode="w") as file:
-        PDBFile.writeFile(simulation.topology,
-                          state.getPositions(),
-                          file)
-
-    with open(args.pdb_last, mode="w") as file:
-        PDBFile.writeFile(simulation.topology,
-                          state.getPositions(),
-                          file,
-                          keepIds=False)
-
-    with open('end1.cif', mode="w") as file:
-        PDBxFile.writeFile(simulation.topology,
-                          state.getPositions(),
-                          file,
-                          keepIds=False)
-
-    with open('end2.cif', mode="w") as file:
-        PDBxFile.writeModel(simulation.topology,
-                          state.getPositions(),
-                          file,
-                          keepIds=False)
-
+    # Save final frame as topology.cif
     state = simulation.context.getState(getPositions=True, enforcePeriodicBox=system.usesPeriodicBoundaryConditions())
-    with open(args.pdbx, mode="w") as file:
+
+    with open(args.topo, mode="w") as file:
         PDBxFile.writeFile(simulation.topology,
                            state.getPositions(),
                            file,
                            keepIds=False)
 
-    with open("final_state.cif", mode="w") as file:
-        PDBxFile.writeFile(simulation.topology, state.getPositions(), file)
-
-    with open(args.last, mode="w") as file:
-        PDBxFile.writeFile(simulation.topology,
-                           state.getPositions(),
-                           file,
-                           keepIds=False)
-
-    import MDAnalysis as mda
-    # Assuming 'simulation' is your OpenMM Simulation object
-    state = simulation.context.getState(getPositions=True)
-    positions = state.getPositions(asNumpy=True)
-
-    import numpy as np
-
-    """
-
-    # https://docs.mdanalysis.org/1.1.0/documentation_pages/core/topology.html
-    # Create an empty MDAnalysis topology
-    n_atoms = simulation.topology.getNumAtoms()
-    n_residues = simulation.topology.getNumResidues()
-    n_chains = simulation.topology.getNumChains()
-    mda_topology = mda.core.topology.Topology(n_atoms, n_residues, n_chains,
-                                              attrs=atom_attrs,
-                                              residue_attrs=residue_attrs,
-                                              segment_attrs=segment_attrs)
-
-    # Create an MDAnalysis Universe using the topology and positions
-    u = mda.Universe(mda_topology, positions)
-    u.atoms.write('output.gro')  #
-    """
-
-    simulation.saveState(args.xml)
 
 if __name__ == '__main__':
 
     parser = argparse.ArgumentParser()
 
     # Input files
-    parser.add_argument('--tleap', required=False, help='Position file (inpcrd)', default='output/demo/C1s_BD001/WT/amber/C1s_BD001.tleap.pdb')
-
-    # Parameters
-    parser.add_argument('--config', required=False, help='Configuration file with all required parameters (params.yml')
-    parser.add_argument('--seed', required=False, help='Seed for inital velocities', default=23)
-    parser.add_argument('--threads', required=False, help='Threads', default=4)
-    parser.add_argument('--simulation_name', required=False, help='Simulation name', default='test')
-    parser.add_argument('--job_id', required=False, help='Output directory', default='demo')
+    parser.add_argument('--input_pdb', required=False, help='Amber and Tleap prepated pdb file from complex or single protein')
+    parser.add_argument('--md_settings', required=False, help='Configuration file with all required parameters (params.yml')
+    parser.add_argument('--seed', required=False, help='Seed for inital velocities', default=23, type=int)
 
     # Output
+    parser.add_argument('--topo', required=False, help='Cif file of last frame')
     parser.add_argument('--traj', required=False, help='Trajectory file')
-    parser.add_argument('--stats', required=False, help='Stats File', default='test')
-    parser.add_argument('--last', required=False, help='Stats File', default='last.pdb')
-
-    parser.add_argument('--topo', required=False, help='Topology file (prmtop)', default='test')
-    parser.add_argument('--crd', required=False, help='Position file (inpcrd)', default='test')
-    parser.add_argument('--amber', required=False, help='Position file (inpcrd)', default='test')
-
-    parser.add_argument('--xml', required=False, help='Position file (inpcrd)', default='test')
-    parser.add_argument('--pdb_last', required=False, help='Position file (inpcrd)', default='test')
-    parser.add_argument('--pdbx', required=False, help='Position file (inpcrd)', default='test')
-
-    parser.add_argument('--directory', required=False, help='Output directory', default='test')
+    parser.add_argument('--stats', required=False, help='Energy saves for every 1000 frames')
+    parser.add_argument('--params', required=False, help='MD parameter file saved for every MD')
 
     args = parser.parse_args()
 
     # Import standard MD parameters
-    params = import_yaml(args.config)
+    params = import_yaml(args.md_settings)
 
     args.steps = int(params['time'] * 1000 / params['dt'])
     args.recorded_steps = int(params['time'] * 1000 / params['recordingInterval'])
 
     # Save parameters to simulation folder
-    save_yaml(args, os.path.join(args.directory, 'params.yml'))
+    save_yaml(args, args.params)
 
     # Parse Arguments
     simulate(args, params)
-
-
-
-# Deprecated
-
-"""
-    parser.add_argument('--topo', required=False, help='Topology file (prmtop)', default='test')
-    parser.add_argument('--crd', required=False, help='Position file (inpcrd)', default='test')
-    parser.add_argument('--amber', required=False, help='Position file (inpcrd)', default='test')
-
-    parser.add_argument('--directory', required=False, help='Output directory', default='test')
-"""
