@@ -32,12 +32,12 @@ Infos
 ----
 
 - Python Package and terminal: https://python-packaging.readthedocs.io/en/latest/command-line-scripts.html
+- Github workflow pypi: https://github.com/pypa/packaging.python.org/blob/main/source/guides/github-actions-ci-cd-sample/publish-to-test-pypi.yml
 
 Execute
 ---
 
 python3 setup.py sdist && pip3 install --upgrade .
-
 
 
 
