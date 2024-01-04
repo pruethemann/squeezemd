@@ -27,6 +27,8 @@ def center_trajectory(u, args):
     However: Due to the fact that the standard pdb format can only save
     a limited amount of atoms. This will lead to the fact that multiple atoms
     have the same id.
+    Infos:
+    https://userguide.mdanalysis.org/stable/examples/transformations/center_protein_in_box.html
     :param u:
     :param args:
     :return: centered Universe
@@ -111,15 +113,15 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
 
     # Input
-    parser.add_argument('--topo', required=False,help='', default='topo.cif')
+    parser.add_argument('--topo', required=False,help='', default='frame_end.cif')
     parser.add_argument('--traj', required=False,help='', default='trajectory.dcd')
     parser.add_argument('--mapping', required=False, help='Amber residue mapping', default='amber_renum.txt')
-    parser.add_argument('--n_frames', required=False, help='The last number of frames exported from the trajectory')
-    parser.add_argument('--dir', required=False, help='The working dir for the analysis')
+    parser.add_argument('--n_frames', required=False, help='The last number of frames exported from the trajectory', default=10)
+    parser.add_argument('--dir', required=False, help='The working dir for the analysis', default='tmp')
 
     # Output
-    parser.add_argument('--traj_center', required=False,help='', default='traj_center.dcd')
-    parser.add_argument('--topo_center', required=False,help='', default='topo_center.pdb')
+    parser.add_argument('--traj_center', required=False,help='', default='tmp/traj_center.dcd')
+    parser.add_argument('--topo_center', required=False,help='', default='tmp/topo_center.pdb')
 
     args = parser.parse_args()
 

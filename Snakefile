@@ -40,14 +40,15 @@ rule proteinInteraction:
     input:
         expand('output/{job_id}/{complex}/{mutation}/mutation.pdb', job_id=config["job"], complex=complexes, mutation=mutations),
         expand('output/{job_id}/{complex}/{mutation}/amber/amber.pdb',job_id=config["job"], complex=complexes, mutation=mutations),
-        expand('output/{job_id}/{complex}/{mutation}/{seed}/MD/trajectory.dcd', job_id=config["job"], complex=complexes, mutation=mutations, seed=seeds),
-        expand('output/{job_id}/{complex}/{mutation}/{seed}/MD/center/topo.pdb', job_id=config["job"], complex=complexes, mutation=mutations, seed=seeds),
-        expand('output/{job_id}/{complex}/{mutation}/{seed}/analysis/RMSF.svg', job_id=config["job"], complex=complexes, mutation=mutations, seed=seeds),
-        expand('output/{job_id}/results/martin/interactions.csv', job_id=config["job"], complex=complexes, mutation=mutations, seed=seeds),
+        expand('output/{job_id}/{complex}/{mutation}/{seed}/MD/traj_center.dcd', job_id=config["job"], complex=complexes, mutation=mutations, seed=seeds),
+
+        #expand('output/{job_id}/{complex}/{mutation}/{seed}/MD/center/topo.pdb', job_id=config["job"], complex=complexes, mutation=mutations, seed=seeds),
+        #expand('output/{job_id}/{complex}/{mutation}/{seed}/analysis/RMSF.svg', job_id=config["job"], complex=complexes, mutation=mutations, seed=seeds),
+        #expand('output/{job_id}/results/martin/interactions.csv', job_id=config["job"], complex=complexes, mutation=mutations, seed=seeds),
         #expand('output/{job_id}/{complex}/{mutation}/{seed}/frames/lig/1.csv', job_id=config["job"], complex=complexes, mutation=mutations, seed=seeds, frame_id=frames),
         #expand('output/{job_id}/results/martin/interactions.csv', job_id=config["job"]),
-        expand('output/{job_id}/{complex}/{mutation}/{seed}/fingerprint/fingerprint.feather', job_id=config["job"], complex=complexes, mutation=mutations, seed=seeds),
-        expand('output/{job_id}/results/fingerprints/interactions.csv', job_id=config["job"])
+        #expand('output/{job_id}/{complex}/{mutation}/{seed}/fingerprint/fingerprint.feather', job_id=config["job"], complex=complexes, mutation=mutations, seed=seeds),
+        #expand('output/{job_id}/results/fingerprints/interactions.csv', job_id=config["job"])
 
 
 rule SetupMutagesis:
@@ -116,9 +117,9 @@ rule MD:
         input_pdb='output/{job_id}/{complex}/{mutation}/amber/{complex}.tleap.pdb',
     output:
         topo = 'output/{job_id}/{complex}/{mutation}/{seed}/MD/frame_end.cif',
-        traj='output/{job_id}/{complex}/{mutation}/{seed}/MD/trajectory.dcd',
+        traj='output/{job_id}/{complex}/{mutation}/{seed}/MD/trajectory.h5',
         stats='output/{job_id}/{complex}/{mutation}/{seed}/MD/MDStats.csv',
-        params='output/{job_id}/{complex}/{mutation}/{seed}/MD/params.yml'
+        params='output/{job_id}/{complex}/{mutation}/{seed}/MD/params.yml',
     params:
         job_id=config['job']
     resources:
@@ -133,7 +134,26 @@ rule MD:
                 --md_settings {input.md_settings} \
                 --params {output.params} \
                 --seed {wildcards.seed} \
-                --stats {output.stats} \
+                --stats {output.stats}
+        """
+
+rule centerMDTraj:
+    input:
+        topo = 'output/{job_id}/{complex}/{mutation}/{seed}/MD/frame_end.cif',
+        traj='output/{job_id}/{complex}/{mutation}/{seed}/MD/trajectory.h5',
+    output:
+        traj_center='output/{job_id}/{complex}/{mutation}/{seed}/MD/traj_center.dcd',
+    params:
+        job_id=config['job']
+    resources:
+        gpu=1
+    priority:
+        3
+    shell:
+        """
+        4_centerMDTraj.py --topo {input.topo} \
+                            --traj {input.traj} \
+                --traj_center {output.traj_center}
         """
 
 rule centerTraj:

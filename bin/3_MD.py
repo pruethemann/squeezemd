@@ -7,6 +7,9 @@
 
 NOTES:
     A seed is set for the integrator and the initial velocities
+
+Export of pmrtop:
+    https://github.com/openforcefield/smarty/pull/187#issuecomment-262381974
 """
 
 import argparse
@@ -14,6 +17,14 @@ from openmm import *
 from openmm.app import *
 from openmm.unit import *
 from Helper import import_yaml, save_yaml
+import warnings
+from simtk.openmm import app
+# suppress some MDAnalysis warnings when writing PDB files
+warnings.filterwarnings('ignore')
+import mdtraj
+import mdtraj.reporters
+import shutil
+from simtk.openmm import app
 
 def simulate(args, params):
     """
@@ -45,9 +56,6 @@ def simulate(args, params):
         pdb (PDBFile): The PDB file object.
     """
 
-    # Define amber forcefield
-    forcefield = ForceField('amber14-all.xml', 'amber14/tip3pfb.xml')
-
     # System Configuration
     nonbondedCutoff = params['nonbondedCutoff'] * nanometers
     ewaldErrorTolerance = params['ewaldErrorTolerance']
@@ -65,6 +73,8 @@ def simulate(args, params):
 
     recordInterval = int(steps * params['recordingInterval'] / (params['time'] * 1000))
 
+    print("REcordinterval", recordInterval)
+
     platform = Platform.getPlatformByName('CUDA')
 
     # Define integrator
@@ -74,20 +84,24 @@ def simulate(args, params):
 
     # Init MD model
     pdb = PDBFile(args.input_pdb)
-    modeller = Modeller(pdb.topology, pdb.positions)
+    modeller = app.Modeller(pdb.topology, pdb.positions)
+
+    forcefield = ForceField('amber14-all.xml', 'amber14/tip3pfb.xml')
 
     print('Adding hydrogens..')
     modeller.addHydrogens(forcefield)
 
     print('Adding solvent..')
+    # Define amber forcefield
     modeller.addSolvent(forcefield,
                         ionicStrength=0.15 * molar,
                         model='tip3p',
                         padding=1 * nanometer)
 
+
     print('Create Forcefield..')
     system = forcefield.createSystem(modeller.topology,
-                                     nonbondedMethod=PME,
+                                     nonbondedMethod=app.PME,
                                      nonbondedCutoff=nonbondedCutoff,
                                      constraints=constraints[params['constraints']],
                                      rigidWater=params['rigidWater'],
@@ -105,9 +119,18 @@ def simulate(args, params):
                             )
 
 
+    # Minimize and Equilibrate
+    print('Performing energy minimization..')
+    simulation.context.setPositions(modeller.positions)
+    simulation.minimizeEnergy()
+
+    print('Equilibrating..')
+    simulation.context.setVelocitiesToTemperature(temperature, args.seed)
+    simulation.step(equilibrationSteps)
+
+
     # Set up log file and trajectory dcd
-    dcdReporter = DCDReporter(args.traj,
-                              recordInterval)
+    HDF5Reporter = mdtraj.reporters.HDF5Reporter(args.traj,recordInterval)
 
     dataReporter = StateDataReporter(args.stats,
                                      recordInterval,
@@ -119,29 +142,43 @@ def simulate(args, params):
                                      remainingTime=True, potentialEnergy=True, kineticEnergy=True, totalEnergy=True,
                                      temperature=True, volume=True, density=True, separator='\t')
 
-    # Minimize and Equilibrate
-    print('Performing energy minimization..')
-    simulation.context.setPositions(modeller.positions)
-    simulation.minimizeEnergy()
+    simulation.reporters.append(HDF5Reporter)
+    simulation.reporters.append(DCDReporter('test.dcd', recordInterval))
+    simulation.reporters.append(dataReporter)
 
-    print('Equilibrating..')
-    simulation.context.setVelocitiesToTemperature(temperature, args.seed)
-    simulation.step(equilibrationSteps)
+
 
     print('Simulating..')
-    simulation.reporters.append(dcdReporter)
-    simulation.reporters.append(dataReporter)
     simulation.currentStep = 0
     simulation.step(steps)
 
     # Save final frame as topology.cif
     state = simulation.context.getState(getPositions=True, enforcePeriodicBox=system.usesPeriodicBoundaryConditions())
 
+    print(args.topo)
     with open(args.topo, mode="w") as file:
         PDBxFile.writeFile(simulation.topology,
                            state.getPositions(),
                            file,
                            keepIds=False)
+
+    """
+    # Center trajectory with MDTraj
+    print("Temp traj")
+    shutil.copy(args.traj, args.traj + '2.h5')
+
+    import time
+    print("sleep")
+    time.sleep(60)
+
+    print("Load OpenMM traj")
+    traj = mdtraj.load(args.traj + '2.h5', top=args.topo)
+
+    traj.image_molecules(inplace=False)
+    # Save the centered trajectory to a new file (replace 'centered_trajectory.dcd' with your desired output filename)
+    #traj.save("center.h5")
+    traj.save_dcd(args.traj_center)
+    """
 
 
 if __name__ == '__main__':
@@ -156,6 +193,7 @@ if __name__ == '__main__':
     # Output
     parser.add_argument('--topo', required=False, help='Cif file of last frame')
     parser.add_argument('--traj', required=False, help='Trajectory file')
+    parser.add_argument('--traj_center', required=False, help='MD parameter file saved for every MD')
     parser.add_argument('--stats', required=False, help='Energy saves for every 1000 frames')
     parser.add_argument('--params', required=False, help='MD parameter file saved for every MD')
 
