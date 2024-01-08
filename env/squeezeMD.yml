@@ -1,0 +1,41 @@
+# conda env create -f squeezeMD.yml
+# conda install -c conda-forge mamba
+# mamba env create -f squeezeMD.yml
+
+# Test Cuda and OpenMM install
+# python3 -m openmm.testInstallation
+# if it fails it's probably a cuda dependency problem:
+# Downgrad cuda:
+# mamba install -c conda-forge cudatoolkit=11.4
+
+# libtinfo.so.5 missing
+# sudo apt-get install libtinfo5
+
+name: squeezemd
+
+channels:
+  - conda-forge
+  - bioconda                # for snakemake
+
+dependencies:
+  - rdkit>=2023
+  - python
+  - openmm>=8.0
+  - openmm-setup
+  - ucx
+  - mdanalysis>=2.6
+  - cudatoolkit==11.4    # otherwise nvidia compatibility problems
+  - parmed                # MdcrdReporter
+  - pyyaml
+  - snakemake-minimal>=7.32
+  - sqlite
+  - mpi4py              # parallel processing
+  - prolif              # Interaction fingerprint
+  - ambertools          # Amber tools
+  - pyvis               # visualize networks
+  - pandas
+  - pyarrow
+  - tables
+  - pip
+  - pip:
+        squeezemd
