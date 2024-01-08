@@ -13,6 +13,7 @@ import seaborn as sns
 import pandas as pd
 import matplotlib.pyplot as plt
 import MDAnalysis as mda
+from MDAnalysis.analysis import rms, align
 
 def visualize_MDStats(stats_file, output_graph):
     data = pd.read_csv(stats_file, sep='\t')
@@ -69,11 +70,15 @@ def calculate_RMSF(u: mda.Universe, args):
     chains = {'ligand': 'I',
               'receptor': 'B'}
 
+    # TODO: Check where the renaming of the chains is coming from!!
+    chains = {'ligand': 'C',
+              'receptor': 'A'}
+
     print("Init RMSF analysis")
 
     for i,(protein, chain) in enumerate(chains.items()):
         c_alphas = u.select_atoms(f'chainID {chain} and name CA')
-        R = mda.analysis.rms.RMSF(c_alphas).run()
+        R = rms.RMSF(c_alphas).run()
 
         plt.subplot(2,1,i+1)
 

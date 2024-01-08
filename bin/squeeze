@@ -1,5 +1,8 @@
 #!/bin/bash
 
+# SqueezeMD specific wrapper around snakemake. Allows to execute squeezeMD in every folder
+# without defining the location of the squeezeMD Snakefile required for the pipeline
+
 # Find Snakefile from active environment
 CONDA_BASE_PATH=$CONDA_PREFIX
 

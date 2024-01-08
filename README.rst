@@ -28,6 +28,42 @@ Features
 
 * TODO
 
+Installation
+----
+
+1. Download this github repository:
+ > git clone ..
+2. Install the squeezemd by executing
+> `cd sequeezeMD \
+conda env create -f squeezeMD.yml`
+or use mamba
+`conda install -c conda-forge mamba`
+`mamba env create -f squeezeMD.yml`
+
+1. Download this GitHub repository:
+```git clone ..```
+
+2. Install the squeezeMD by executing
+```
+cd squeezeMD \
+conda env create -f squeezeMD.yml
+```
+
+
+Demo workflow
+----
+
+1. The workflow can be tested by performing the following commands:
+```bash
+squeeze --resources gpu=1 -j4 -n
+```
+2. If this works run the pipeline
+```
+squeeze --resources gpu=1 -j4
+```
+
+1.
+
 Infos
 ----
 
@@ -35,11 +71,12 @@ Infos
 - Github workflow pypi: https://github.com/pypa/packaging.python.org/blob/main/source/guides/github-actions-ci-cd-sample/publish-to-test-pypi.yml
 
 Execute
----
+----
 
+```
 python3 setup.py sdist && pip3 install --upgrade .
 twine upload --verbose dist/squeezemd-0.1.5.tar.gz
-
+```
 
 
 Credits

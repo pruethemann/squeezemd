@@ -73,14 +73,18 @@ if __name__ == '__main__':
 
     Path(args.output).mkdir(parents=True, exist_ok=True)
 
-    sims = pd.read_csv(args.simulations, index_col='sim_id', converters={"mutations": ast.literal_eval})
+    #sims = pd.read_csv(args.simulations, index_col='sim_id', converters={"mutations": ast.literal_eval})
 
     # Add path to last frame
     # TODO replace to last frame
-    sims['frame_end'] = sims['path'] + '/frames/frame_99.pdb'
+    #sims['frame_end'] = sims['path'] + '/frames/frame_9.pdb'
 
     # Reduce the amount of end frames to one per replicates
-    end_frames = sims.drop_duplicates(['name'])
+    #end_frames = sims.drop_duplicates(['name'])
+
+    targets = ['C1s']
+    frames = ['/home/pixelline/ownCloud/Institution/code/squeezeMD_run/V4/output/demo/C1s_BD001/WT/695/frames/frame_9.pdb',
+              '/home/pixelline/ownCloud/Institution/code/squeezeMD_run/V4/output/demo/C1s_BD001/Y117E_Y119E_Y121E/695/frames/frame_9.pdb']
 
     # Import interaction data
     interactions = pd.read_csv(args.interactions)
@@ -88,9 +92,11 @@ if __name__ == '__main__':
 
     # Aggregate
     #interactions_agg = interactions[['protein', 'target','mutation', 'resid', 'seed', 'chainID', 'energy']].groupby(['target', 'chainID', 'resid']).mean()
-    interactions_agg = interactions[['protein', 'target', 'mutation', 'resid', 'seed', 'energy']].groupby(['target', 'resid']).mean()
+    print(interactions)
+    #interactions_agg = interactions[['protein', 'target', 'mutation', 'resid', 'seed', 'energy']].groupby(['target', 'resid']).mean()
+    interactions_agg = interactions[['target', 'resid', 'seed', 'energy']].groupby(['target', 'resid']).mean()
 
-    for target, pdb in zip(end_frames.target, end_frames.frame_end):
+    for target, pdb in zip(targets, frames):
 
         print(interactions)
         data_ligand = interactions_agg.loc[(target)].reset_index()

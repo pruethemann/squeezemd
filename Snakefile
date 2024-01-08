@@ -39,16 +39,18 @@ simulations_df.set_index('name', inplace=True)
 rule proteinInteraction:
     input:
         expand('output/{job_id}/{complex}/{mutation}/mutation.pdb', job_id=config["job"], complex=complexes, mutation=mutations),
-        expand('output/{job_id}/{complex}/{mutation}/amber/amber.pdb',job_id=config["job"], complex=complexes, mutation=mutations),
+        #expand('output/{job_id}/{complex}/{mutation}/amber/amber.pdb',job_id=config["job"], complex=complexes, mutation=mutations),
         expand('output/{job_id}/{complex}/{mutation}/{seed}/MD/traj_center.dcd', job_id=config["job"], complex=complexes, mutation=mutations, seed=seeds),
-
         #expand('output/{job_id}/{complex}/{mutation}/{seed}/MD/center/topo.pdb', job_id=config["job"], complex=complexes, mutation=mutations, seed=seeds),
-        #expand('output/{job_id}/{complex}/{mutation}/{seed}/analysis/RMSF.svg', job_id=config["job"], complex=complexes, mutation=mutations, seed=seeds),
-        #expand('output/{job_id}/results/martin/interactions.csv', job_id=config["job"], complex=complexes, mutation=mutations, seed=seeds),
-        #expand('output/{job_id}/{complex}/{mutation}/{seed}/frames/lig/1.csv', job_id=config["job"], complex=complexes, mutation=mutations, seed=seeds, frame_id=frames),
-        #expand('output/{job_id}/results/martin/interactions.csv', job_id=config["job"]),
-        #expand('output/{job_id}/{complex}/{mutation}/{seed}/fingerprint/fingerprint.feather', job_id=config["job"], complex=complexes, mutation=mutations, seed=seeds),
-        #expand('output/{job_id}/results/fingerprints/interactions.csv', job_id=config["job"])
+        expand('output/{job_id}/{complex}/{mutation}/{seed}/analysis/RMSF.svg', job_id=config["job"], complex=complexes, mutation=mutations, seed=seeds),
+        expand('output/{job_id}/{complex}/{mutation}/{seed}/frames/lig/1.csv', job_id=config["job"], complex=complexes, mutation=mutations, seed=seeds, frame_id=frames),
+        expand('output/{job_id}/results/martin/interactions.csv', job_id=config["job"]),
+        expand('output/{job_id}/{complex}/{mutation}/{seed}/fingerprint/fingerprint.feather', job_id=config["job"], complex=complexes, mutation=mutations, seed=seeds),
+        expand('output/{job_id}/results/fingerprints/interactions.csv', job_id=config["job"]),
+        expand('output/{job_id}/results/interactions/.checkpoint', job_id=config["job"])
+
+
+
 
 
 rule SetupMutagesis:
@@ -70,7 +72,7 @@ rule Mutagensis:
     params:
         out_dir=directory('output/{job_id}/{complex}/{mutation}'),
         pdb= lambda wildcards: simulations_df.loc[f'{wildcards.complex}_{wildcards.mutation}']['input'],
-        foldX='foldx_20231231'
+        foldX='foldx_20241231'
     log:
         'output/{job_id}/{complex}/{mutation}/mutation.log'
     shell:
@@ -85,39 +87,13 @@ rule Mutagensis:
         fi
         """
 
-rule Amber:
-    input:
-        mutation='output/{job_id}/{complex}/{mutation}/mutation.pdb'
-    output:
-        amber='output/{job_id}/{complex}/{mutation}/amber/amber.pdb',
-        prmtop='output/{job_id}/{complex}/{mutation}/amber/{complex}.prmtop',
-        inpcrd='output/{job_id}/{complex}/{mutation}/amber/{complex}.inpcrd',
-        leap='output/{job_id}/{complex}/{mutation}/amber/tleap_nosolvent.in',
-        mapping='output/{job_id}/{complex}/{mutation}/amber/amber_renum.txt',
-        tleappdb='output/{job_id}/{complex}/{mutation}/amber/{complex}.tleap.pdb',
-    log:
-        amber='output/{job_id}/{complex}/{mutation}/amber/amber.log',
-        tleap='output/{job_id}/{complex}/{mutation}/amber/tleap.log'
-    priority: 5
-    shell:
-        """
-        pdb4amber -i {input.mutation} -o {output.amber} --dry --logfile {log.amber}  &&
-        2_createleap.py --pdb {output.amber} \
-                        --prmtop {output.prmtop} \
-                        --inpcrd {output.inpcrd} \
-                        --leap {output.leap} \
-                        --tleappdb {output.tleappdb}
-        tleap -f {output.leap} > {log.tleap}
-        """
-
-
 rule MD:
     input:
         md_settings=ancient(md_settings),
-        input_pdb='output/{job_id}/{complex}/{mutation}/amber/{complex}.tleap.pdb',
+        input_pdb='output/{job_id}/{complex}/{mutation}/mutation.pdb',
     output:
         topo = 'output/{job_id}/{complex}/{mutation}/{seed}/MD/frame_end.cif',
-        traj='output/{job_id}/{complex}/{mutation}/{seed}/MD/trajectory.h5',
+        traj=temp('output/{job_id}/{complex}/{mutation}/{seed}/MD/trajectory.h5'),
         stats='output/{job_id}/{complex}/{mutation}/{seed}/MD/MDStats.csv',
         params='output/{job_id}/{complex}/{mutation}/{seed}/MD/params.yml',
     params:
@@ -128,7 +104,7 @@ rule MD:
         3
     shell:
         """
-        3_MD.py --input_pdb {input.input_pdb} \
+        2_MD.py --input_pdb {input.input_pdb} \
                 --topo {output.topo} \
                 --traj {output.traj} \
                 --md_settings {input.md_settings} \
@@ -137,11 +113,13 @@ rule MD:
                 --stats {output.stats}
         """
 
+
 rule centerMDTraj:
     input:
         topo = 'output/{job_id}/{complex}/{mutation}/{seed}/MD/frame_end.cif',
         traj='output/{job_id}/{complex}/{mutation}/{seed}/MD/trajectory.h5',
     output:
+        topo_center = 'output/{job_id}/{complex}/{mutation}/{seed}/MD/topo_center.pdb',
         traj_center='output/{job_id}/{complex}/{mutation}/{seed}/MD/traj_center.dcd',
     params:
         job_id=config['job']
@@ -151,43 +129,16 @@ rule centerMDTraj:
         3
     shell:
         """
-        4_centerMDTraj.py --topo {input.topo} \
+        4_centerMDTraj.py   --topo {input.topo} \
                             --traj {input.traj} \
-                --traj_center {output.traj_center}
-        """
-
-rule centerTraj:
-    input:
-        topo='output/{job_id}/{complex}/{mutation}/{seed}/MD/frame_end.cif',
-        traj='output/{job_id}/{complex}/{mutation}/{seed}/MD/trajectory.dcd',
-        mapping='output/{job_id}/{complex}/{mutation}/amber/amber_renum.txt'
-    output:
-        topo_center='output/{job_id}/{complex}/{mutation}/{seed}/MD/center/topo.pdb',
-        traj_center='output/{job_id}/{complex}/{mutation}/{seed}/MD/center/traj.dcd',
-        frame_pdb='output/{job_id}/{complex}/{mutation}/{seed}/frames/frame_1.pdb',
-        ligand_csv='output/{job_id}/{complex}/{mutation}/{seed}/frames/lig/1.csv',
-        receptor_csv='output/{job_id}/{complex}/{mutation}/{seed}/frames/rec/1.csv',
-        dir=directory('output/{job_id}/{complex}/{mutation}/{seed}/frames/'),
-        checkpoint='output/{job_id}/{complex}/{mutation}/{seed}/frames/.done'
-    log:
-        'output/{job_id}/{complex}/{mutation}/{seed}/MD/center.log'
-    shell:
-        """
-        4_center.py --topo {input.topo} \
-                    --traj {input.traj} \
-                    --topo_center {output.topo_center} \
-                    --mapping {input.mapping} \
-                    --n_frames {number_frames} \
-                    --dir {output.dir} \
-                    --traj_center {output.traj_center} > {log}
-
-        touch {output.checkpoint}
+                            --traj_center {output.traj_center} \
+                            --topo_center {output.topo_center}
         """
 
 rule DescriptiveTrajAnalysis:
     input:
-        topo='output/{job_id}/{complex}/{mutation}/{seed}/MD/center/topo.pdb',
-        traj='output/{job_id}/{complex}/{mutation}/{seed}/MD/center/traj.dcd',
+        topo = 'output/{job_id}/{complex}/{mutation}/{seed}/MD/topo_center.pdb',
+        traj='output/{job_id}/{complex}/{mutation}/{seed}/MD/traj_center.dcd',
         stats='output/{job_id}/{complex}/{mutation}/{seed}/MD/MDStats.csv'
     output:
         rmsf=report('output/{job_id}/{complex}/{mutation}/{seed}/analysis/RMSF.svg',caption="config/RMSF.rst", category="Trajectory", subcategory='RMSF'),
@@ -198,7 +149,7 @@ rule DescriptiveTrajAnalysis:
         number_frames = config['number_frames']
     shell:
         """
-        6_ExplorativeTrajectoryAnalysis.py --topo {input.topo} \
+        3_ExplorativeTrajectoryAnalysis.py --topo {input.topo} \
                                                    --traj {input.traj} \
                                                    --stats {input.stats} \
                                                    --rmsf {output.rmsf} \
@@ -207,8 +158,30 @@ rule DescriptiveTrajAnalysis:
                                                    --fig_stats {output.stats}
         """
 
+rule InteractionAnalyzerMartin:
+    input:
+        topo='output/{job_id}/{complex}/{mutation}/{seed}/MD/topo_center.pdb',
+        traj='output/{job_id}/{complex}/{mutation}/{seed}/MD/traj_center.dcd',
+    output:
+        frame_pdb='output/{job_id}/{complex}/{mutation}/{seed}/frames/frame_1.pdb',
+        ligand_csv='output/{job_id}/{complex}/{mutation}/{seed}/frames/lig/1.csv',
+        receptor_csv='output/{job_id}/{complex}/{mutation}/{seed}/frames/rec/1.csv',
+        dir=directory('output/{job_id}/{complex}/{mutation}/{seed}/frames/'),
+        final='output/{job_id}/{complex}/{mutation}/{seed}/MD/final.pdb',
+        checkpoint='output/{job_id}/{complex}/{mutation}/{seed}/frames/.done'
+    log:
+        'output/{job_id}/{complex}/{mutation}/{seed}/MD/center.log'
+    shell:
+        """
+        5_Martin_analyzer.py  --topo {input.topo} \
+                              --traj {input.traj} \
+                              --n_frames {number_frames} \
+                              --final {output.final} \
+                              --dir {output.dir}  > {log}
+        touch {output.checkpoint}
+        """
 
-rule GlobalStatsMartin:
+rule GlobalMartinAnalysis:
     input:
         dirs=expand('output/{job_id}/{complex}/{mutation}/{seed}/frames/',job_id=config["job"], complex=complexes, mutation=mutations, seed=seeds),
         checkpoint=expand('output/{job_id}/{complex}/{mutation}/{seed}/frames/.done',job_id=config["job"], complex=complexes, mutation=mutations, seed=seeds)
@@ -218,39 +191,36 @@ rule GlobalStatsMartin:
         dir=directory('output/{job_id}/results/martin/')
     shell:
         """
-        8_InteractionMartin.py  --dirs {input.dirs} \
+        6_GlobalMartinInteractions.py  --dirs {input.dirs} \
                                 --output {output.dir} \
                                 --interactions {output.interactions}
         """
 
-
 rule interactionFingerprint:
     input:
         topo = 'output/{job_id}/{complex}/{mutation}/{seed}/MD/frame_end.cif',
-        traj ='output/{job_id}/{complex}/{mutation}/{seed}/MD/trajectory.dcd',
-        mapping='output/{job_id}/{complex}/{mutation}/amber/amber_renum.txt',
+        traj='output/{job_id}/{complex}/{mutation}/{seed}/MD/traj_center.dcd',
     output:
         'output/{job_id}/{complex}/{mutation}/{seed}/fingerprint/fingerprint.feather',
     params:
         number_frames = config['number_frames']
     shell:
         """
-        5_interactionFingerprint.py --topo {input.topo} \
+        7_interactionFingerprint.py --topo {input.topo} \
                                     --traj  {input.traj} \
-                                    --mapping {input.mapping} \
                                     --output {output} \
                                     --n_frames {params.number_frames}
         """
 
 rule GlobalFingerprintAnalysis:
     input:
-        fingerprints=expand('output/{job_id}/{complex}/{mutation}/{seed}/analysis/fingerprint.feather',job_id=config["job"], complex=complexes, mutation=mutations, seed=seeds),
+        fingerprints=expand('output/{job_id}/{complex}/{mutation}/{seed}/fingerprint/fingerprint.feather',job_id=config["job"], complex=complexes, mutation=mutations, seed=seeds),
     output:
         interactions = report('output/{job_id}/results/fingerprints/interactions.csv',caption="config/RMSF.rst",category="Interaction Martin"),
         figure='output/{job_id}/results/fingerprints/interactions.svg'
     shell:
         """
-        11_AnaFingerprint.py  --fingerprints {input.fingerprints} \
+        8_GlobalFinterprintAnalysis.py  --fingerprints {input.fingerprints} \
                               --interactions {output.interactions} \
                               --figure {output.figure}
         """

@@ -18,13 +18,12 @@ from openmm.app import *
 from openmm.unit import *
 from Helper import import_yaml, save_yaml
 import warnings
-from simtk.openmm import app
+from openmm import app
 # suppress some MDAnalysis warnings when writing PDB files
 warnings.filterwarnings('ignore')
 import mdtraj
 import mdtraj.reporters
 import shutil
-from simtk.openmm import app
 
 def simulate(args, params):
     """
@@ -73,8 +72,6 @@ def simulate(args, params):
 
     recordInterval = int(steps * params['recordingInterval'] / (params['time'] * 1000))
 
-    print("REcordinterval", recordInterval)
-
     platform = Platform.getPlatformByName('CUDA')
 
     # Define integrator
@@ -84,8 +81,8 @@ def simulate(args, params):
 
     # Init MD model
     pdb = PDBFile(args.input_pdb)
-    modeller = app.Modeller(pdb.topology, pdb.positions)
 
+    modeller = app.Modeller(pdb.topology, pdb.positions)
     forcefield = ForceField('amber14-all.xml', 'amber14/tip3pfb.xml')
 
     print('Adding hydrogens..')
@@ -155,30 +152,12 @@ def simulate(args, params):
     # Save final frame as topology.cif
     state = simulation.context.getState(getPositions=True, enforcePeriodicBox=system.usesPeriodicBoundaryConditions())
 
-    print(args.topo)
     with open(args.topo, mode="w") as file:
         PDBxFile.writeFile(simulation.topology,
                            state.getPositions(),
                            file,
-                           keepIds=False)
+                           keepIds=True)
 
-    """
-    # Center trajectory with MDTraj
-    print("Temp traj")
-    shutil.copy(args.traj, args.traj + '2.h5')
-
-    import time
-    print("sleep")
-    time.sleep(60)
-
-    print("Load OpenMM traj")
-    traj = mdtraj.load(args.traj + '2.h5', top=args.topo)
-
-    traj.image_molecules(inplace=False)
-    # Save the centered trajectory to a new file (replace 'centered_trajectory.dcd' with your desired output filename)
-    #traj.save("center.h5")
-    traj.save_dcd(args.traj_center)
-    """
 
 
 if __name__ == '__main__':

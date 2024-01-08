@@ -3,9 +3,35 @@
 import argparse
 import prolif as plf
 import MDAnalysis as mda
-
 import openmm.app as app
-from Helper import remap
+
+def remap(u: mda.Universe, topo):
+    """
+    Renames the chainIDs and residues from the MDAnalysis continues
+    numbering system to the original topology numbering.
+
+    TODO:
+    - Dicts not necessary
+    - Chain remapping not yet implemented. Adapt afterwards chainID selection
+
+    :param u: MDAnalysis Universe
+    :param topo: OpenMM Toplogy
+    :return: Mapping tables from chainIDs to original Ids
+    """
+
+    resIds = {}
+    for res_cont, resid in zip(u.residues, topo.topology.residues()):
+        #print(res_cont.resid, resid.id, resid.name)
+        resIds[int(res_cont.resid)] = int(resid.id)
+
+        resid_sele = u.select_atoms(f"resid {int(res_cont.resid)}")
+        resid_sele.residues.resids = int(resid.id)
+
+    chainIds = {}
+    for chain_cont, chainID in zip(u.segments, topo.topology.chains()):
+        chainIds[int(chain_cont.segid)] = chainID.id
+
+    return u
 
 def create_interactionFingerprint(args):
 
@@ -13,11 +39,10 @@ def create_interactionFingerprint(args):
     topo = app.PDBxFile(args.topo)      # Transform cif to MDAnalysis topology
     u = mda.Universe(topo, args.traj, in_memory=False)
 
-    # Remap amber residues to original residue numbers
-    u = remap(args.mapping, u)
+    u = remap(u, topo)
 
     # Define ligand (gigastasin) and receptor
-    ligand = u.select_atoms("chainID I")
+    ligand = u.select_atoms("chainID I")            # TODO Fix renaming chainIDs
     protein = u.select_atoms("chainID A or chainID B")
 
     # Run interaction fingerprint analysis
@@ -26,6 +51,8 @@ def create_interactionFingerprint(args):
 
     # Export interactions
     interactions_df = fp.to_dataframe()
+
+    print(interactions_df)
     interactions_df.to_feather(args.output)
     interactions_df.to_csv(args.output[:-8] + '.csv')
 
