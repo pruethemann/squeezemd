@@ -9,7 +9,7 @@ import MDAnalysis as mda
 import MDAnalysis
 import MDAnalysis.transformations as trans
 import openmm.app as app
-from Helper import remap, execute
+from Helper import remap_MDAnylsis, execute
 import mdtraj
 import numpy as np
 

@@ -9,6 +9,7 @@ import subprocess
 import os
 import yaml
 import pandas as pd
+import MDAnalysis as mda
 
 def save_file(content, output_file):
     """

@@ -47,10 +47,7 @@ rule proteinInteraction:
         expand('output/{job_id}/results/martin/interactions.csv', job_id=config["job"]),
         expand('output/{job_id}/{complex}/{mutation}/{seed}/fingerprint/fingerprint.feather', job_id=config["job"], complex=complexes, mutation=mutations, seed=seeds),
         expand('output/{job_id}/results/fingerprints/interactions.csv', job_id=config["job"]),
-        expand('output/{job_id}/results/interactions/.checkpoint', job_id=config["job"])
-
-
-
+        #expand('output/{job_id}/results/interactions/.checkpoint', job_id=config["job"])
 
 
 rule SetupMutagesis:
@@ -221,45 +218,4 @@ rule GlobalFingerprintAnalysis:
         """
         8_GlobalFinterprintAnalysis.py  --fingerprints {input.fingerprints} \
                               --interactions {output.interactions}
-        """
-
-rule InteractionSurfaceOLD:
-    input:
-        interactions = report('output/{job_id}/results/martin/interactions.csv',caption="config/RMSF.rst",category="Interaction Martin"),
-    output:
-        dir=directory('output/{job_id}/results/interactionSurface/'),
-        checkpoint='output/{job_id}/results/interactions/.checkpoint'
-    params:
-        job=config["job"],
-        simulations='output/demo/simulations.csv'
-    shell:
-        """
-        10_InteractionSurface.py --output {output.dir} \
-                                            --interactions {input.interactions} \
-                                            --simulations {params.simulations} \
-                                            --checkpoint {output.checkpoint}
-        """
-
-rule InteractionSurface:
-    input:
-        final_frame = expand('output/{job_id}/{complex}/{mutation}/{seed}/MD/frame_end.cif', job_id=config["job"], complex=complexes, mutation=mutations, seed=seeds),
-        interactions= report('output/{job_id}/results/martin/interactions.csv',caption="config/RMSF.rst",category="Interaction Martin"),
-        seed = seeds[0],
-        complexes=complexes,
-        mutations=mutations
-    output:
-        dir=directory('output/{job_id}/results/interactionSurface/'),
-        checkpoint='output/{job_id}/results/interactions/.checkpoint'
-    params:
-        job=config["job"],
-        simulations='output/demo/simulations.csv'
-    shell:
-        """
-        10_InteractionSurface.py --output {output.dir} \
-                                 --interactions {input.interactions} \
-                                 --simulations {params.simulations} \
-                                 --seeds {input.seed} \
-                                 --complexes {input.complexes} \
-                                 --mutations {input.mutations}
-        touch {output.checkpoint}
         """
