@@ -20,7 +20,8 @@ spectrum b, red blue grey, chain I
 # Gradient for Inhibitor
 spectrum b, red blue grey, not chain I
 
-show surface, chain A
-set transparency, 0.1, chain A
+# ChainID depends on remap
+show surface, chain B
+set transparency, 0.1, chain B
 extract BD001_TARGET, chain I
 save OUTPUT;

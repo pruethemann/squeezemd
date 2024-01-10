@@ -118,9 +118,8 @@ def visualize(fingerprints, mutation):
         plt.title(interaction_type)
         plt.xticks(rotation=90)
 
-    plt.savefig(args.figure)
-    plt.savefig(args.figure[:-4] + mutation + '.svg')
-    #plt.show()
+    plt.savefig(args.fingerprint[:-4] + mutation + '.svg')
+    plt.close()
 
 if __name__ == '__main__':
     # Parse Arguments

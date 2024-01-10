@@ -108,4 +108,4 @@ if __name__ == '__main__':
 
 
     # Export last centered frame
-    traj.save(args.final)
+    traj[-1].save(args.final)

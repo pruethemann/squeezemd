@@ -216,16 +216,14 @@ rule GlobalFingerprintAnalysis:
     input:
         fingerprints=expand('output/{job_id}/{complex}/{mutation}/{seed}/fingerprint/fingerprint.feather',job_id=config["job"], complex=complexes, mutation=mutations, seed=seeds),
     output:
-        interactions = report('output/{job_id}/results/fingerprints/interactions.csv',caption="config/RMSF.rst",category="Interaction Martin"),
-        figure='output/{job_id}/results/fingerprints/interactions.svg'
+        interactions = report('output/{job_id}/results/fingerprints/interactions.csv',caption="config/RMSF.rst",category="Interaction Fingerprint")
     shell:
         """
         8_GlobalFinterprintAnalysis.py  --fingerprints {input.fingerprints} \
-                              --interactions {output.interactions} \
-                              --figure {output.figure}
+                              --interactions {output.interactions}
         """
 
-rule InteractionSurface:
+rule InteractionSurfaceOLD:
     input:
         interactions = report('output/{job_id}/results/martin/interactions.csv',caption="config/RMSF.rst",category="Interaction Martin"),
     output:
@@ -236,8 +234,32 @@ rule InteractionSurface:
         simulations='output/demo/simulations.csv'
     shell:
         """
-        10_InteractionAminoAcids.py --output {output.dir} \
+        10_InteractionSurface.py --output {output.dir} \
                                             --interactions {input.interactions} \
                                             --simulations {params.simulations} \
                                             --checkpoint {output.checkpoint}
+        """
+
+rule InteractionSurface:
+    input:
+        final_frame = expand('output/{job_id}/{complex}/{mutation}/{seed}/MD/frame_end.cif', job_id=config["job"], complex=complexes, mutation=mutations, seed=seeds),
+        interactions= report('output/{job_id}/results/martin/interactions.csv',caption="config/RMSF.rst",category="Interaction Martin"),
+        seed = seeds[0],
+        complexes=complexes,
+        mutations=mutations
+    output:
+        dir=directory('output/{job_id}/results/interactionSurface/'),
+        checkpoint='output/{job_id}/results/interactions/.checkpoint'
+    params:
+        job=config["job"],
+        simulations='output/demo/simulations.csv'
+    shell:
+        """
+        10_InteractionSurface.py --output {output.dir} \
+                                 --interactions {input.interactions} \
+                                 --simulations {params.simulations} \
+                                 --seeds {input.seed} \
+                                 --complexes {input.complexes} \
+                                 --mutations {input.mutations}
+        touch {output.checkpoint}
         """

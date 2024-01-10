@@ -9,6 +9,8 @@ import numpy as np
 from glob import glob
 import MDAnalysis as mda
 import ast
+import openmm.app as app
+from Helper import remap_MDAnylsis
 
 import numpy as np
 import seaborn as sns
@@ -20,7 +22,7 @@ def create_pml(ligand_resids, rec_resids, input_pdb, output_pdb, output, target)
 
     # Adapted free energy caluclation file
 
-    with open('config/pymol.pml', 'r') as f:
+    with open('../config/pymol.pml', 'r') as f:
         content = f.read()
 
         content = content.replace("INPUT", input_pdb)
@@ -35,10 +37,14 @@ def create_pml(ligand_resids, rec_resids, input_pdb, output_pdb, output, target)
     f.close()
 
 
+
 def set_bfactors(pdb, ligand_resids, rec_resids, output):
 
     # Import pdb
-    u = mda.Universe(pdb)
+    # Import trajectory
+    topo = app.PDBxFile(pdb)      # Transform cif to MDAnalysis topology
+    u = mda.Universe(topo)
+    u = remap_MDAnylsis(u,topo)
 
     # probably not necessary
     u.add_TopologyAttr('tempfactors')
@@ -62,29 +68,23 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
 
     # Input
-    parser.add_argument('--interactions', required=False, default='output/19-04-23_proteases/results/martin/interactions.csv')
-    parser.add_argument('--simulations', required=False, default='output/19-04-23_proteases/simulations.csv')     # Simulation overview
+    parser.add_argument('--interactions', required=False, default='/home/pixelline/ownCloud/Institution/code/squeezeMD_run/V4/output/demo1_5ns/results/martin/interactions.csv')
+    parser.add_argument('--final_frame', required=False, default='output/19-04-23_proteases/simulations.csv')     # Simulation overview
 
     # Output
     parser.add_argument('--output', required=False, help='output folder', default='output/tmp')
-    parser.add_argument('--checkpoint', required=False, help='output folder')
 
     args = parser.parse_args()
 
     Path(args.output).mkdir(parents=True, exist_ok=True)
 
-    #sims = pd.read_csv(args.simulations, index_col='sim_id', converters={"mutations": ast.literal_eval})
-
-    # Add path to last frame
-    # TODO replace to last frame
-    #sims['frame_end'] = sims['path'] + '/frames/frame_9.pdb'
-
-    # Reduce the amount of end frames to one per replicates
-    #end_frames = sims.drop_duplicates(['name'])
-
+    # TODO: Do over arguments
     targets = ['C1s']
-    frames = ['/home/pixelline/ownCloud/Institution/code/squeezeMD_run/V4/output/demo/C1s_BD001/WT/695/frames/frame_9.pdb',
-              '/home/pixelline/ownCloud/Institution/code/squeezeMD_run/V4/output/demo/C1s_BD001/Y117E_Y119E_Y121E/695/frames/frame_9.pdb']
+    frames = ['/home/pixelline/ownCloud/Institution/code/squeezeMD_run/V4/output/demo/C1s_BD001/WT/695/MD/frame_end.cif', ' nur Blödsinn']
+    seed = str(695)
+
+    # Go only for one representatitve final position
+    frames = [f for f in frames if seed in f]
 
     # Import interaction data
     interactions = pd.read_csv(args.interactions)
@@ -103,35 +103,13 @@ if __name__ == '__main__':
         ligand_resids = ','.join(map(str, data_ligand[data_ligand.energy < -2]['resid']))
 
         data_rec = interactions_agg.loc[target].reset_index()
-        #data_rec = data_rec[data_rec.chainID != 'I']
+
+        # Get all receptor residues with an interaction energy smaller than -2
         rec_resids = ','.join(map(str, data_rec[data_rec.energy < -2]['resid']))
 
-        print(target)
-        print(data_ligand)
-        #print(rec_resids)
-        print(args.output)
         bfactor_pdbs = f'{args.output}/{target}.interaction.pdb'
         output_pdb = f'{args.output}/{target}.final.pse'
 
         set_bfactors(pdb, data_ligand, data_rec, bfactor_pdbs)
 
         create_pml(ligand_resids, rec_resids, bfactor_pdbs, output_pdb, f'{args.output}/{target}.pml', target)
-
-
-    # Calculate total Inter - Interaction energy
-    #total_energies = interactions[['target','chainID', 'seed', 'frame', 'energy']].groupby(['target', 'chainID', 'seed', 'frame']).agg(['sum'])
-    total_energies = interactions[['target', 'seed', 'frame', 'energy']].groupby(['target', 'seed', 'frame']).agg(['sum'])
-    total_energies = total_energies.reset_index()
-    #total_energies = total_energies[total_energies.chainID == 'I']
-    #print(total_energies)
-
-    #total_energies = interactions[interactions.chainID == 'I']
-
-    sns.barplot(data=total_energies,
-                x='target',
-                y=('energy', 'sum'))
-
-    plt.show()
-
-    # TODO: uncomment
-    Path(args.checkpoint).touch()

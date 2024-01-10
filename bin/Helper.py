@@ -81,7 +81,35 @@ def chain2resid(file_csv):
 
     return chains
 
-def remap(mapping_file, u):
+def remap_MDAnylsis(u: mda.Universe, topo):
+    """
+    Remaps the correct residues Ids from the OpenMM topology to
+    a MDAnylsis universe.
+
+    TODO:
+    - Dicts not necessary
+    - Chain remapping not yet implemented. Adapt afterwards chainID selection
+
+    :param u: MDAnalysis Universe
+    :param topo: OpenMM Toplogy
+    :return: Mapping tables from chainIDs to original Ids
+    """
+
+    resIds = {}
+    for res_cont, resid in zip(u.residues, topo.topology.residues()):
+        #print(res_cont.resid, resid.id, resid.name)
+        resIds[int(res_cont.resid)] = int(resid.id)
+
+        resid_sele = u.select_atoms(f"resid {int(res_cont.resid)}")
+        resid_sele.residues.resids = int(resid.id)
+
+    chainIds = {}
+    for chain_cont, chainID in zip(u.segments, topo.topology.chains()):
+        chainIds[int(chain_cont.segid)] = chainID.id
+
+    return u
+
+def remap_amber(mapping_file, u):
     """
     Amber preparation removes chain ids and starts renumbering residues from 1.
     This function remaps the numbering based on the amber mapping file.

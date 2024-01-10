@@ -51,7 +51,7 @@ def generate_data(interactions:list, protein='ligand'):
         frame_id = int(metadata[-1][:-4])
         seed = int(metadata[-4])
 
-        print(complex, mutation, target, ligand, frame_id)
+        #print(complex, mutation, target, ligand, frame_id)
 
         #'output/{job_id}/{complex}/{mutation}/{seed}/frames/lig/{frame_id}.csv'
 
@@ -134,8 +134,6 @@ def generate_total_graphs(total_energy, protein, output_dir):
 
 def generate_residues_graphs(data, targets, mutations, output_dir, protein='ligand'):
     # Aggregation degree of data:
-
-    print("Generate Residue Graph")
 
     for interaction in ['inter', 'intra']:
         # 2. interaction energies per residues
@@ -294,14 +292,10 @@ def init(args):
         ligs_path.extend(glob(lig_dir + '*.csv'))
         recs_path.extend(glob(rec_dir+ '*.csv'))
 
-    print(ligs_path)
-
     # 3. Create result table including: inter and intramolecular interactions / all simulations / all seeds / ligand and receptor perspective for ligand AND receptor
     data_ligand = generate_data(ligs_path, protein='ligand')
     data_receptor = generate_data(recs_path,  protein='receptor')
     data = pd.concat([data_ligand, data_receptor])          # Join ligand and receptor data
-
-    print(data)
 
     targets = data_ligand.target.unique()
     mutations = data_ligand.mutation.unique()
