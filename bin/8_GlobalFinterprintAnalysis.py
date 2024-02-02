@@ -1,9 +1,12 @@
 #!/usr/bin/env python
+import os.path
+
 import pandas as pd
 import seaborn as sns
 import matplotlib.pyplot as plt
 import numpy as np
 import argparse
+import os
 
 
 def import_data(fingerprints):
@@ -37,17 +40,17 @@ def import_data(fingerprints):
         fp['mutation'] = mutation
         fp['seed'] = seed
 
-        fp.to_csv('2_addion.csv')
+        #fp.to_csv('2_addion.csv')
         # Save data
         data.append(fp)
 
     # Merge all data together
     data = pd.concat(data)
-    data.to_csv('3_total.csv')
+    #data.to_csv('3_total.csv')
     return data
 
 def data_engineering(data):
-    n_frames = 100 # TODO data.index.max() + 1
+    #n_frames = 100 # TODO data.index.max() + 1
 
     # Aggregate all interactions
     data_agg = data.sum()
@@ -56,7 +59,7 @@ def data_engineering(data):
     # rename columns
     data_agg.columns = ['ligand', 'target', 'interaction', 'sum']
 
-    data_agg['sum'] /= n_frames
+    #data_agg['sum'] # TODO /= n_frames
 
     # Group interactions
     interaction_map = {
@@ -82,7 +85,7 @@ def data_engineering(data):
 def visualize(fingerprints, mutation):
     sns.set(rc={'figure.figsize':(25,30)})
 
-    n_residues = 122
+    n_residues = 122 # TODO
 
     # Group all interactions per residue
     interaction_types = ['salt bridge', 'H bonds', 'PiStacking', 'Hydrophobic', 'Cation-Pi']
@@ -98,16 +101,20 @@ def visualize(fingerprints, mutation):
 
         data_interaction = data_interaction.groupby(['resid', 'seed']).agg({'interaction_type': 'first', 'sum':'sum'} ).reset_index()
 
-        data_interaction.to_csv('2_seed.csv')
+        #data_interaction.to_csv(f'{mutation}_{interaction_type}.seed.csv')
 
         dummy_df = pd.DataFrame(x, columns=['resid'])
         dummy_df['interaction_type'] = interaction_type
         dummy_df['sum'] = 0
 
-        data_interaction = pd.concat([data_interaction, dummy_df])
+        #data_interaction = pd.concat([data_interaction, dummy_df])
 
         # Get rid of duplicates
-        data_interaction.drop_duplicates(subset=['resid','seed'], keep='first', inplace=True)
+
+        #base = os.path.basename(args.fingerprints)
+        #data_interaction.to_csv(f'{base}.{interaction_type}.csv')
+        #data_interaction.drop_duplicates(subset=['resid','seed'], keep='first', inplace=True)
+        #data_interaction.to_csv('dropped.csv')
 
         plt.subplot(5, 1, i+1)
         sns.barplot(data=data_interaction,
@@ -137,6 +144,8 @@ if __name__ == '__main__':
 
     # Import all fingerprints data
     fingerprints = import_data(args.fingerprints)
+
+    #fingerprints.to_csv('1_fingerprints_import.csv')
 
     for mutation in fingerprints.mutation.unique():
         visualize(fingerprints, mutation)

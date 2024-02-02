@@ -1,0 +1,3 @@
+ligand,target,mutation_all,input
+BD001,C1s,WT,input/proteases/13_C1s_Tyr_BD001_N_trunc_tleap_foldx.pdb
+BD001,C1s,Y117E_Y119E_Y121E,input/proteases/13_C1s_Tyr_BD001_N_trunc_tleap_foldx.pdb

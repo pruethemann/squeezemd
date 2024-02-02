@@ -116,10 +116,30 @@ def simulate(args, params):
                             )
 
 
+
     # Minimize and Equilibrate
     print('Performing energy minimization..')
     simulation.context.setPositions(modeller.positions)
+
+    ### Delete
+    # Save final frame as topology.cif
+    state = simulation.context.getState(getPositions=True, enforcePeriodicBox=system.usesPeriodicBoundaryConditions())
+    with open('start.pdb', mode="w") as file:
+        PDBFile.writeFile(simulation.topology,
+                          state.getPositions(),
+                          file,
+                          keepIds=True)
+
     simulation.minimizeEnergy()
+
+    ### Delete
+    # Save final frame as topology.cif
+    state = simulation.context.getState(getPositions=True, enforcePeriodicBox=system.usesPeriodicBoundaryConditions())
+    with open('minimize.pdb', mode="w") as file:
+        PDBFile.writeFile(simulation.topology,
+                          state.getPositions(),
+                          file,
+                          keepIds=True)
 
     print('Equilibrating..')
     simulation.context.setVelocitiesToTemperature(temperature, args.seed)

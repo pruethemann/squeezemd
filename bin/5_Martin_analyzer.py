@@ -12,7 +12,8 @@ import openmm.app as app
 from Helper import remap_MDAnylsis, execute
 import mdtraj
 import numpy as np
-
+import multiprocessing
+# create a process pool that uses all cpus
 
 
 def interaction_analyzer(frame_pdb, ligand_csv, receptor_csv):
@@ -69,8 +70,58 @@ def extract_protein_water_shell(traj, cutoff=0.5):
     water_shell = traj.atom_slice(combined_indices)
     return water_shell
 
+def extract_protein(frame_number:int):
+    frame_id = -args.n_frames + frame_number
+
+    print(frame_number, frame_id)
+
+    water_sele = extract_protein_water_shell(traj[frame_id], 0.8)
+    # Save the new trajectory as a DCD file
+    frame_path = os.path.join(args.dir, f'frame_{frame_number}.pdb')
+
+    water_sele.save(frame_path)
+
+    # Execute Martin interaction analyzer
+    lig_csv = os.path.join(args.dir, 'lig', f'{frame_number}.csv')
+    rec_csv = os.path.join(args.dir, 'rec', f'{frame_number}.csv')
+
+    interaction_analyzer(frame_path, lig_csv, rec_csv)
+
+    return "Sucess"
 
 
+if __name__ == '__main__':
+    parser = argparse.ArgumentParser()
+
+    # Input
+    parser.add_argument('--topo', required=False,help='', default='trajectory.dcd')
+    parser.add_argument('--traj', required=False,help='', default='trajectory.dcd')
+    parser.add_argument('--n_frames', required=False, help='The last number of frames exported from the trajectory', default=10, type=int)
+    parser.add_argument('--dir', required=False, help='The working dir for the analysis', default='tmp')
+    parser.add_argument('--final', required=False,help='', default='trajectory.dcd')
+    parser.add_argument('--cpus', required=False, help='', default=1, type=int)
+
+    args = parser.parse_args()
+
+    # Import Trajecotry
+    traj = mdtraj.load(args.traj, top=args.topo)
+
+    # Export the last n_frames as pdb files
+    # Only the protein and 8 Angstrom around protein is exported
+    # frame_number is number from 0:n_frames, frame_id corresponds to number in traj from the end
+    # Process i parallized
+    with multiprocessing.Pool(args.cpus) as pool:
+        for frame_number in pool.map(extract_protein, range(args.n_frames)):
+            print(frame_number)
+
+    pool.close()
+
+    # Export last centered frame
+    traj[-1].save(args.final)
+
+
+
+""" Original
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
 
@@ -87,7 +138,6 @@ if __name__ == '__main__':
     traj = mdtraj.load(args.traj, top=args.topo)
 
     # Slice only last part
-
 
     # Export protein
     for frame_id in range(int(args.n_frames)):
@@ -109,3 +159,6 @@ if __name__ == '__main__':
 
     # Export last centered frame
     traj[-1].save(args.final)
+
+
+"""

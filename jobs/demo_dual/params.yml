@@ -3,11 +3,11 @@ number_frames: 10
 
 ## MD parameters
 dt: 0.004               # Simulation time steps in ps. 2 fs is ok if HBonds are constrained.
-time: 0.01              # Simulation time in ns
+time: 0.08              # Simulation time in ns
 steps:                  # Total number of steps
 temperature: 310        # Simulation Temperature in K
 pressure: 1             # Pressure in ATM
-equilibrationSteps: 100
+equilibrationSteps: 10000  # 1 ns
 barostatInterval: 25
 
 # No Constraints: # Recommended dt = 0.5 fs

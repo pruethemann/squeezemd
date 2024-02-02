@@ -46,8 +46,8 @@ def create_interactionFingerprint(args):
     protein = u.select_atoms("chainID A or chainID B")
 
     # Run interaction fingerprint analysis
-    fp = plf.Fingerprint(["Hydrophobic", "HBDonor", "HBAcceptor", "PiStacking", "PiCation", "CationPi", "Anionic", "Cationic"])
-    fp.run(u.trajectory[-args.n_frames:], ligand, protein)
+    fp = plf.Fingerprint(["Hydrophobic", "HBDonor", "HBAcceptor", "PiStacking", "PiCation", "CationPi", "Anionic", "Cationic"], count=True)
+    fp.run(u.trajectory[-args.n_frames:], ligand, protein,  n_jobs=1)
 
     # Export interactions
     interactions_df = fp.to_dataframe()

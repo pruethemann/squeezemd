@@ -1,0 +1,11 @@
+!!python/object:argparse.Namespace
+input_pdb: output/7_BD001_3E/C1s_BD001/WT/mutation.pdb
+md_settings: jobs/7_BD001_3E/params.yml
+params: output/7_BD001_3E/C1s_BD001/WT/695/MD/params.yml
+recorded_steps: 20000
+seed: 695
+stats: output/7_BD001_3E/C1s_BD001/WT/695/MD/MDStats.csv
+steps: 25000000
+topo: output/7_BD001_3E/C1s_BD001/WT/695/MD/frame_end.cif
+traj: output/7_BD001_3E/C1s_BD001/WT/695/MD/trajectory.h5
+traj_center: null

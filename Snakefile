@@ -168,12 +168,14 @@ rule InteractionAnalyzerMartin:
         checkpoint='output/{job_id}/{complex}/{mutation}/{seed}/frames/.done'
     log:
         'output/{job_id}/{complex}/{mutation}/{seed}/MD/center.log'
+    threads: 4
     shell:
         """
         5_Martin_analyzer.py  --topo {input.topo} \
                               --traj {input.traj} \
                               --n_frames {number_frames} \
                               --final {output.final} \
+                              --cpu {threads} \
                               --dir {output.dir}  > {log}
         touch {output.checkpoint}
         """
