@@ -23,7 +23,6 @@ from openmm import app
 warnings.filterwarnings('ignore')
 import mdtraj
 import mdtraj.reporters
-import shutil
 
 def simulate(args, params):
     """
@@ -55,119 +54,13 @@ def simulate(args, params):
         pdb (PDBFile): The PDB file object.
     """
 
-    # System Configuration
-    nonbondedCutoff = params['nonbondedCutoff'] * nanometers
-    ewaldErrorTolerance = params['ewaldErrorTolerance']
-    constraintTolerance = 0.000001
-    hydrogenMass = 1.5 * amu
-    constraints = {'HBonds': HBonds, 'AllBonds': AllBonds, 'None': None}
-
-    dt = params['dt'] * picoseconds     # Simulation time steps
-    temperature = 310 * kelvin          # Simulation temperature
-    friction = 1.0 / picosecond
-    pressure = 1.0 * atmospheres        # Simulation pressure
-    barostatInterval = 25               # Fix Barostat every 25 simulations steps
-    steps = int(args.steps)
-    equilibrationSteps = params['equilibrationSteps']
-
-    recordInterval = int(steps * params['recordingInterval'] / (params['time'] * 1000))
-
-    platform = Platform.getPlatformByName('CUDA')
-
-    # Define integrator
-    integrator = LangevinMiddleIntegrator(temperature, friction, dt)
-    integrator.setConstraintTolerance(constraintTolerance)
-    integrator.setRandomNumberSeed(args.seed)
-
-    # Init MD model
-    pdb = PDBFile(args.input_pdb)
-
-    modeller = app.Modeller(pdb.topology, pdb.positions)
-    forcefield = ForceField('amber14-all.xml', 'amber14/tip3pfb.xml')
-
-    print('Adding hydrogens..')
-    modeller.addHydrogens(forcefield)
-
-    print('Adding solvent..')
-    # Define amber forcefield
-    modeller.addSolvent(forcefield,
-                        ionicStrength=0.15 * molar,
-                        model='tip3p',
-                        padding=1 * nanometer)
-
-
-    print('Create Forcefield..')
-    system = forcefield.createSystem(modeller.topology,
-                                     nonbondedMethod=app.PME,
-                                     nonbondedCutoff=nonbondedCutoff,
-                                     constraints=constraints[params['constraints']],
-                                     rigidWater=params['rigidWater'],
-                                     ewaldErrorTolerance=ewaldErrorTolerance,
-                                     hydrogenMass=hydrogenMass
-    )
-
-    print('Add MonteCarloBarostat')
-    system.addForce(MonteCarloBarostat(pressure,temperature,barostatInterval))
-
-    simulation = Simulation(modeller.topology,
-                            system,
-                            integrator,
-                            platform
-                            )
 
 
 
-    # Minimize and Equilibrate
-    print('Performing energy minimization..')
-    simulation.context.setPositions(modeller.positions)
-
-    ### Delete
-    # Save final frame as topology.cif
-    state = simulation.context.getState(getPositions=True, enforcePeriodicBox=system.usesPeriodicBoundaryConditions())
-    with open('start.pdb', mode="w") as file:
-        PDBFile.writeFile(simulation.topology,
-                          state.getPositions(),
-                          file,
-                          keepIds=True)
-
-    simulation.minimizeEnergy()
-
-    ### Delete
-    # Save final frame as topology.cif
-    state = simulation.context.getState(getPositions=True, enforcePeriodicBox=system.usesPeriodicBoundaryConditions())
-    with open('minimize.pdb', mode="w") as file:
-        PDBFile.writeFile(simulation.topology,
-                          state.getPositions(),
-                          file,
-                          keepIds=True)
-
-    print('Equilibrating..')
-    simulation.context.setVelocitiesToTemperature(temperature, args.seed)
-    simulation.step(equilibrationSteps)
-
-
-    # Set up log file and trajectory dcd
-    HDF5Reporter = mdtraj.reporters.HDF5Reporter(args.traj,recordInterval)
-
-    dataReporter = StateDataReporter(args.stats,
-                                     recordInterval,
-                                     totalSteps=steps,
-                                     step=True,
-                                     time=True,
-                                     speed=True,
-                                     progress=True, elapsedTime=True,
-                                     remainingTime=True, potentialEnergy=True, kineticEnergy=True, totalEnergy=True,
-                                     temperature=True, volume=True, density=True, separator='\t')
-
-    simulation.reporters.append(HDF5Reporter)
-    simulation.reporters.append(DCDReporter('test.dcd', recordInterval))
-    simulation.reporters.append(dataReporter)
 
 
 
-    print('Simulating..')
-    simulation.currentStep = 0
-    simulation.step(steps)
+
 
     # Save final frame as topology.cif
     state = simulation.context.getState(getPositions=True, enforcePeriodicBox=system.usesPeriodicBoundaryConditions())
@@ -178,34 +71,161 @@ def simulate(args, params):
                            file,
                            keepIds=True)
 
-
-
-if __name__ == '__main__':
-
-    parser = argparse.ArgumentParser()
-
+def parse_arguments():
+    """Parse command line arguments."""
+    parser = argparse.ArgumentParser(description='Run Molecular Dynamics simulations.')
     # Input files
-    parser.add_argument('--input_pdb', required=False, help='Amber and Tleap prepated pdb file from complex or single protein')
+    parser.add_argument('--pdb', required=False, help='Amber and Tleap prepated pdb file from complex or single protein')
     parser.add_argument('--md_settings', required=False, help='Configuration file with all required parameters (params.yml')
     parser.add_argument('--seed', required=False, help='Seed for inital velocities', default=23, type=int)
-
     # Output
     parser.add_argument('--topo', required=False, help='Cif file of last frame')
     parser.add_argument('--traj', required=False, help='Trajectory file')
     parser.add_argument('--traj_center', required=False, help='MD parameter file saved for every MD')
     parser.add_argument('--stats', required=False, help='Energy saves for every 1000 frames')
     parser.add_argument('--params', required=False, help='MD parameter file saved for every MD')
+    return parser.parse_args()
 
-    args = parser.parse_args()
+def setup_simulation(args, params, salt_concentration=0.15):
+    """
+    Setup the molecular dynamics simulation environment.
+    """
 
-    # Import standard MD parameters
-    params = import_yaml(args.md_settings)
+    ## Define Simulation Configuration
+    # Physical parapeters
+    nonbondedCutoff = params['nonbondedCutoff'] * nanometers
+    ewaldErrorTolerance = params['ewaldErrorTolerance']
+    constraintTolerance = 0.000001
+    hydrogenMass = 1.5 * amu
+    args.T = 310
+    args.temperature = args.T * kelvin          # Simulation temperature
 
+
+    # Time parameter
     args.steps = int(params['time'] * 1000 / params['dt'])
+    args.time = params['time']
     args.recorded_steps = int(params['time'] * 1000 / params['recordingInterval'])
+    dt = params['dt'] * picoseconds     # Simulation time steps
+    # TODO deleteargs.equilibrationSteps = params['equilibrationSteps']
+    params['recordInterval']  = args.steps * params['recordingInterval'] // (params['time'] * 1000)
+
+    # Constraints
+    friction = 1.0 / picosecond
+    pressure = 1.0 * atmospheres        # Simulation pressure
+    constraints = {'HBonds': HBonds, 'AllBonds': AllBonds, 'None': None}
+    constraint = constraints[params['constraints']]
+    barostatInterval = 25               # Fix Barostat every 25 simulations steps
+
+    # Technical parameters
+    platform = Platform.getPlatformByName('CUDA')
 
     # Save parameters to simulation folder
+    # TODO: combine args and md_settings
     save_yaml(args, args.params)
+    save_yaml(params, args.params + 'V2.yaml')
 
-    # Parse Arguments
-    simulate(args, params)
+    # Define integrator
+    integrator = LangevinMiddleIntegrator(args.temperature, friction, dt)
+    integrator.setConstraintTolerance(constraintTolerance)
+    integrator.setRandomNumberSeed(args.seed)
+
+    # Setup simulation box, water model, and salt concentration here
+    try:
+        # Import pdb file. Prepared and checked for amber import
+        pdb = app.PDBFile(args.pdb)
+
+        # Define Amber 14 force field
+        modeller = app.Modeller(pdb.topology, pdb.positions)
+        forcefield = ForceField('amber14-all.xml', 'amber14/tip3pfb.xml')
+
+        print('Adding hydrogens..')
+        modeller.addHydrogens(forcefield)
+
+        print('Adding solvent..')
+        modeller.addSolvent(forcefield,
+                            ionicStrength=salt_concentration * molar,
+                            model='tip3p',
+                            padding=1 * nanometer)
+
+        print('Create Forcefield..')
+        system = forcefield.createSystem(modeller.topology,
+                                         nonbondedMethod=app.PME,
+                                         nonbondedCutoff=nonbondedCutoff,
+                                         constraints=constraint,
+                                         rigidWater=params['rigidWater'],
+                                         ewaldErrorTolerance=ewaldErrorTolerance,
+                                         hydrogenMass=hydrogenMass
+                                         )
+
+        print('Add MonteCarloBarostat')
+        system.addForce(MonteCarloBarostat(pressure, args.temperature, barostatInterval))
+
+        simulation = Simulation(modeller.topology,
+                                system,
+                                integrator,
+                                platform
+                                )
+
+        # Set coordinates
+        simulation.context.setPositions(modeller.positions)
+
+        print(f"Simulation setup complete with {salt_concentration} mM NaCl.")
+        return (params, args, simulation)
+    except Exception as e:
+        print(f"Error setting up simulation: {e}", file=sys.stderr)
+        return False
+
+def run_simulation(params, args, simulation):
+    """Run the molecular dynamics simulation."""
+    try:
+        # Minimize and Equilibrate
+        print('Performing energy minimization..')
+        simulation.minimizeEnergy()
+
+        print('Equilibrating..')
+        simulation.context.setVelocitiesToTemperature(args.temperature, args.seed)
+        simulation.step(params['equilibrationSteps'])
+
+        # Set up log file and trajectory dcd
+        HDF5Reporter = mdtraj.reporters.HDF5Reporter(args.traj, params['recordInterval'])
+
+        dataReporter = StateDataReporter(args.stats,
+                                         params['recordInterval'],
+                                         totalSteps=args.steps,
+                                         step=True,
+                                         time=True,
+                                         speed=True,
+                                         progress=True, elapsedTime=True,
+                                         remainingTime=True, potentialEnergy=True, kineticEnergy=True, totalEnergy=True,
+                                         temperature=True, volume=True, density=True, separator='\t')
+
+        simulation.reporters.append(HDF5Reporter)
+        simulation.reporters.append(dataReporter)
+
+        print(f"Running simulation for {args.time} ns.")
+        simulation.currentStep = 0
+        simulation.step(args.steps)
+
+
+    except Exception as e:
+        print(f"Error during simulation: {e}", file=sys.stderr)
+
+    # Save final frame as topology.cif
+    state = simulation.context.getState(getPositions=True, enforcePeriodicBox=True) # TODO system.usesPeriodicBoundaryConditions()
+    with open(args.topo, mode="w") as file:
+        PDBxFile.writeFile(simulation.topology,
+                           state.getPositions(),
+                           file,
+                           keepIds=True)
+
+if __name__ == '__main__':
+
+    # Import Argparse and MDsettings from yaml
+    args = parse_arguments()
+    yaml_params = import_yaml(args.md_settings)
+
+    # Set up the simulation
+    (params, args, simulation) = setup_simulation(args, yaml_params)
+
+    # Run the simulation
+    run_simulation(params, args, simulation)

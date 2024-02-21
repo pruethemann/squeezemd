@@ -8,8 +8,11 @@ This Helper modules contains multiple function used by multiple other modules.
 import subprocess
 import os
 import yaml
-import pandas as pd
 import MDAnalysis as mda
+import pandas as pd
+import pyarrow as pa
+import pyarrow.parquet as pq
+
 
 def save_file(content, output_file):
     """
@@ -82,7 +85,7 @@ def chain2resid(file_csv):
 
     return chains
 
-def remap_MDAnylsis(u: mda.Universe, topo):
+def remap_MDAnalysis(u: mda.Universe, topo):
     """
     Remaps the correct residues Ids from the OpenMM topology to
     a MDAnylsis universe.

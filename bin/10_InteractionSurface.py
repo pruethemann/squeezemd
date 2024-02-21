@@ -1,115 +1,150 @@
 #!/usr/bin/env python
 """
-    This script generates a pymol script which labels all required mutations in BD001
+This script generates a PyMOL script for labeling mutations in the BD001 complex and calculating interaction surfaces.
+It reads interaction data, selects representative frames based on a specified seed, and processes this information
+to visualize specific mutations and their interaction energies within the complex.
+
+Terminology:
+ - Target: Receptor # TODO rename everywhere
+ -
+
+ Example:
+    python3 bin/10_InteractionSurface.py --output output/demo/results/interactionSurface   --interactions output/demo/results/martin/interactions.csv     --seed 695   --mutation WT Y117E_Y119E_Y121E --frames output/demo/C1s_BD001/WT/695/MD/frame_end.cif output/demo/C1s_BD001/WT/842/MD/frame_end.cif output/demo/C1s_BD001/Y117E_Y119E_Y121E/695/MD/frame_end.cif output/demo/C1s_BD001/Y117E_Y119E_Y121E/842/MD/frame_end.cif  --receptors C1s
+
+    # TODO extend to multiple targets
+    #interactions_agg = interactions[['protein', 'target','mutation', 'resid', 'seed', 'chainID', 'energy']].groupby(['target', 'chainID', 'resid']).mean()
+    #interactions_agg = interactions[['protein', 'target', 'mutation', 'resid', 'seed', 'energy']].groupby(['target', 'resid']).mean()
 """
-from pathlib import Path
+
 import pandas as pd
 import argparse
-import numpy as np
-from glob import glob
 import MDAnalysis as mda
-import ast
 import openmm.app as app
-from Helper import remap_MDAnylsis
-
-import numpy as np
+from Helper import remap_MDAnalysis
 import seaborn as sns
 import matplotlib.pyplot as plt
+import os
+
 plt.style.use('ggplot')
 sns.set_style('ticks')
 
-def create_pml(ligand_resids, rec_resids, input_pdb, output_pdb, output, target):
+def create_pml_script(ligand_resids, receptor_resids, input_pdb, output_file, pymol_script, target):
+    """
+    Generates a PyMOL script from a template, substituting placeholders with actual data.
 
-    # Adapted free energy caluclation file
+    Parameters:
+    - ligand_resids: Comma-separated string of ligand residue IDs.
+    - receptor_resids: Comma-separated string of receptor residue IDs.
+    - input_pdb: Path to the input PDB file.
+    - output_file: Path where the generated PyMOL script will be saved.
+    - target: Name of the target protein.
+    """
+    #TODO find this location
+    with open('/home/peter/tools/miniconda3/envs/squeezeMD/pymol_template.pml', 'r') as template_file:
+        content = template_file.read().format(input_pdb=input_pdb,
+                                               ligand_resids=ligand_resids,
+                                               receptor_resids=receptor_resids,
+                                               output=output_file,
+                                               target=target)
+    with open(pymol_script, 'w') as output_pml:
+        output_pml.write(content)
 
-    with open('../config/pymol.pml', 'r') as f:
-        content = f.read()
+def set_residue_interaction_intensity(pdb_path, ligand_resids, receptor_resids, interaction_pdb):
+    """
+    Sets the interaction intensity per residue and ligand and receptor in a pdb file of the last frame
+    of the molecular dynamics simulation. Functions saves the interaction intensities in b factor column.
 
-        content = content.replace("INPUT", input_pdb)
-        content = content.replace("LIGAND_RESIDS", ligand_resids)
-        content = content.replace("REC_RESIDS", rec_resids)
-        content = content.replace("OUTPUT", output_pdb)
-        content = content.replace("TARGET", target)
+    Parameters:
+    - pdb_path: Path to the PDB file.
+    - ligand_resids: List of ligand residue IDs.
+    - receptor_resids: List of receptor residue IDs.
+    - output_path: Path to save the modified PDB file.
+    """
+    # This function's implementation will depend on specific requirements for adjusting B-factors.
 
-    # Save Tleap conataing all file paths
-    f = open(output, "w")
-    f.write(content)
-    f.close()
-
-
-
-def set_bfactors(pdb, ligand_resids, rec_resids, output):
-
-    # Import pdb
+ # Import pdb
     # Import trajectory
-    topo = app.PDBxFile(pdb)      # Transform cif to MDAnalysis topology
+    topo = app.PDBxFile(pdb_path)      # Transform cif to MDAnalysis topology
     u = mda.Universe(topo)
-    u = remap_MDAnylsis(u,topo)
+    u = remap_MDAnalysis(u,topo)
 
     # probably not necessary
     u.add_TopologyAttr('tempfactors')
 
+
+    for _,row in ligand_resids.iterrows():
+        selected_resid = u.select_atoms(f"resid {int(row.resid)} and segid I")
+        selected_resid.tempfactors = row.energy
+
+    for _,row in receptor_resids.iterrows():
+        selected_resid = u.select_atoms(f"resid {int(row.resid)} and not segid I")
+        selected_resid.tempfactors = row.energy
+
+    # Save pdb of protein only
     protein = u.select_atoms("protein")
+    print(protein[protein.tempfactors<0])
 
-    for resid in ligand_resids.resid:
-        selected_resid = u.select_atoms(f"resid {resid} and segid I")
-        selected_resid.tempfactors = float(ligand_resids[(ligand_resids.resid == resid)]['energy'])
+    protein.write(interaction_pdb)
 
-    for resid in rec_resids.resid:
-        selected_resid = u.select_atoms(f"resid {resid} and not segid I")
-        selected_resid.tempfactors = float(rec_resids[(rec_resids.resid == resid)]['energy'])
+def parse_arguments():
+    """
+    Parses command-line arguments.
 
-    protein.write(output)
-
+    Returns:
+    A namespace object containing the arguments.
+    """
+    parser = argparse.ArgumentParser(description='Generate PyMOL script for BD001 mutation labeling and interaction surface calculation.')
+    parser.add_argument('--interactions', required=True, help='Path to the interactions CSV file.')
+    parser.add_argument('--seed', type=int, required=True, help='Seed number for selecting representative frames.')
+    parser.add_argument('--output', required=True, help='Output directory for generated files.')
+    parser.add_argument('--mutation', nargs='+', required=True, help='Mutation identifiers (e.g., WT, Y117E_Y119E_Y121E).')
+    parser.add_argument('--frames', nargs='+', required=True, help='Paths to frame files.')
+    parser.add_argument('--receptors', nargs='+', required=True, help='List of all Receptors (e.g. C1s, MASP2, FXa')
+    return parser.parse_args()
 
 if __name__ == '__main__':
+    args = parse_arguments()
 
-    # Parse Arguments
-    parser = argparse.ArgumentParser()
+    # Go only for one representatitve final position. Choose only the first seed number
+    frames = [f for f in args.frames if str(args.seed) in f]
 
-    # Input
-    parser.add_argument('--interactions', required=False, default='/home/pixelline/ownCloud/Institution/code/squeezeMD_run/V4/output/demo1_5ns/results/martin/interactions.csv')
-    parser.add_argument('--final_frame', required=False, default='output/19-04-23_proteases/simulations.csv')     # Simulation overview
-
-    # Output
-    parser.add_argument('--output', required=False, help='output folder', default='output/tmp')
-
-    args = parser.parse_args()
-
-    Path(args.output).mkdir(parents=True, exist_ok=True)
-
-    # TODO: Do over arguments
-    targets = ['C1s']
-    frames = ['/home/pixelline/ownCloud/Institution/code/squeezeMD_run/V4/output/demo/C1s_BD001/WT/695/MD/frame_end.cif', ' nur Blödsinn']
-    seed = str(695)
-
-    # Go only for one representatitve final position
-    frames = [f for f in frames if seed in f]
+    # TODO: for the moment only WT frames
+    frames = [f for f in args.frames if 'WT' in f]
 
     # Import interaction data
-    interactions = pd.read_csv(args.interactions)
+    interactions = pd.read_parquet(args.interactions)
     interactions = interactions[interactions.interaction=='inter']
 
-    # Aggregate
-    #interactions_agg = interactions[['protein', 'target','mutation', 'resid', 'seed', 'chainID', 'energy']].groupby(['target', 'chainID', 'resid']).mean()
-    print(interactions)
-    #interactions_agg = interactions[['protein', 'target', 'mutation', 'resid', 'seed', 'energy']].groupby(['target', 'resid']).mean()
-    interactions_agg = interactions[['target', 'resid', 'seed', 'energy']].groupby(['target', 'resid']).mean()
+    # TODO Currently only WT
+    interactions = interactions[interactions.mutation == 'WT']
 
-    for target, pdb in zip(targets, frames):
+    # Aggregate data for the particular target and residue
+    var_names = ['protein', 'target', 'resid', 'energy']        # Relevant var names
+    interactions_agg = interactions[var_names].groupby(['protein', 'target', 'resid']).mean()
 
-        print(interactions)
-        data_ligand = interactions_agg.loc[(target)].reset_index()
-        ligand_resids = ','.join(map(str, data_ligand[data_ligand.energy < -2]['resid']))
+    ENERGY_THRESHOLD = -2
 
-        data_rec = interactions_agg.loc[target].reset_index()
+    for receptor_name, last_frame in zip(args.receptors, frames):
+        # Extract ligand and receptor interaction data
+        data_ligand = interactions_agg.loc[('ligand',receptor_name)].reset_index()
+        data_receptor = interactions_agg.loc['receptor', receptor_name].reset_index()
 
-        # Get all receptor residues with an interaction energy smaller than -2
-        rec_resids = ','.join(map(str, data_rec[data_rec.energy < -2]['resid']))
+        # Get all receptor/ligand residues with an interaction energy smaller than -2 and join as string
+        ligand_resids = ','.join(map(str, data_ligand[data_ligand.energy < ENERGY_THRESHOLD]['resid']))
+        receptor_resids = ','.join(map(str, data_receptor[data_receptor.energy < ENERGY_THRESHOLD]['resid']))
 
-        bfactor_pdbs = f'{args.output}/{target}.interaction.pdb'
-        output_pdb = f'{args.output}/{target}.final.pse'
+        # TODO: figure out why there is a random wrong resid in each dataset. Probably too many atoms in pdb
+        #data_ligand.to_csv('data_ligand.csv')
+        #data_receptor.to_csv('data_receptor.csv')
 
-        set_bfactors(pdb, data_ligand, data_rec, bfactor_pdbs)
+        # Define output paths. TODO Improve
+        interactions_pdb = os.path.join(args.output, f'{receptor_name}.interaction.pdb')
+        pymol_out = os.path.join(args.output, f'{receptor_name}.final.pse')
+        pymol_script = os.path.join(args.output, f'{receptor_name}.pml')
 
-        create_pml(ligand_resids, rec_resids, bfactor_pdbs, output_pdb, f'{args.output}/{target}.pml', target)
+        # Set the interaction intensities
+        set_residue_interaction_intensity(last_frame, data_ligand, data_receptor, interactions_pdb)
+
+        # create a custom pymol script to visualize the relevant interactions
+        create_pml_script(ligand_resids, receptor_resids, interactions_pdb, pymol_out, pymol_script, receptor_name)
+

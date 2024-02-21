@@ -28,6 +28,9 @@ Features
 
 * TODO
 
+- Adjust MD according to ChatGPT
+- Add mutations to Surface by introducting single parameters and derive location of last_frame. Do proper error handling
+
 Installation
 ----
 

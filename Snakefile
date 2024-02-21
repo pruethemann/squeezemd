@@ -2,76 +2,78 @@ import numpy as np
 import pandas as pd
 from os import path
 
-### USER INPUT
-if 'job' not in config:
-    print("ATTENTION: No job defined. Demo will be executed!")
-    config["job"] = 'demo'
-job = path.join('jobs', config["job"])
+# ======================
+# Configuration Handling
+# ======================
+# Ensure job configuration is defined, default to 'demo' if not.
+config.setdefault("job", "config")
+job_path = path.join(config.get('job'))
 
-# 1. Define all paths
-simulation_data = path.join(job, 'simulations.csv')
-configfile: path.join(job, 'params.yml')       # Configuration file for Snakemake
-md_settings = path.join(job, 'params.yml')
-free_energy_settings =  path.join(job, 'mmgbsa.in')
+# Define paths to key files and directories
+simulation_data = path.join(job_path, 'simulations.csv')
+configfile: path.join(job_path, 'params.yml')       # Configuration file for Snakemake
+md_settings = path.join(job_path, 'params.yml')       # Configuration file for Snakemake
+free_energy_settings =  path.join(job_path, 'mmgbsa.in')
 
-number_frames = config['number_frames']
-replicates = config['replicates']
+# Retrieve essential parameters from the config
+number_frames = config.get("number_frames", 100)  # Default to 100 if not set
+replicates = config.get("replicates", 1)  # Default to 1 if not set
 
-# 2. Determine seed
-np.random.seed(23)
-seeds = np.random.randint(100,1000, size=config['replicates'])
-#seeds = [767,943]
-print(seeds)
+# ==================================
+# Random Seed Generation for Replicates
+# ==================================
+np.random.seed(23)  # Ensure reproducibility
+seeds = np.random.randint(100, 1000, size=replicates)
 
-# Import all simulation conditions
+# ==================================
+# Simulation Data Preprocessing
+# ==================================
+# Load simulation conditions and preprocess data
+
 simulations_df = pd.read_csv(simulation_data)
 print(simulations_df)
 simulations_df['complex'] = simulations_df['target'] + '_' + simulations_df['ligand']
 simulations_df['name'] = simulations_df['complex'] + '_' + simulations_df['mutation_all']
-complexes = simulations_df.complex
-mutations = simulations_df.mutation_all
-frames = list(range(number_frames))
-
-simulations_df['complex'] = simulations_df['target'] + '_' + simulations_df['ligand']
-simulations_df['name'] = simulations_df['complex'] + '_' + simulations_df['mutation_all']
 simulations_df.set_index('name', inplace=True)
+
+# Define global variables for easy access
+complexes = simulations_df.complex.unique()
+mutations = simulations_df.mutation_all.unique()
 
 rule proteinInteraction:
     input:
-        expand('output/{job_id}/{complex}/{mutation}/mutation.pdb', job_id=config["job"], complex=complexes, mutation=mutations),
-        #expand('output/{job_id}/{complex}/{mutation}/amber/amber.pdb',job_id=config["job"], complex=complexes, mutation=mutations),
-        expand('output/{job_id}/{complex}/{mutation}/{seed}/MD/traj_center.dcd', job_id=config["job"], complex=complexes, mutation=mutations, seed=seeds),
-        #expand('output/{job_id}/{complex}/{mutation}/{seed}/MD/center/topo.pdb', job_id=config["job"], complex=complexes, mutation=mutations, seed=seeds),
-        expand('output/{job_id}/{complex}/{mutation}/{seed}/analysis/RMSF.svg', job_id=config["job"], complex=complexes, mutation=mutations, seed=seeds),
-        expand('output/{job_id}/{complex}/{mutation}/{seed}/frames/lig/1.csv', job_id=config["job"], complex=complexes, mutation=mutations, seed=seeds, frame_id=frames),
-        expand('output/{job_id}/results/martin/interactions.csv', job_id=config["job"]),
-        expand('output/{job_id}/{complex}/{mutation}/{seed}/fingerprint/fingerprint.feather', job_id=config["job"], complex=complexes, mutation=mutations, seed=seeds),
-        expand('output/{job_id}/results/fingerprints/interactions.csv', job_id=config["job"]),
-        #expand('output/{job_id}/results/interactions/.checkpoint', job_id=config["job"])
-
-
+        expand('{complex}/{mutation}/mutation.pdb', job_id=config.get('job'), complex=complexes, mutation=mutations),
+        expand('{complex}/{mutation}/{seed}/MD/traj_center.dcd', job_id=config.get('job'), complex=complexes, mutation=mutations, seed=seeds),
+        expand('{complex}/{mutation}/{seed}/analysis/RMSF.svg', job_id=config.get('job'), complex=complexes, mutation=mutations, seed=seeds),
+        expand('{complex}/{mutation}/{seed}/frames/lig/1.csv', job_id=config.get('job'), complex=complexes, mutation=mutations, seed=seeds),
+        expand('results/martin/interactions.parquet', job_id=config.get('job')),
+        expand('{complex}/{mutation}/{seed}/fingerprint/fingerprint.parquet', job_id=config.get('job'), complex=complexes, mutation=mutations, seed=seeds),
+        expand('results/fingerprints/interactions.parquet', job_id=config.get('job')),
+        expand('results/interactionSurface/.checkpoint', job_id=config.get('job')),
+"""
+TODO integrate to Mutagenisis
 rule SetupMutagesis:
     input:
         csv=simulation_data,
         default=ancient(md_settings)
     output:
-        'output/{job_id}/{complex}/{mutation}/mutant_file.txt'
-    params:
-        job_id=config['job'],
+        '{complex}/{mutation}/mutant_file.txt'
     shell:
         "1_mutation.py --mutation {wildcards.mutation} --output {output}"
 
+"""
+
 rule Mutagensis:
     input:
-        'output/{job_id}/{complex}/{mutation}/mutant_file.txt'
+        '{complex}/{mutation}/mutant_file.txt'
     output:
-        'output/{job_id}/{complex}/{mutation}/mutation.pdb'
+        '{complex}/{mutation}/mutation.pdb'
     params:
-        out_dir=directory('output/{job_id}/{complex}/{mutation}'),
+        out_dir=directory('{complex}/{mutation}'),
         pdb= lambda wildcards: simulations_df.loc[f'{wildcards.complex}_{wildcards.mutation}']['input'],
         foldX='foldx_20241231'
     log:
-        'output/{job_id}/{complex}/{mutation}/mutation.log'
+        '{complex}/{mutation}/mutation.log'
     shell:
         """
         if [[ {wildcards.mutation} = WT ]]
@@ -84,42 +86,44 @@ rule Mutagensis:
         fi
         """
 
+"""
+TODO: fix md_settings
 rule MD:
     input:
         md_settings=ancient(md_settings),
-        input_pdb='output/{job_id}/{complex}/{mutation}/mutation.pdb',
+        pdb='{complex}/{mutation}/mutation.pdb',
     output:
-        topo = 'output/{job_id}/{complex}/{mutation}/{seed}/MD/frame_end.cif',
-        traj=temp('output/{job_id}/{complex}/{mutation}/{seed}/MD/trajectory.h5'),
-        stats='output/{job_id}/{complex}/{mutation}/{seed}/MD/MDStats.csv',
-        params='output/{job_id}/{complex}/{mutation}/{seed}/MD/params.yml',
+        topo = '{complex}/{mutation}/{seed}/MD/frame_end.cif',
+        traj=temp('{complex}/{mutation}/{seed}/MD/trajectory.h5'),
+        stats='{complex}/{mutation}/{seed}/MD/MDStats.csv',
+        params='{complex}/{mutation}/{seed}/MD/params.yml',
     params:
-        job_id=config['job']
+        job_id=config.get('job')
     resources:
         gpu=1
     priority:
         3
     shell:
-        """
-        2_MD.py --input_pdb {input.input_pdb} \
+        "
+        2_MD.py --pdb {input.pdb} \
                 --topo {output.topo} \
                 --traj {output.traj} \
                 --md_settings {input.md_settings} \
                 --params {output.params} \
                 --seed {wildcards.seed} \
                 --stats {output.stats}
-        """
-
+        ""
+"""
 
 rule centerMDTraj:
     input:
-        topo = 'output/{job_id}/{complex}/{mutation}/{seed}/MD/frame_end.cif',
-        traj='output/{job_id}/{complex}/{mutation}/{seed}/MD/trajectory.h5',
+        topo = '{complex}/{mutation}/{seed}/MD/frame_end.cif',
+        traj='{complex}/{mutation}/{seed}/MD/trajectory.h5',
     output:
-        topo_center = 'output/{job_id}/{complex}/{mutation}/{seed}/MD/topo_center.pdb',
-        traj_center='output/{job_id}/{complex}/{mutation}/{seed}/MD/traj_center.dcd',
+        topo_center = '{complex}/{mutation}/{seed}/MD/topo_center.pdb',
+        traj_center='{complex}/{mutation}/{seed}/MD/traj_center.dcd',
     params:
-        job_id=config['job']
+        job_id=config.get('job')
     resources:
         gpu=1
     priority:
@@ -134,16 +138,16 @@ rule centerMDTraj:
 
 rule DescriptiveTrajAnalysis:
     input:
-        topo = 'output/{job_id}/{complex}/{mutation}/{seed}/MD/topo_center.pdb',
-        traj='output/{job_id}/{complex}/{mutation}/{seed}/MD/traj_center.dcd',
-        stats='output/{job_id}/{complex}/{mutation}/{seed}/MD/MDStats.csv'
+        topo = '{complex}/{mutation}/{seed}/MD/frame_end.cif',
+        traj='{complex}/{mutation}/{seed}/MD/traj_center.dcd',
+        stats='{complex}/{mutation}/{seed}/MD/MDStats.csv'
     output:
-        rmsf=report('output/{job_id}/{complex}/{mutation}/{seed}/analysis/RMSF.svg',caption="config/RMSF.rst", category="Trajectory", subcategory='RMSF'),
-        bfactors='output/{job_id}/{complex}/{mutation}/{seed}/analysis/bfactors.pdb',
-        rmsd=report('output/{job_id}/{complex}/{mutation}/{seed}/analysis/RMSD.svg',caption="config/RMSD.rst",category="Trajectory", subcategory='RMSD'),
-        stats='output/{job_id}/{complex}/{mutation}/{seed}/analysis/Stats.svg',
+        rmsf=report('{complex}/{mutation}/{seed}/analysis/RMSF.svg',caption="RMSF.rst", category="Trajectory", subcategory='RMSF'),
+        bfactors='{complex}/{mutation}/{seed}/analysis/bfactors.pdb',
+        rmsd=report('{complex}/{mutation}/{seed}/analysis/RMSD.svg',caption="RMSD.rst",category="Trajectory", subcategory='RMSD'),
+        stats='{complex}/{mutation}/{seed}/analysis/Stats.svg',
     params:
-        number_frames = config['number_frames']
+        number_frames = config.get('number_frames')
     shell:
         """
         3_ExplorativeTrajectoryAnalysis.py --topo {input.topo} \
@@ -157,17 +161,17 @@ rule DescriptiveTrajAnalysis:
 
 rule InteractionAnalyzerMartin:
     input:
-        topo='output/{job_id}/{complex}/{mutation}/{seed}/MD/topo_center.pdb',
-        traj='output/{job_id}/{complex}/{mutation}/{seed}/MD/traj_center.dcd',
+        topo='{complex}/{mutation}/{seed}/MD/topo_center.pdb',
+        traj='{complex}/{mutation}/{seed}/MD/traj_center.dcd',
     output:
-        frame_pdb='output/{job_id}/{complex}/{mutation}/{seed}/frames/frame_1.pdb',
-        ligand_csv='output/{job_id}/{complex}/{mutation}/{seed}/frames/lig/1.csv',
-        receptor_csv='output/{job_id}/{complex}/{mutation}/{seed}/frames/rec/1.csv',
-        dir=directory('output/{job_id}/{complex}/{mutation}/{seed}/frames/'),
-        final='output/{job_id}/{complex}/{mutation}/{seed}/MD/final.pdb',
-        checkpoint='output/{job_id}/{complex}/{mutation}/{seed}/frames/.done'
+        frame_pdb='{complex}/{mutation}/{seed}/frames/frame_1.pdb',
+        ligand_csv='{complex}/{mutation}/{seed}/frames/lig/1.csv',
+        receptor_csv='{complex}/{mutation}/{seed}/frames/rec/1.csv',
+        dir=directory('{complex}/{mutation}/{seed}/frames/'),
+        final='{complex}/{mutation}/{seed}/MD/final.pdb',
+        checkpoint='{complex}/{mutation}/{seed}/frames/.done'
     log:
-        'output/{job_id}/{complex}/{mutation}/{seed}/MD/center.log'
+        '{complex}/{mutation}/{seed}/MD/center.log'
     threads: 4
     shell:
         """
@@ -182,42 +186,77 @@ rule InteractionAnalyzerMartin:
 
 rule GlobalMartinAnalysis:
     input:
-        dirs=expand('output/{job_id}/{complex}/{mutation}/{seed}/frames/',job_id=config["job"], complex=complexes, mutation=mutations, seed=seeds),
-        checkpoint=expand('output/{job_id}/{complex}/{mutation}/{seed}/frames/.done',job_id=config["job"], complex=complexes, mutation=mutations, seed=seeds)
+        dirs=expand('{complex}/{mutation}/{seed}/frames/', complex=complexes, mutation=mutations, seed=seeds),
     output:
-        interactions = report('output/{job_id}/results/martin/interactions.csv',caption="config/RMSF.rst",category="Interaction Martin"),
-        #energy_diff = report('output/{job_id}/results/martin/energy_diff.csv',caption="report/RMSF.rst",category="Energy Differences"),
-        dir=directory('output/{job_id}/results/martin/')
+        interactions = report('results/martin/interactions.parquet',caption="interaction.rst",category="Interaction Martin"),
+        residueEnergy= report('results/martin/residueEnergy.svg',caption="interaction.rst",category="Interaction Martin"),
+        totalEnergy= report('results/martin/totalEnergy.svg',caption="interaction.rst",category="Interaction Martin"),
     shell:
         """
         6_GlobalMartinInteractions.py  --dirs {input.dirs} \
-                                --output {output.dir} \
-                                --interactions {output.interactions}
+                                       --interactions {output.interactions} \
+                                       --residueEnergy {output.residueEnergy} \
+                                       --totalEnergy {output.totalEnergy}
         """
 
 rule interactionFingerprint:
     input:
-        topo = 'output/{job_id}/{complex}/{mutation}/{seed}/MD/frame_end.cif',
-        traj='output/{job_id}/{complex}/{mutation}/{seed}/MD/traj_center.dcd',
+        topo = '{complex}/{mutation}/{seed}/MD/frame_end.cif',
+        traj='{complex}/{mutation}/{seed}/MD/traj_center.dcd',
     output:
-        'output/{job_id}/{complex}/{mutation}/{seed}/fingerprint/fingerprint.feather',
+        '{complex}/{mutation}/{seed}/fingerprint/fingerprint.parquet',
     params:
-        number_frames = config['number_frames']
+        number_frames = config.get('number_frames'),
+        complex = lambda wildcards: wildcards.complex,
+        mutation = lambda wildcards: wildcards.mutation,
+        seed = lambda wildcards: wildcards.seed
+    threads: 4
     shell:
         """
         7_interactionFingerprint.py --topo {input.topo} \
                                     --traj  {input.traj} \
                                     --output {output} \
-                                    --n_frames {params.number_frames}
+                                    --n_frames {params.number_frames} \
+                                    --threads {threads} \
+                                    --complex {params.complex} \
+                                    --mutation {params.mutation} \
+                                    --seed {params.seed}
         """
 
 rule GlobalFingerprintAnalysis:
     input:
-        fingerprints=expand('output/{job_id}/{complex}/{mutation}/{seed}/fingerprint/fingerprint.feather',job_id=config["job"], complex=complexes, mutation=mutations, seed=seeds),
+        fingerprints=expand('{complex}/{mutation}/{seed}/fingerprint/fingerprint.parquet',job_id=config.get('job'), complex=complexes, mutation=mutations, seed=seeds),
     output:
-        interactions = report('output/{job_id}/results/fingerprints/interactions.csv',caption="config/RMSF.rst",category="Interaction Fingerprint")
+        interactions = report('results/fingerprints/interactions.parquet',caption="RMSF.rst",category="Interaction Fingerprint"),
+    params:
+        n_frames = config.get('number_frames')
     shell:
         """
         8_GlobalFinterprintAnalysis.py  --fingerprints {input.fingerprints} \
-                              --interactions {output.interactions}
+                                        --interactions {output.interactions} \
+                                        --n_frames {params.n_frames}
+        """
+
+rule InteractionSurface:
+    input:
+        final_frame = expand('{complex}/{mutation}/{seed}/MD/frame_end.cif', job_id=config.get('job'), complex=complexes, mutation=mutations, seed=seeds),
+        interactions= 'results/martin/interactions.parquet',
+    params:
+        seed = seeds[0],
+        mutation = list(mutations),
+        job=config.get('job'),
+        receptors=list(simulations_df.get('target').unique())
+    output:
+        dir=directory('results/interactionSurface/'),
+        checkpoint='results/interactionSurface/.checkpoint',
+        #pml= expand('results/interactionSurface/{receptor}.pml',job_id=config.get('job'),receptor=simulations_df['target']),
+    shell:
+        """
+        10_InteractionSurface.py --output {output.dir} \
+                                 --interactions {input.interactions} \
+                                 --seed {params.seed} \
+                                 --mutation {params.mutation} \
+                                 --frames {input.final_frame} \
+                                 --receptors {params.receptors}
+        touch {output.checkpoint}
         """

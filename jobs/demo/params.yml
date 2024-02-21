@@ -1,9 +1,9 @@
-replicates: 1
-number_frames: 10
+replicates: 3
+number_frames: 49
 
 ## MD parameters
 dt: 0.004               # Simulation time steps in ps. 2 fs is ok if HBonds are constrained.
-time: 0.01              # Simulation time in ns
+time: 0.5              # Simulation time in ns
 steps:                  # Total number of steps
 temperature: 310        # Simulation Temperature in K
 pressure: 1             # Pressure in ATM

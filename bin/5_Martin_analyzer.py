@@ -5,16 +5,10 @@
 """
 import argparse
 import os
-import MDAnalysis as mda
-import MDAnalysis
-import MDAnalysis.transformations as trans
-import openmm.app as app
-from Helper import remap_MDAnylsis, execute
+from Helper import execute, remap_MDAnalysis
 import mdtraj
 import numpy as np
 import multiprocessing
-# create a process pool that uses all cpus
-
 
 def interaction_analyzer(frame_pdb, ligand_csv, receptor_csv):
     """
@@ -33,9 +27,6 @@ def interaction_analyzer(frame_pdb, ligand_csv, receptor_csv):
     # Analyze interaction of receptor to ligand
     command = f'interaction-analyzer-csv.x {frame_pdb} SER 632 > {receptor_csv}'
     execute(command)
-
-
-
 
 
 def extract_protein_water_shell(traj, cutoff=0.5):
@@ -118,47 +109,3 @@ if __name__ == '__main__':
 
     # Export last centered frame
     traj[-1].save(args.final)
-
-
-
-""" Original
-if __name__ == '__main__':
-    parser = argparse.ArgumentParser()
-
-    # Input
-    parser.add_argument('--topo', required=False,help='', default='trajectory.dcd')
-    parser.add_argument('--traj', required=False,help='', default='trajectory.dcd')
-    parser.add_argument('--n_frames', required=False, help='The last number of frames exported from the trajectory', default=10)
-    parser.add_argument('--dir', required=False, help='The working dir for the analysis', default='tmp')
-    parser.add_argument('--final', required=False,help='', default='trajectory.dcd')
-
-    args = parser.parse_args()
-
-    # Import Trajecotry
-    traj = mdtraj.load(args.traj, top=args.topo)
-
-    # Slice only last part
-
-    # Export protein
-    for frame_id in range(int(args.n_frames)):
-        water_sele = extract_protein_water_shell(traj[-frame_id-1], 0.8)
-        # Save the new trajectory as a DCD file
-        # water_sele.save_dcd('output/water_around_protein.dcd')
-        frame_path = os.path.join(args.dir, f'frame_{frame_id}.pdb')
-        lig_csv = os.path.join(args.dir, 'lig', f'{frame_id}.csv')
-        rec_csv = os.path.join(args.dir, 'rec', f'{frame_id}.csv')
-
-        water_sele.save(frame_path)
-
-        # Execute Martin interaction analyzer
-        lig_csv = os.path.join(args.dir, 'lig', f'{frame_id}.csv')
-        rec_csv = os.path.join(args.dir, 'rec', f'{frame_id}.csv')
-
-        interaction_analyzer(frame_path, lig_csv, rec_csv)
-
-
-    # Export last centered frame
-    traj[-1].save(args.final)
-
-
-"""

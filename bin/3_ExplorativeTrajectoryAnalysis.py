@@ -14,6 +14,8 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import MDAnalysis as mda
 from MDAnalysis.analysis import rms, align
+from Helper import remap_MDAnalysis
+import openmm.app as app
 
 def visualize_MDStats(stats_file, output_graph):
     data = pd.read_csv(stats_file, sep='\t')
@@ -70,9 +72,6 @@ def calculate_RMSF(u: mda.Universe, args):
     chains = {'ligand': 'I',
               'receptor': 'B'}
 
-    # TODO: Check where the renaming of the chains is coming from!!
-    chains = {'ligand': 'C',
-              'receptor': 'A'}
 
     print("Init RMSF analysis")
 
@@ -87,8 +86,8 @@ def calculate_RMSF(u: mda.Universe, args):
         plt.ylabel('RMSF ($\AA$)')
         plt.title(f'RMSF {protein}')
 
-        RMSF_df = pd.DataFrame([c_alphas.resids, R.rmsf])
-        RMSF_df.to_csv(args.rmsf[-4] + '.csv')
+        RMSF_df = pd.DataFrame([c_alphas.resids, R.results.rmsf])
+        #RMSF_df.to_csv(args.rmsf[-4] + '.csv')
 
     plt.tight_layout()
     plt.savefig(args.rmsf)
@@ -103,7 +102,7 @@ def calculate_RMSF(u: mda.Universe, args):
 def calculate_bfactors(R):
     u.add_TopologyAttr('tempfactors')  # add empty attribute for all atoms
     protein = u.select_atoms('protein')  # select protein atoms
-    for residue, r_value in zip(protein.residues, R.rmsf):
+    for residue, r_value in zip(protein.residues, R.results.rmsf):
         residue.atoms.tempfactors = r_value
 
     u.atoms.write(args.bfactors)
@@ -117,27 +116,33 @@ def calculate_RMSD(u: mda.Universe, args):
     """
 
     print("Init RMSD analysis")
+    ligand = u.select_atoms('chainID I') # "backbone and chainID I"
+    receptor = u.select_atoms('chainID B')  # "backbone and chainID B"
 
-    ligand = f"backbone and chainID I"
-    target = f"backbone and chainID B"
+    # 3. Compute RMSD for receptor and ligand
+    RMSD_ligand = rms.RMSD(ligand, ref_frame=0).run()
+    RMSD_receptor = rms.RMSD(receptor, ref_frame=0).run()
 
-    R = mda.analysis.rms.RMSD(u,  # universe to align
-                 u,  # reference universe or atomgroup
-                 select='backbone',  # group to superimpose and calculate RMSD
-                 groupselections=[ ligand, target],  # groups for RMSD
-                 ref_frame=0)  # frame index of the reference
-    R.run()
+    # 4. Save the data in a dataframe
+    data = {
+        'Time (ns)': RMSD_ligand.times,
+        'Ligand': RMSD_ligand.results.rmsd[:, 2],  # Column 2 contains the RMSD values
+        'Receptor': RMSD_receptor.results.rmsd[:, 2],  # Column 2 contains the RMSD values
+    }
+    df = pd.DataFrame(data)
 
-    df = pd.DataFrame(R.results.rmsd,
-                      columns=['Frame', 'Time (ns)',
-                               'Backbone',
-                               'ligand', 'target'])
+    # Melt the dataframe for seaborn plotting
+    df_melted = df.melt(id_vars=["Time (ns)"], var_name="Molecule", value_name="RMSD")
 
-    ax = df.plot(x='Frame', y=['Backbone', 'ligand', 'target'],
-                 kind='line')
-    ax.set_ylabel(r'RMSD ($\AA$)')
+    # 5. Plot the data with seaborn
+    sns.lineplot(data=df_melted, x="Time (ns)", y="RMSD", hue="Molecule")
+    plt.xlabel('Time (ns)')
+    plt.ylabel('RMSD (Å)')
+    plt.title('RMSD over Time')
+    plt.legend(title='Molecule')
+    plt.tight_layout()
 
-    df.to_csv(args.rmsd[-4:] + '.csv')
+    #df_melted.to_csv(args.rmsd[-4:] + '.csv')
     plt.savefig(args.rmsd)
     plt.close()
 
@@ -160,8 +165,12 @@ if __name__ == '__main__':
     args = parser.parse_args()
 
     # Import Trajectory
-    u = mda.Universe(args.topo, args.traj, in_memory=False)
+    topo = app.PDBxFile(args.topo)      # Transform cif to MDAnalysis topology
+    u = mda.Universe(topo, args.traj, in_memory=False)
+    u = remap_MDAnalysis(u,topo)
+
     traj_length = len(u.trajectory)
+    print(traj_length)
 
     # Calculate multiple MD trajectery properties
     calculate_RMSF(u, args)
