@@ -42,16 +42,15 @@ mutations = simulations_df.mutation_all.unique()
 
 rule proteinInteraction:
     input:
-        expand('{complex}/{mutation}/mutation.pdb', job_id=config.get('job'), complex=complexes, mutation=mutations),
-        expand('{complex}/{mutation}/{seed}/MD/traj_center.dcd', job_id=config.get('job'), complex=complexes, mutation=mutations, seed=seeds),
-        expand('{complex}/{mutation}/{seed}/analysis/RMSF.svg', job_id=config.get('job'), complex=complexes, mutation=mutations, seed=seeds),
-        expand('{complex}/{mutation}/{seed}/frames/lig/1.csv', job_id=config.get('job'), complex=complexes, mutation=mutations, seed=seeds),
-        expand('results/martin/interactions.parquet', job_id=config.get('job')),
-        expand('{complex}/{mutation}/{seed}/fingerprint/fingerprint.parquet', job_id=config.get('job'), complex=complexes, mutation=mutations, seed=seeds),
-        expand('results/fingerprints/interactions.parquet', job_id=config.get('job')),
-        expand('results/interactionSurface/.checkpoint', job_id=config.get('job')),
-"""
-TODO integrate to Mutagenisis
+        expand('{complex}/{mutation}/mutation.pdb', complex=complexes, mutation=mutations),
+        expand('{complex}/{mutation}/{seed}/MD/traj_center.dcd', complex=complexes, mutation=mutations, seed=seeds),
+        expand('{complex}/{mutation}/{seed}/analysis/RMSF.svg', complex=complexes, mutation=mutations, seed=seeds),
+        expand('{complex}/{mutation}/{seed}/frames/lig/1.csv', complex=complexes, mutation=mutations, seed=seeds),
+        'results/martin/interactions.parquet',
+        expand('{complex}/{mutation}/{seed}/fingerprint/fingerprint.parquet', complex=complexes, mutation=mutations, seed=seeds),
+        'results/fingerprints/interactions.parquet',
+        'results/interactionSurface/.checkpoint',
+
 rule SetupMutagesis:
     input:
         csv=simulation_data,
@@ -61,7 +60,7 @@ rule SetupMutagesis:
     shell:
         "1_mutation.py --mutation {wildcards.mutation} --output {output}"
 
-"""
+
 
 rule Mutagensis:
     input:
@@ -86,8 +85,7 @@ rule Mutagensis:
         fi
         """
 
-"""
-TODO: fix md_settings
+
 rule MD:
     input:
         md_settings=ancient(md_settings),
@@ -97,14 +95,12 @@ rule MD:
         traj=temp('{complex}/{mutation}/{seed}/MD/trajectory.h5'),
         stats='{complex}/{mutation}/{seed}/MD/MDStats.csv',
         params='{complex}/{mutation}/{seed}/MD/params.yml',
-    params:
-        job_id=config.get('job')
     resources:
         gpu=1
     priority:
         3
     shell:
-        "
+        """
         2_MD.py --pdb {input.pdb} \
                 --topo {output.topo} \
                 --traj {output.traj} \
@@ -112,8 +108,8 @@ rule MD:
                 --params {output.params} \
                 --seed {wildcards.seed} \
                 --stats {output.stats}
-        ""
-"""
+        """
+
 
 rule centerMDTraj:
     input:
@@ -123,7 +119,7 @@ rule centerMDTraj:
         topo_center = '{complex}/{mutation}/{seed}/MD/topo_center.pdb',
         traj_center='{complex}/{mutation}/{seed}/MD/traj_center.dcd',
     params:
-        job_id=config.get('job')
+
     resources:
         gpu=1
     priority:
@@ -225,7 +221,7 @@ rule interactionFingerprint:
 
 rule GlobalFingerprintAnalysis:
     input:
-        fingerprints=expand('{complex}/{mutation}/{seed}/fingerprint/fingerprint.parquet',job_id=config.get('job'), complex=complexes, mutation=mutations, seed=seeds),
+        fingerprints=expand('{complex}/{mutation}/{seed}/fingerprint/fingerprint.parquet', complex=complexes, mutation=mutations, seed=seeds),
     output:
         interactions = report('results/fingerprints/interactions.parquet',caption="RMSF.rst",category="Interaction Fingerprint"),
     params:
@@ -239,24 +235,24 @@ rule GlobalFingerprintAnalysis:
 
 rule InteractionSurface:
     input:
-        final_frame = expand('{complex}/{mutation}/{seed}/MD/frame_end.cif', job_id=config.get('job'), complex=complexes, mutation=mutations, seed=seeds),
+        final_frame = expand('{complex}/{mutation}/{seed}/MD/frame_end.cif', complex=complexes, mutation=mutations, seed=seeds),
         interactions= 'results/martin/interactions.parquet',
-    params:
-        seed = seeds[0],
-        mutation = list(mutations),
-        job=config.get('job'),
-        receptors=list(simulations_df.get('target').unique())
     output:
         dir=directory('results/interactionSurface/'),
         checkpoint='results/interactionSurface/.checkpoint',
-        #pml= expand('results/interactionSurface/{receptor}.pml',job_id=config.get('job'),receptor=simulations_df['target']),
+        #pml= expand('results/interactionSurface/{receptor}.pml',receptor=simulations_df['target']),
+    params:
+        seed = seeds[0],
+        mutations = list(mutations),
+        job=config.get('job'),
+        complexes=list(complexes)
     shell:
         """
         10_InteractionSurface.py --output {output.dir} \
                                  --interactions {input.interactions} \
                                  --seed {params.seed} \
-                                 --mutation {params.mutation} \
+                                 --mutations {params.mutations} \
                                  --frames {input.final_frame} \
-                                 --receptors {params.receptors}
+                                 --complexes {params.complexes}
         touch {output.checkpoint}
         """

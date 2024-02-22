@@ -123,7 +123,12 @@ def main(args):
         # Merge and export ligand and receptor data
         data = pd.concat([data_ligand, data_receptor])
         data.to_parquet(args.interactions)
+        data.to_csv('interactions.csv')
 
+    # Exclude all waters in analysis. TODO perform a separate water analysis
+    data = data[data.resname != 'HOH']
+
+    # Aggregate energy over frames
     data_agg = data.groupby(['protein', 'interaction', 'target' , 'lig', 'mutation', 'resid', 'seed']).mean(numeric_only=True)
     del data_agg['frame']
 
@@ -142,6 +147,9 @@ def main(args):
 
         plt.xticks(rotation=90)
         plt.title(f"{protein}: Total per residue inter molecular interaction energy")
+
+        # Save aggregated data
+        data_filter.to_csv(f'{args.residueEnergy[:-4]}_{protein}.csv')
 
     plt.savefig(args.residueEnergy)
     plt.close()

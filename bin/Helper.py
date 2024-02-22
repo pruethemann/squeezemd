@@ -99,6 +99,10 @@ def remap_MDAnalysis(u: mda.Universe, topo):
     :return: Mapping tables from chainIDs to original Ids
     """
 
+    chainIds = {}
+    for chain_cont, chainID in zip(u.segments, topo.topology.chains()):
+        chainIds[int(chain_cont.segid)] = chainID.id
+
     resIds = {}
     for res_cont, resid in zip(u.residues, topo.topology.residues()):
         #print(res_cont.resid, resid.id, resid.name)
@@ -107,9 +111,7 @@ def remap_MDAnalysis(u: mda.Universe, topo):
         resid_sele = u.select_atoms(f"resid {int(res_cont.resid)}")
         resid_sele.residues.resids = int(resid.id)
 
-    chainIds = {}
-    for chain_cont, chainID in zip(u.segments, topo.topology.chains()):
-        chainIds[int(chain_cont.segid)] = chainID.id
+
 
     return u
 

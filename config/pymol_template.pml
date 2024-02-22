@@ -23,5 +23,5 @@ spectrum b, red blue grey, not chain I
 # ChainID depends on remap
 show surface, chain B
 set transparency, 0.1, chain B
-extract {target}, chain I
+extract ligand, chain I
 save {output};

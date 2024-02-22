@@ -28,7 +28,7 @@ import os
 plt.style.use('ggplot')
 sns.set_style('ticks')
 
-def create_pml_script(ligand_resids, receptor_resids, input_pdb, output_file, pymol_script, target):
+def create_pml_script(ligand_resids, receptor_resids, pdb, output_file, pymol_script):
     """
     Generates a PyMOL script from a template, substituting placeholders with actual data.
 
@@ -41,11 +41,11 @@ def create_pml_script(ligand_resids, receptor_resids, input_pdb, output_file, py
     """
     #TODO find this location
     with open('/home/peter/tools/miniconda3/envs/squeezeMD/pymol_template.pml', 'r') as template_file:
-        content = template_file.read().format(input_pdb=input_pdb,
+        content = template_file.read().format(input_pdb=pdb,
                                                ligand_resids=ligand_resids,
                                                receptor_resids=receptor_resids,
-                                               output=output_file,
-                                               target=target)
+                                               output=output_file
+                                              )
     with open(pymol_script, 'w') as output_pml:
         output_pml.write(content)
 
@@ -64,9 +64,11 @@ def set_residue_interaction_intensity(pdb_path, ligand_resids, receptor_resids, 
 
  # Import pdb
     # Import trajectory
-    topo = app.PDBxFile(pdb_path)      # Transform cif to MDAnalysis topology
-    u = mda.Universe(topo)
-    u = remap_MDAnalysis(u,topo)
+    #topo = app.PDBxFile(pdb_path)      # Transform cif to MDAnalysis topology
+    u = mda.Universe(pdb_path)
+    #u = remap_MDAnalysis(u,topo)
+
+    print(pdb_path)
 
     # probably not necessary
     u.add_TopologyAttr('tempfactors')
@@ -82,7 +84,8 @@ def set_residue_interaction_intensity(pdb_path, ligand_resids, receptor_resids, 
 
     # Save pdb of protein only
     protein = u.select_atoms("protein")
-    print(protein[protein.tempfactors<0])
+
+    print(protein)
 
     protein.write(interaction_pdb)
 
@@ -97,54 +100,68 @@ def parse_arguments():
     parser.add_argument('--interactions', required=True, help='Path to the interactions CSV file.')
     parser.add_argument('--seed', type=int, required=True, help='Seed number for selecting representative frames.')
     parser.add_argument('--output', required=True, help='Output directory for generated files.')
-    parser.add_argument('--mutation', nargs='+', required=True, help='Mutation identifiers (e.g., WT, Y117E_Y119E_Y121E).')
-    parser.add_argument('--frames', nargs='+', required=True, help='Paths to frame files.')
-    parser.add_argument('--receptors', nargs='+', required=True, help='List of all Receptors (e.g. C1s, MASP2, FXa')
+    parser.add_argument('--mutations', nargs='+', required=True, help='Mutation identifiers (e.g., WT, Y117E_Y119E_Y121E).')
+    parser.add_argument('--frames', nargs='+', required=False, help='Paths to frame files.')
+    parser.add_argument('--receptors', nargs='+', required=False, help='List of all Receptors (e.g. C1s, MASP2, FXa')
+    parser.add_argument('--complexes', nargs='+', required=True, help='')
     return parser.parse_args()
 
 if __name__ == '__main__':
     args = parse_arguments()
-
-    # Go only for one representatitve final position. Choose only the first seed number
-    frames = [f for f in args.frames if str(args.seed) in f]
-
-    # TODO: for the moment only WT frames
-    frames = [f for f in args.frames if 'WT' in f]
-
+    """
+    Data variable description:
+    Group by:
+        name: same as complex
+        protein: ligand / receptor
+        interaction: inter, intra
+        target: receptor (C1s)
+        lig: (BD001)
+        mutation: WT / Y119E
+    Take Mean:
+        frame: 1:100
+        interaction type: hydrophobic, electrostatic, ..
+    Get SD:
+        seed: Seed of MD
+    """
+    ENERGY_THRESHOLD = -2
     # Import interaction data
     interactions = pd.read_parquet(args.interactions)
-    interactions = interactions[interactions.interaction=='inter']
+    interactions.set_index(['interaction', 'name', 'mutation'], inplace=True)
+    var_names = ['protein', 'target', 'resid', 'energy']  # Relevant var names
 
-    # TODO Currently only WT
-    interactions = interactions[interactions.mutation == 'WT']
 
-    # Aggregate data for the particular target and residue
-    var_names = ['protein', 'target', 'resid', 'energy']        # Relevant var names
-    interactions_agg = interactions[var_names].groupby(['protein', 'target', 'resid']).mean()
+    print(args.seed)
+    print("SEED")
 
-    ENERGY_THRESHOLD = -2
+    for complex in args.complexes:
+        for mutation in args.mutations:
+            pdb = os.path.join(complex, mutation, str(args.seed), 'MD', 'topo_center.pdb')
 
-    for receptor_name, last_frame in zip(args.receptors, frames):
-        # Extract ligand and receptor interaction data
-        data_ligand = interactions_agg.loc[('ligand',receptor_name)].reset_index()
-        data_receptor = interactions_agg.loc['receptor', receptor_name].reset_index()
+            interactions_filtered = interactions.loc[('inter',complex, mutation)]
 
-        # Get all receptor/ligand residues with an interaction energy smaller than -2 and join as string
-        ligand_resids = ','.join(map(str, data_ligand[data_ligand.energy < ENERGY_THRESHOLD]['resid']))
-        receptor_resids = ','.join(map(str, data_receptor[data_receptor.energy < ENERGY_THRESHOLD]['resid']))
+            # Aggregate data for the particular target and residue
+            interactions_agg = interactions_filtered.groupby(['protein', 'name', 'mutation', 'resid']).mean(numeric_only=True)
 
-        # TODO: figure out why there is a random wrong resid in each dataset. Probably too many atoms in pdb
-        #data_ligand.to_csv('data_ligand.csv')
-        #data_receptor.to_csv('data_receptor.csv')
+            # Extract ligand and receptor interaction data
+            data_ligand = interactions_agg.loc[('ligand',complex)].reset_index()
+            data_receptor = interactions_agg.loc[('receptor', complex)].reset_index()
 
-        # Define output paths. TODO Improve
-        interactions_pdb = os.path.join(args.output, f'{receptor_name}.interaction.pdb')
-        pymol_out = os.path.join(args.output, f'{receptor_name}.final.pse')
-        pymol_script = os.path.join(args.output, f'{receptor_name}.pml')
+            # Get all receptor/ligand residues with an interaction energy smaller than -2 and join as string
+            ligand_resids = ','.join(map(str, data_ligand[data_ligand.energy < ENERGY_THRESHOLD]['resid']))
+            receptor_resids = ','.join(map(str, data_receptor[data_receptor.energy < ENERGY_THRESHOLD]['resid']))
 
-        # Set the interaction intensities
-        set_residue_interaction_intensity(last_frame, data_ligand, data_receptor, interactions_pdb)
+            DEBUG = True
+            if DEBUG:
+                data_ligand.to_csv('data_ligand.csv')
+                data_receptor.to_csv('data_receptor.csv')
 
-        # create a custom pymol script to visualize the relevant interactions
-        create_pml_script(ligand_resids, receptor_resids, interactions_pdb, pymol_out, pymol_script, receptor_name)
+            # Define output paths. TODO Improve
+            interaction_pdb = os.path.join(args.output, f'{complex}.{mutation}.interaction.pdb')
+            pymol_out = os.path.join(args.output, f'{complex}.{mutation}.final.pse')
+            pymol_script = os.path.join(args.output, f'{complex}.{mutation}.pml')
 
+            # Set the interaction intensities
+            set_residue_interaction_intensity(pdb, data_ligand, data_receptor, interaction_pdb)
+
+            # create a custom pymol script to visualize the relevant interactions
+            create_pml_script(ligand_resids, receptor_resids, interaction_pdb, pymol_out, pymol_script)
