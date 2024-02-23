@@ -5,15 +5,11 @@ from os import path
 # ======================
 # Configuration Handling
 # ======================
-# Ensure job configuration is defined, default to 'demo' if not.
-config.setdefault("job", "config")
-job_path = path.join(config.get('job'))
 
 # Define paths to key files and directories
-simulation_data = path.join(job_path, 'simulations.csv')
-configfile: path.join(job_path, 'params.yml')       # Configuration file for Snakemake
-md_settings = path.join(job_path, 'params.yml')       # Configuration file for Snakemake
-free_energy_settings =  path.join(job_path, 'mmgbsa.in')
+simulation_data = path.join('config', 'simulations.csv')
+configfile: path.join('config', 'params.yml')       # Configuration file for Snakemake
+free_energy_settings =  path.join('config', 'mmgbsa.in')
 
 # Retrieve essential parameters from the config
 number_frames = config.get("number_frames", 100)  # Default to 100 if not set
@@ -31,7 +27,6 @@ seeds = np.random.randint(100, 1000, size=replicates)
 # Load simulation conditions and preprocess data
 
 simulations_df = pd.read_csv(simulation_data)
-print(simulations_df)
 simulations_df['complex'] = simulations_df['target'] + '_' + simulations_df['ligand']
 simulations_df['name'] = simulations_df['complex'] + '_' + simulations_df['mutation_all']
 simulations_df.set_index('name', inplace=True)
@@ -51,20 +46,11 @@ rule proteinInteraction:
         'results/fingerprints/interactions.parquet',
         'results/interactionSurface/.checkpoint',
 
-rule SetupMutagesis:
-    input:
-        csv=simulation_data,
-        default=ancient(md_settings)
-    output:
-        '{complex}/{mutation}/mutant_file.txt'
-    shell:
-        "1_mutation.py --mutation {wildcards.mutation} --output {output}"
-
-
 
 rule Mutagensis:
     input:
-        '{complex}/{mutation}/mutant_file.txt'
+        'config/params.yml',
+        'config/simulations.csv'
     output:
         '{complex}/{mutation}/mutation.pdb'
     params:
@@ -79,8 +65,9 @@ rule Mutagensis:
         then    # No mutagenisis
             cp {params.pdb} {output}
         else    # Mutate
+            1_mutation.py --mutation {wildcards.mutation} --ligand {params.pdb} --output {wildcards.complex}/{wildcards.mutation}/mutant_file.txt
             cp {params.pdb} {params.out_dir}/WT.pdb
-            {params.foldX} --command=BuildModel --pdb-dir="{params.out_dir}" --pdb=WT.pdb --mutant-file="{input}" --output-dir="{params.out_dir}" --rotabaseLocation ~/tools/foldx/rotabase.txt > {log} || true
+            {params.foldX} --command=BuildModel --pdb-dir="{params.out_dir}" --pdb=WT.pdb --mutant-file={wildcards.complex}/{wildcards.mutation}/mutant_file.txt --output-dir="{params.out_dir}" --rotabaseLocation ~/tools/foldx/rotabase.txt > {log} || true
             mv {params.out_dir}/WT_1.pdb {output}
         fi
         """
@@ -88,7 +75,7 @@ rule Mutagensis:
 
 rule MD:
     input:
-        md_settings=ancient(md_settings),
+        md_settings=ancient('config/params.yml'),
         pdb='{complex}/{mutation}/mutation.pdb',
     output:
         topo = '{complex}/{mutation}/{seed}/MD/frame_end.cif',
@@ -118,10 +105,7 @@ rule centerMDTraj:
     output:
         topo_center = '{complex}/{mutation}/{seed}/MD/topo_center.pdb',
         traj_center='{complex}/{mutation}/{seed}/MD/traj_center.dcd',
-    params:
 
-    resources:
-        gpu=1
     priority:
         3
     shell:
@@ -232,6 +216,8 @@ rule GlobalFingerprintAnalysis:
                                         --interactions {output.interactions} \
                                         --n_frames {params.n_frames}
         """
+
+# TODO: Get rid of checkpoint
 
 rule InteractionSurface:
     input:

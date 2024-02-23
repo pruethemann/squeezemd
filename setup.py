@@ -47,9 +47,9 @@ setup(
     test_suite='tests',
     tests_require=test_requirements,
     url='https://github.com/pruethemann/squeezemd',
-    version='0.2.8',
+    version='0.3.0',
     zip_safe=False,
     scripts=['bin/squeeze','bin/1_mutation.py', 'bin/2_MD.py', 'bin/3_ExplorativeTrajectoryAnalysis.py', 'bin/4_centerMDTraj.py', 'bin/5_Martin_analyzer.py',
              'bin/6_GlobalMartinInteractions.py', 'bin/7_interactionFingerprint.py', 'bin/8_GlobalFinterprintAnalysis.py', 'bin/9_FreeEnergyStats.py',
-             'bin/10_InteractionSurface.py' ,'bin/Helper.py', 'bin/install_bins.sh'],
+             'bin/10_InteractionSurface.py' ,'bin/Helper.py', 'bin/install_bins.sh', 'bin/upgrade_package.sh'],
 )
