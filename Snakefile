@@ -44,7 +44,8 @@ rule proteinInteraction:
         'results/martin/interactions.parquet',
         expand('{complex}/{mutation}/{seed}/fingerprint/fingerprint.parquet', complex=complexes, mutation=mutations, seed=seeds),
         'results/fingerprints/interactions.parquet',
-        'results/interactionSurface/.checkpoint',
+        expand('results/interactionSurface/{complex}.{mutation}.interaction.pdb', complex=complexes, mutation=mutations),
+
 
 
 rule Mutagensis:
@@ -226,20 +227,19 @@ rule InteractionSurface:
         final_frame = expand('{complex}/{mutation}/{seed}/MD/topo_center.pdb', complex=complexes, mutation=mutations, seed=seeds),
         interactions= 'results/martin/interactions.parquet',
     output:
-        dir=directory('results/interactionSurface/'),
-        checkpoint='results/interactionSurface/.checkpoint',
-        #pml= expand('results/interactionSurface/{receptor}.pml',receptor=simulations_df['target']),
+        bfactor_pdbs = expand('results/interactionSurface/{complex}.{mutation}.interaction.pdb',complex=complexes, mutation=mutations),
+        pymol_cmd = expand('results/interactionSurface/{complex}.{mutation}.pml',complex=complexes, mutation=mutations),
+        pymol = report(expand('results/interactionSurface/{complex}.{mutation}.final.pse',complex=complexes,mutation=mutations),caption="RMSF.rst",category="PyMol")
     params:
         seed = seeds[0],
         mutations = list(mutations),
         complexes=list(complexes)
     shell:
         """
-        10_InteractionSurface.py --output {output.dir} \
-                                 --interactions {input.interactions} \
+        10_InteractionSurface.py --interactions {input.interactions} \
                                  --seed {params.seed} \
                                  --mutations {params.mutations} \
                                  --frames {input.final_frame} \
                                  --complexes {params.complexes}
-        touch {output.checkpoint}
+        pymol -c {output.pymol_cmd}
         """

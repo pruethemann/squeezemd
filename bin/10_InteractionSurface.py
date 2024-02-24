@@ -106,7 +106,6 @@ def parse_arguments():
     parser = argparse.ArgumentParser(description='Generate PyMOL script for BD001 mutation labeling and interaction surface calculation.')
     parser.add_argument('--interactions', required=True, help='Path to the interactions CSV file.')
     parser.add_argument('--seed', type=int, required=True, help='Seed number for selecting representative frames.')
-    parser.add_argument('--output', required=True, help='Output directory for generated files.')
     parser.add_argument('--mutations', nargs='+', required=True, help='Mutation identifiers (e.g., WT, Y117E_Y119E_Y121E).')
     parser.add_argument('--frames', nargs='+', required=False, help='Paths to frame files.')
     parser.add_argument('--receptors', nargs='+', required=False, help='List of all Receptors (e.g. C1s, MASP2, FXa')
@@ -148,9 +147,10 @@ if __name__ == '__main__':
                 data_receptor.to_csv('data_receptor.csv')
 
             # Define output paths. TODO Improve
-            interaction_pdb = os.path.join(args.output, f'{complex}.{mutation}.interaction.pdb')
-            pymol_out = os.path.join(args.output, f'{complex}.{mutation}.final.pse')
-            pymol_script = os.path.join(args.output, f'{complex}.{mutation}.pml')
+            dir = os.path.join('results', 'interactionSurface')
+            interaction_pdb = os.path.join(dir, f'{complex}.{mutation}.interaction.pdb')
+            pymol_out = os.path.join(dir, f'{complex}.{mutation}.final.pse')
+            pymol_script = os.path.join(dir, f'{complex}.{mutation}.pml')
 
             # Set the interaction intensities
             set_residue_interaction_intensity(pdb, data_ligand, data_receptor, interaction_pdb)
