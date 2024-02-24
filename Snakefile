@@ -143,6 +143,7 @@ rule InteractionAnalyzerMartin:
     input:
         topo='{complex}/{mutation}/{seed}/MD/topo_center.pdb',
         traj='{complex}/{mutation}/{seed}/MD/traj_center.dcd',
+        pdb='{complex}/{mutation}/mutation.pdb',
     output:
         frame_pdb='{complex}/{mutation}/{seed}/frames/frame_1.pdb',
         ligand_csv='{complex}/{mutation}/{seed}/frames/lig/1.csv',
@@ -157,6 +158,7 @@ rule InteractionAnalyzerMartin:
         """
         5_Martin_analyzer.py  --topo {input.topo} \
                               --traj {input.traj} \
+                              --pdb {input.pdb} \
                               --n_frames {number_frames} \
                               --final {output.final} \
                               --cpu {threads} \
@@ -170,7 +172,7 @@ rule GlobalMartinAnalysis:
     output:
         interactions = report('results/martin/interactions.parquet',caption="interaction.rst",category="Interaction Martin"),
         residueEnergy= report('results/martin/residueEnergy.svg',caption="interaction.rst",category="Interaction Martin"),
-        totalEnergy= report('results/martin/totalEnergy.svg',caption="interaction.rst",category="Interaction Martin"),
+        totalEnergy= report('results/martin/totalEnergy.svg',caption="interaction.rst",category="Interaction Martin")
     shell:
         """
         6_GlobalMartinInteractions.py  --dirs {input.dirs} \

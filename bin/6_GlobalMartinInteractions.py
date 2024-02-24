@@ -132,10 +132,14 @@ def main(args):
     data_agg = data.groupby(['protein', 'interaction', 'target' , 'lig', 'mutation', 'resid', 'seed']).mean(numeric_only=True)
     del data_agg['frame']
 
+    # TODO Extend for multiple different receptors
+    receptor = data.target.unique()[0]
+    ligand = data.lig.unique()[0]
+
     # Per residue interaction: ligand vs receptor
     for i,protein in enumerate(['ligand', 'receptor']):
         plt.subplot(2,1,i+1)
-        data_filter = data_agg.loc[(protein,'inter', 'C1s', 'BD001')]
+        data_filter = data_agg.loc[(protein,'inter', receptor, ligand)]
 
         sns.barplot(data=data_filter,
                     x='resid',

@@ -9,6 +9,20 @@ from Helper import execute, remap_MDAnalysis
 import mdtraj
 import numpy as np
 import multiprocessing
+import MDAnalysis as mda
+
+
+def extract_complex_resids(pdb_ligand: os.path, chainID:str):
+    # Import pdb file with MDAnalysis
+    u = mda.Universe(pdb_ligand)
+
+    # Extract ligand at chain I
+    protein = u.select_atoms(f'segid {chainID}')
+
+    print(protein)
+
+    # Return First resname and position
+    return (protein.residues[0].resname, protein.residues[0].resid)
 
 def interaction_analyzer(frame_pdb, ligand_csv, receptor_csv):
     """
@@ -21,12 +35,14 @@ def interaction_analyzer(frame_pdb, ligand_csv, receptor_csv):
     """
 
     # Analyze interactions of ligand to receptor
-    command = f'interaction-analyzer-csv.x {frame_pdb} ALA 1 > {ligand_csv}'
+    command = f'interaction-analyzer-csv.x {frame_pdb} {resname_lig} {resid_lig} > {ligand_csv}'
     execute(command)
 
     # Analyze interaction of receptor to ligand
-    command = f'interaction-analyzer-csv.x {frame_pdb} SER 632 > {receptor_csv}'
+    command = f'interaction-analyzer-csv.x {frame_pdb} {resname_rec} {resid_rec} > {receptor_csv}'
     execute(command)
+
+    # TODO: Error handling check if ligand_csv and receptor_csv are not empty because analysis failed
 
 
 def extract_protein_water_shell(traj, cutoff=0.5):
@@ -64,8 +80,6 @@ def extract_protein_water_shell(traj, cutoff=0.5):
 def extract_protein(frame_number:int):
     frame_id = -args.n_frames + frame_number
 
-    print(frame_number, frame_id)
-
     water_sele = extract_protein_water_shell(traj[frame_id], 0.8)
     # Save the new trajectory as a DCD file
     frame_path = os.path.join(args.dir, f'frame_{frame_number}.pdb')
@@ -91,11 +105,19 @@ if __name__ == '__main__':
     parser.add_argument('--dir', required=False, help='The working dir for the analysis', default='tmp')
     parser.add_argument('--final', required=False,help='', default='trajectory.dcd')
     parser.add_argument('--cpus', required=False, help='', default=1, type=int)
+    parser.add_argument('--pdb', required=False, help='')
 
     args = parser.parse_args()
 
     # Import Trajecotry
     traj = mdtraj.load(args.traj, top=args.topo)
+
+    (resname_lig, resid_lig) = extract_complex_resids(args.pdb, 'I')
+    (resname_rec, resid_rec) = extract_complex_resids(args.pdb, 'A')
+
+    # TODO DEBUG
+    print(resname_rec, resid_rec)
+    print(resname_lig, resid_lig)
 
     # Export the last n_frames as pdb files
     # Only the protein and 8 Angstrom around protein is exported

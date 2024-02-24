@@ -14,6 +14,21 @@ Terminology:
     # TODO extend to multiple targets
     #interactions_agg = interactions[['protein', 'target','mutation', 'resid', 'seed', 'chainID', 'energy']].groupby(['target', 'chainID', 'resid']).mean()
     #interactions_agg = interactions[['protein', 'target', 'mutation', 'resid', 'seed', 'energy']].groupby(['target', 'resid']).mean()
+
+    Data variable description:
+    Group by:
+        name: same as complex
+        protein: ligand / receptor
+        interaction: inter, intra
+        target: receptor (C1s)
+        lig: (BD001)
+        mutation: WT / Y119E
+    Take Mean:
+        frame: 1:100
+        interaction type: hydrophobic, electrostatic, ..
+    Get SD:
+        seed: Seed of MD
+
 """
 
 import pandas as pd
@@ -40,7 +55,7 @@ def create_pml_script(ligand_resids, receptor_resids, pdb, output_file, pymol_sc
     - target: Name of the target protein.
     """
     #TODO find this location
-    with open('/home/peter/tools/miniconda3/envs/squeezeMD/pymol_template.pml', 'r') as template_file:
+    with open('/home/pixelline/peter/miniconda3/envs/squeezeMD/pymol_template.pml', 'r') as template_file:
         content = template_file.read().format(input_pdb=pdb,
                                                ligand_resids=ligand_resids,
                                                receptor_resids=receptor_resids,
@@ -108,21 +123,7 @@ def parse_arguments():
 
 if __name__ == '__main__':
     args = parse_arguments()
-    """
-    Data variable description:
-    Group by:
-        name: same as complex
-        protein: ligand / receptor
-        interaction: inter, intra
-        target: receptor (C1s)
-        lig: (BD001)
-        mutation: WT / Y119E
-    Take Mean:
-        frame: 1:100
-        interaction type: hydrophobic, electrostatic, ..
-    Get SD:
-        seed: Seed of MD
-    """
+
     ENERGY_THRESHOLD = -2
     # Import interaction data
     interactions = pd.read_parquet(args.interactions)
