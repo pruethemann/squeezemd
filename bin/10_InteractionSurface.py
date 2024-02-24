@@ -77,31 +77,23 @@ def set_residue_interaction_intensity(pdb_path, ligand_resids, receptor_resids, 
     """
     # This function's implementation will depend on specific requirements for adjusting B-factors.
 
- # Import pdb
     # Import trajectory
-    #topo = app.PDBxFile(pdb_path)      # Transform cif to MDAnalysis topology
     u = mda.Universe(pdb_path)
-    #u = remap_MDAnalysis(u,topo)
-
-    print(pdb_path)
 
     # probably not necessary
     u.add_TopologyAttr('tempfactors')
 
-
+    # TODO: fix the issue that the ligand becomes chain B after export to topo_center.pdb
     for _,row in ligand_resids.iterrows():
-        selected_resid = u.select_atoms(f"resid {int(row.resid)} and segid I")
+        selected_resid = u.select_atoms(f"resid {int(row.resid)} and chainID B")
         selected_resid.tempfactors = row.energy
 
     for _,row in receptor_resids.iterrows():
-        selected_resid = u.select_atoms(f"resid {int(row.resid)} and not segid I")
+        selected_resid = u.select_atoms(f"resid {int(row.resid)} and not chainID B")
         selected_resid.tempfactors = row.energy
 
     # Save pdb of protein only
     protein = u.select_atoms("protein")
-
-    print(protein)
-
     protein.write(interaction_pdb)
 
 def parse_arguments():
@@ -128,11 +120,10 @@ if __name__ == '__main__':
     # Import interaction data
     interactions = pd.read_parquet(args.interactions)
     interactions.set_index(['interaction', 'name', 'mutation'], inplace=True)
+    # Sort index to improve performance
+    interactions.sort_index(inplace=True)
     var_names = ['protein', 'target', 'resid', 'energy']  # Relevant var names
 
-
-    print(args.seed)
-    print("SEED")
 
     for complex in args.complexes:
         for mutation in args.mutations:

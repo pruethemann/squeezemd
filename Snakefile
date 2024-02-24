@@ -223,7 +223,7 @@ rule GlobalFingerprintAnalysis:
 
 rule InteractionSurface:
     input:
-        final_frame = expand('{complex}/{mutation}/{seed}/MD/frame_end.cif', complex=complexes, mutation=mutations, seed=seeds),
+        final_frame = expand('{complex}/{mutation}/{seed}/MD/topo_center.pdb', complex=complexes, mutation=mutations, seed=seeds),
         interactions= 'results/martin/interactions.parquet',
     output:
         dir=directory('results/interactionSurface/'),
@@ -232,7 +232,6 @@ rule InteractionSurface:
     params:
         seed = seeds[0],
         mutations = list(mutations),
-        job=config.get('job'),
         complexes=list(complexes)
     shell:
         """

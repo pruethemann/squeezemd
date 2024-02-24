@@ -54,7 +54,7 @@ def extract_ligand_sequence(pdb_ligand: os.path):
     u = mda.Universe(pdb_ligand)
 
     # Extract ligand at chain I
-    ligand = u.select_atoms('segid I')
+    ligand = u.select_atoms('chainID I')
 
     # Return sequence
     return str(ligand.residues.sequence().seq)
@@ -109,21 +109,18 @@ def remap_MDAnalysis(u: mda.Universe, topo):
     :return: Mapping tables from chainIDs to original Ids
     """
 
-    chainIds = {}
+    # Currently resets the segment ID to the original chainID
     for chain_cont, chainID in zip(u.segments, topo.topology.chains()):
-        chainIds[int(chain_cont.segid)] = chainID.id
+        selected_segid = u.select_atoms(f"segid {chain_cont.segid}")
+        selected_segid.segments.segids = chainID.id
 
-    resIds = {}
     for res_cont, resid in zip(u.residues, topo.topology.residues()):
-        #print(res_cont.resid, resid.id, resid.name)
-        resIds[int(res_cont.resid)] = int(resid.id)
-
         resid_sele = u.select_atoms(f"resid {int(res_cont.resid)}")
         resid_sele.residues.resids = int(resid.id)
 
-
-
     return u
+
+
 
 def remap_amber(mapping_file, u):
     """
