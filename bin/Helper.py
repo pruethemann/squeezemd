@@ -49,6 +49,16 @@ def import_yaml(yaml_path: os.path):
         print(exc)
 
 
+def extract_ligand_sequence(pdb_ligand: os.path):
+    # Import pdb file with MDAnalysis
+    u = mda.Universe(pdb_ligand)
+
+    # Extract ligand at chain I
+    ligand = u.select_atoms('segid I')
+
+    # Return sequence
+    return str(ligand.residues.sequence().seq)
+
 def save_yaml(d, filepath):
     """
     Save a yml file

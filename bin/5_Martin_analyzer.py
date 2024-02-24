@@ -19,8 +19,6 @@ def extract_complex_resids(pdb_ligand: os.path, chainID:str):
     # Extract ligand at chain I
     protein = u.select_atoms(f'segid {chainID}')
 
-    print(protein)
-
     # Return First resname and position
     return (protein.residues[0].resname, protein.residues[0].resid)
 

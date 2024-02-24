@@ -5,7 +5,7 @@ import os
 import prolif as plf
 import MDAnalysis as mda
 import openmm.app as app
-from Helper import remap_MDAnalysis
+from Helper import remap_MDAnalysis, extract_ligand_sequence
 
 def create_interaction_fingerprint(topology_file, trajectory_file, output_file, n_frames=100, threads=4, complex_name='Target_Ligand', mutation='Wildtype', seed=-1):
     """
@@ -40,6 +40,9 @@ def create_interaction_fingerprint(topology_file, trajectory_file, output_file, 
     fingerprint = plf.Fingerprint(["Hydrophobic", "HBDonor", "HBAcceptor", "PiStacking", "PiCation", "CationPi", "Anionic", "Cationic"], count=True)
     fingerprint.run(universe.trajectory[-n_frames:], ligand, protein, n_jobs=threads)
 
+    # Extract number of residues in ligand
+    n_residues_ligand = len( str(ligand.residues.sequence().seq))
+
     # Exporting results
     interactions_df = fingerprint.to_dataframe()
     interactions_df.attrs = {
@@ -49,7 +52,10 @@ def create_interaction_fingerprint(topology_file, trajectory_file, output_file, 
         'target': complex_name.split('_')[0],
         'ligand': complex_name.split('_')[1],
         'seed': seed,
+        'n_residues_ligand': n_residues_ligand
     }
+
+
 
     interactions_df.to_parquet(output_file)
     interactions_df.to_csv(output_file.replace('.parquet', '.csv'))

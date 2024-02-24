@@ -7,7 +7,7 @@
 import argparse
 import os
 import MDAnalysis as mda
-from Helper import save_file
+from Helper import save_file, extract_ligand_sequence
 
 def parse_arguments():
     # Parse Arguments
@@ -18,15 +18,7 @@ def parse_arguments():
     return parser.parse_args()
 
 
-def extract_ligand_sequence(pdb_ligand: os.path):
-    # Import pdb file with MDAnalysis
-    u = mda.Universe(pdb_ligand)
 
-    # Extract ligand at chain I
-    ligand = u.select_atoms('segid I')
-
-    # Return sequence
-    return str(ligand.residues.sequence().seq)
 
 if __name__ == '__main__':
 

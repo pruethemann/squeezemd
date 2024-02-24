@@ -33,7 +33,6 @@ def import_data(fingerprints):
             print("Error with import from: ", fp_path)
             continue
 
-
         # Determine metrics lables
         fp['name'] = fp.attrs['complex']
         fp['target'] = fp.attrs['target']
@@ -46,6 +45,7 @@ def import_data(fingerprints):
 
     # Merge all data together
     data = pd.concat(combined_data)
+    data.attrs['n_residues'] = fp.attrs['n_residues_ligand']
     return data
 
 def data_engineering(data, n_frames):
@@ -95,7 +95,7 @@ def visualize_data(fingerprints, mutation):
     """
     sns.set(rc={'figure.figsize':(25,30)})
 
-    n_residues = 122 # TODO import from metadata
+    n_residues= fingerprints.attrs['n_residues']
 
     # Group all interactions per residue
     interaction_types = ['salt bridge', 'H bonds', 'PiStacking', 'Hydrophobic', 'Cation-Pi']
@@ -103,7 +103,6 @@ def visualize_data(fingerprints, mutation):
     data = fingerprints.reset_index().copy()
 
     data = data[data.mutation == mutation]
-    x = np.arange(1, n_residues + 1)
 
     for i,interaction_type in enumerate(interaction_types):
         # Add missing interactions to get a even distribution
@@ -152,6 +151,7 @@ if __name__ == '__main__':
 
     # Import all fingerprints data
     fingerprints = import_data(args.fingerprints)
+
 
     for mutation in fingerprints.mutation.unique():
         visualize_data(fingerprints, mutation)
