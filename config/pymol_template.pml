@@ -8,11 +8,12 @@ spectrum b, red blue grey;
 
 
 # Show sticks of interacting reisudes
-#color dblue, (resid {ligand_resids}) and chain I;
-show sticks, (resid {ligand_resids}) and chain I;
+# TODO switch back to I
+#color dblue, (resid {ligand_resids}) and chain B;
+show sticks, (resid {ligand_resids}) and chain B;
 
-#color red, (resid {receptor_resids}) and not chain I;
-show sticks, (resid {receptor_resids}) and not chain I;
+#color red, (resid {receptor_resids}) and not chain B;
+show sticks, (resid {receptor_resids}) and not chain B;
 
 # Gradient for Inhibitor
 spectrum b, red blue grey, chain I
@@ -25,3 +26,5 @@ show surface, chain B
 set transparency, 0.1, chain B
 extract ligand, chain I
 save {output};
+png {output_png};
+dele all;

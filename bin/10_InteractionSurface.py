@@ -43,7 +43,7 @@ import os
 plt.style.use('ggplot')
 sns.set_style('ticks')
 
-def create_pml_script(ligand_resids, receptor_resids, pdb, output_file, pymol_script):
+def create_pml_script(ligand_resids, receptor_resids, pdb, output_file, pymol_script, output_png):
     """
     Generates a PyMOL script from a template, substituting placeholders with actual data.
 
@@ -59,7 +59,8 @@ def create_pml_script(ligand_resids, receptor_resids, pdb, output_file, pymol_sc
         content = template_file.read().format(input_pdb=pdb,
                                                ligand_resids=ligand_resids,
                                                receptor_resids=receptor_resids,
-                                               output=output_file
+                                               output=output_file,
+                                               output_png=output_png
                                               )
     with open(pymol_script, 'w') as output_pml:
         output_pml.write(content)
@@ -151,9 +152,10 @@ if __name__ == '__main__':
             interaction_pdb = os.path.join(dir, f'{complex}.{mutation}.interaction.pdb')
             pymol_out = os.path.join(dir, f'{complex}.{mutation}.final.pse')
             pymol_script = os.path.join(dir, f'{complex}.{mutation}.pml')
+            output_png = os.path.join(dir, f'{complex}.{mutation}.png')
 
             # Set the interaction intensities
             set_residue_interaction_intensity(pdb, data_ligand, data_receptor, interaction_pdb)
 
             # create a custom pymol script to visualize the relevant interactions
-            create_pml_script(ligand_resids, receptor_resids, interaction_pdb, pymol_out, pymol_script)
+            create_pml_script(ligand_resids, receptor_resids, interaction_pdb, pymol_out, pymol_script, output_png)

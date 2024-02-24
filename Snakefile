@@ -229,7 +229,8 @@ rule InteractionSurface:
     output:
         bfactor_pdbs = expand('results/interactionSurface/{complex}.{mutation}.interaction.pdb',complex=complexes, mutation=mutations),
         pymol_cmd = expand('results/interactionSurface/{complex}.{mutation}.pml',complex=complexes, mutation=mutations),
-        pymol = report(expand('results/interactionSurface/{complex}.{mutation}.final.pse',complex=complexes,mutation=mutations),caption="RMSF.rst",category="PyMol")
+        pymol = report(expand('results/interactionSurface/{complex}.{mutation}.final.pse',complex=complexes,mutation=mutations),caption="RMSF.rst",category="PyMol"),
+        surface= report(expand('results/interactionSurface/{complex}.{mutation}.png',complex=complexes,mutation=mutations),caption="RMSF.rst",category="PyMol")
     params:
         seed = seeds[0],
         mutations = list(mutations),
@@ -241,5 +242,5 @@ rule InteractionSurface:
                                  --mutations {params.mutations} \
                                  --frames {input.final_frame} \
                                  --complexes {params.complexes}
-        pymol -c {output.pymol_cmd}
+        pymol -cQ {output.pymol_cmd}
         """
