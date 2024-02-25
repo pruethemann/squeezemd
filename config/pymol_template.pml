@@ -16,15 +16,15 @@ show sticks, (resid {ligand_resids}) and chain B;
 show sticks, (resid {receptor_resids}) and not chain B;
 
 # Gradient for Inhibitor
-spectrum b, red blue grey, chain I
+spectrum b, red blue grey, chain B
 
-# Gradient for Inhibitor
-spectrum b, red blue grey, not chain I
+# Gradient for receptor
+spectrum b, red blue grey, not chain B
 
 # ChainID depends on remap
 show surface, chain B
 set transparency, 0.1, chain B
-extract ligand, chain I
+extract ligand, chain B
 save {output};
 png {output_png};
 dele all;

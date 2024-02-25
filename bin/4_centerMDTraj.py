@@ -3,7 +3,6 @@
 import argparse
 import mdtraj
 
-
 def centerMDTraj(args):
 
     # Import Trajectory
@@ -12,7 +11,7 @@ def centerMDTraj(args):
     # TODO: this single command works in python 3.10 but not 3.11. Activate as soon bug is fixed in MDTraj
     #traj.image_molecules(inplace=False)
 
-    # Center Trajectory. Image the molecules (deal with periodic boundary conditions)
+    # Center Trajectory. Image the molecules (deal with periodic boundary conditions). This is the workaround for 3.11
     traj.make_molecules_whole()
     traj.image_molecules(make_whole=False, inplace=True)
 

@@ -46,8 +46,6 @@ rule proteinInteraction:
         'results/fingerprints/interactions.parquet',
         expand('results/interactionSurface/{complex}.{mutation}.interaction.pdb', complex=complexes, mutation=mutations),
 
-
-
 rule Mutagensis:
     input:
         'config/params.yml',
@@ -72,7 +70,6 @@ rule Mutagensis:
             mv {params.out_dir}/WT_1.pdb {output}
         fi
         """
-
 
 rule MD:
     input:
@@ -106,7 +103,6 @@ rule centerMDTraj:
     output:
         topo_center = '{complex}/{mutation}/{seed}/MD/topo_center.pdb',
         traj_center='{complex}/{mutation}/{seed}/MD/traj_center.dcd',
-
     priority:
         3
     shell:
@@ -219,8 +215,6 @@ rule GlobalFingerprintAnalysis:
                                         --interactions {output.interactions} \
                                         --n_frames {params.n_frames}
         """
-
-# TODO: Get rid of checkpoint
 
 rule InteractionSurface:
     input:
