@@ -54,14 +54,6 @@ def simulate(args, params):
         pdb (PDBFile): The PDB file object.
     """
 
-
-
-
-
-
-
-
-
     # Save final frame as topology.cif
     state = simulation.context.getState(getPositions=True, enforcePeriodicBox=system.usesPeriodicBoundaryConditions())
 

@@ -1,6 +1,7 @@
 # conda env create -f squeezeMD.yml
 # conda install -c conda-forge mamba
 # mamba env create -f squeezeMD.yml
+# micromamba create -f squeezeMD.yml
 
 # Test Cuda and OpenMM install
 # python3 -m openmm.testInstallation
@@ -11,28 +12,29 @@
 # libtinfo.so.5 missing
 # sudo apt-get install libtinfo5
 
-name: squeezemd
+name: squeeze
 
 channels:
   - conda-forge
   - bioconda                # for snakemake
+  - schrodinger
 
 dependencies:
-  - rdkit>=2023
-  - python>=8.10
-  - openmm>=8.0
-  - openmm-setup
+  - rdkit
+  - python
+  - openmm
   - ucx
-  - mdanalysis>=2.6
-  - cudatoolkit==11.4    # otherwise nvidia compatibility problems
+  - mdanalysis
+  - cudatoolkit
   - pyyaml
-  - snakemake-minimal>=7.32
+  - snakemake-minimal
   - prolif              # Interaction fingerprint
   - ambertools          # Amber tools
   - pandas
   - pyarrow
   - tables
   - mdtraj
+  - pymol-bundle
   - pip
   - pip:
         squeezemd
