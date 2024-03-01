@@ -135,9 +135,14 @@ def setup_simulation(args, params, salt_concentration=0.15):
 
         print('Adding solvent..')
         modeller.addSolvent(forcefield,
+                            boxShape='cube', # 'dodecahedron'
                             ionicStrength=salt_concentration * molar,
+                            positiveIon = 'Na+',
+                            negativeIon = 'Cl-',
                             model='tip3p',
-                            padding=1 * nanometer)
+                            neutralize=True
+                            #padding=1 * nanometer
+                            )
 
         print('Create Forcefield..')
         system = forcefield.createSystem(modeller.topology,
