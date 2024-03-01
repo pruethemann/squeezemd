@@ -12,7 +12,7 @@ from Helper import save_file, extract_ligand_sequence
 def parse_arguments():
     # Parse Arguments
     parser = argparse.ArgumentParser()
-    parser.add_argument('--ligand',required=True, help='PDB file containing the ligand at chain ID I. Required to extract ligand sequence')
+    parser.add_argument('--ligand',required=True, help='PDB file containing the ligand at chain ID A. Required to extract ligand sequence')
     parser.add_argument('--mutation',required=True, help='')
     parser.add_argument('--output', required=True, help='')
     return parser.parse_args()

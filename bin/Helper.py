@@ -53,8 +53,8 @@ def extract_ligand_sequence(pdb_ligand: os.path):
     # Import pdb file with MDAnalysis
     u = mda.Universe(pdb_ligand)
 
-    # Extract ligand at chain I
-    ligand = u.select_atoms('chainID I')
+    # Extract ligand at chain A
+    ligand = u.select_atoms('chainID A')
 
     # Return sequence
     return str(ligand.residues.sequence().seq)

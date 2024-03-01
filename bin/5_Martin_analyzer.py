@@ -16,7 +16,7 @@ def extract_complex_resids(pdb_ligand: os.path, chainID:str):
     # Import pdb file with MDAnalysis
     u = mda.Universe(pdb_ligand)
 
-    # Extract ligand at chain I
+    # Extract ligand at chain A
     protein = u.select_atoms(f'segid {chainID}')
 
     # Return First resname and position
@@ -115,12 +115,8 @@ if __name__ == '__main__':
     # Import Trajecotry
     traj = mdtraj.load(args.traj, top=args.topo)
 
-    (resname_lig, resid_lig) = extract_complex_resids(args.pdb, 'I')
-    (resname_rec, resid_rec) = extract_complex_resids(args.pdb, 'A')
-
-    # TODO DEBUG
-    print(resname_rec, resid_rec)
-    print(resname_lig, resid_lig)
+    (resname_lig, resid_lig) = extract_complex_resids(args.pdb, 'A')
+    (resname_rec, resid_rec) = extract_complex_resids(args.pdb, 'not A')
 
     # Export the last n_frames as pdb files
     # Only the protein and 8 Angstrom around protein is exported
