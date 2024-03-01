@@ -40,7 +40,12 @@ def interaction_analyzer(frame_pdb, ligand_csv, receptor_csv):
     command = f'interaction-analyzer-csv.x {frame_pdb} {resname_rec} {resid_rec} > {receptor_csv}'
     execute(command)
 
-    # TODO: Error handling check if ligand_csv and receptor_csv are not empty because analysis failed
+    # Raise error if it wasn't possible to execute posco
+    if os.stat(resid_lig).st_size == 0 or os.stat(resid_rec).st_size == 0:
+        raise Exception("ERROR: The generation of a interaction analysis failed. This can have multiple reasons: \n"
+                        "    - You have used the wrong residue to identify the ligand or receptor\n"
+                        "    - The water molecules in the pdb file have a wrong format\n"
+                        "    - It was not possible to export a pdb file for analysis")
 
 
 def extract_protein_water_shell(traj, cutoff=0.5):

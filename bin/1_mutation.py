@@ -28,9 +28,6 @@ if __name__ == '__main__':
     ligand_WT_sequence = extract_ligand_sequence(args.ligand)
     ligand_WT_sequence_original = ligand_WT_sequence
 
-    #TODO DEBUG
-    print(ligand_WT_sequence)
-
     # Get all mutations which are separated by underscore
     mutations = args.mutation.split('_')
 
