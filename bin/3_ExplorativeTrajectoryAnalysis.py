@@ -13,7 +13,7 @@ import seaborn as sns
 import pandas as pd
 import matplotlib.pyplot as plt
 import MDAnalysis as mda
-from MDAnalysis.analysis import rms, align
+from MDAnalysis.analysis import rms
 from Helper import remap_MDAnalysis
 import openmm.app as app
 
@@ -69,7 +69,8 @@ def calculate_RMSF(u: mda.Universe, args):
     :return:
     """
 
-    chains = {'ligand': 'I',
+    # CHAINIDENTIFICAITON
+    chains = {'ligand': 'A',
               'receptor': 'B'}
 
 
@@ -116,7 +117,8 @@ def calculate_RMSD(u: mda.Universe, args):
     """
 
     print("Init RMSD analysis")
-    ligand = u.select_atoms('chainID I') # "backbone and chainID I"
+    # CHAINIDENTIFICAITON
+    ligand = u.select_atoms('chainID A') # "backbone and chainID I"
     receptor = u.select_atoms('chainID B')  # "backbone and chainID B"
 
     # 3. Compute RMSD for receptor and ligand

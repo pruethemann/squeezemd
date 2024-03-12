@@ -1,5 +1,5 @@
 =========
-squeezeMD
+squeezeMD - A Comprehensive Molecular Dynamics Analysis Workflow
 =========
 
 
@@ -14,44 +14,47 @@ squeezeMD
         :alt: Documentation Status
 
 
-
-
-Molecular Dynamics pipeline
-
-
 * Free software: GNU General Public License v3
 * Documentation: https://squeezemd.readthedocs.io.
 
 
-Features
+Summary
 --------
+This workflow provides an integrated solution for conducting comprehensive molecular dynamics (MD) analysis. It encompasses a range of functionalities from mutation analysis, MD simulations, explorative trajectory analysis, to interaction fingerprinting and global interaction analysis. Designed to streamline the process of analyzing complex molecular dynamics simulations, this workflow offers tools for detailed examination of molecular interactions, stability, and conformational changes.
 
-* TODO
+Detailed Summary
+Snakefile: Serves as the backbone of the workflow, orchestrating the execution of various analysis scripts. It ensures that the analysis pipeline is executed efficiently and in the correct order, managing dependencies between different analysis steps.
 
-- Adjust MD according to ChatGPT
-- Add mutations to Surface by introducting single parameters and derive location of last_frame. Do proper error handling
+Mutagensis
+~~~~~~~~~~
+This script performs mutation analysis, identifying and characterizing the effects of mutations on the structure and function of molecules. It is essential for understanding the impact of specific amino acid changes on protein stability and activity.
 
-Installation
-----
+MD
+~~~~~~~~~~
+Conducts molecular dynamics simulations, providing insights into the physical movements and conformational changes of molecules over time. This script is crucial for exploring the dynamic nature of molecular systems.
 
-1. Download this github repository:
- > git clone ..
-2. Install the squeezemd by executing
-> `cd sequeezeMD \
-conda env create -f squeezeMD.yml`
-or use mamba
-`conda install -c conda-forge mamba`
-`mamba env create -f squeezeMD.yml`
+Explorative Trajectory Analysis
+~~~~~~~~~~
+Offers tools for in-depth trajectory analysis, enabling the identification of key molecular events and interactions throughout the simulation. It aids in uncovering the mechanisms driving molecular behavior.
 
-1. Download this GitHub repository:
-```git clone ..```
+Centering Trajectorys
+~~~~~~~~~~
 
-2. Install the squeezeMD by executing
-```
-cd squeezeMD \
-conda env create -f squeezeMD.yml
-```
+Centers and aligns molecular dynamics trajectories, facilitating the comparison and analysis of simulation results. This preprocessing step is vital for accurate analysis of molecular motions.
 
+Interaction Analysis
+~~~~~~~~~~
+A specialized tool for analyzing molecular interactions, focusing on the contributions of individual atoms and residues to the overall interaction network within the molecule.
+Expands on the analysis of molecular interactions by examining global interaction patterns, providing a comprehensive view of the interaction landscape within the molecular system.
+
+Interaction Fingerprints
+~~~~~~~~~~
+Generates interaction fingerprints, summarizing the interaction patterns between molecules in a compact, easily interpretable format. This tool is useful for comparing molecular interactions across different simulations or conditions.
+Offers advanced analysis of interaction fingerprints, facilitating the comparison of global interaction patterns across multiple simulations. It aids in identifying consistent or aberrant interaction motifs.
+
+Interaction Surface
+~~~~~~~~~~
+Focuses on the analysis of interaction surfaces, characterizing the areas of molecules involved in binding or interaction with other molecules. This script is essential for understanding the molecular basis of recognition and binding processes.
 
 Demo workflow
 ----
@@ -92,3 +95,15 @@ This package was created with Cookiecutter_ and the `audreyr/cookiecutter-pypack
 .. _Cookiecutter: https://github.com/audreyr/cookiecutter
 .. _`audreyr/cookiecutter-pypackage`: https://github.com/audreyr/cookiecutter-pypackage
 
+TODO
+--------
+
+- Adjust MD according to ChatGPT
+- Add mutations to Surface by introducting single parameters and derive location of last_frame. Do proper error handling
+- Use jinja2 for template preparation
+- Use pepfiles for simulation information
+
+CHEATSHEET
+------
+Code version for execution
+> snakemake -R `snakemake --list-code-changes`

@@ -33,8 +33,9 @@ def create_interaction_fingerprint(topology_file, trajectory_file, output_file, 
     universe = remap_MDAnalysis(universe, topo)
 
     # Selecting ligand and protein
-    ligand = universe.select_atoms("chainID I")
-    protein = universe.select_atoms("chainID A or chainID B")
+    # CHAINIDENTIFICAITON
+    ligand = universe.select_atoms("chainID A")
+    protein = universe.select_atoms("chainID B")
 
     # Initialize interaction fingerprint analysis
     fingerprint = plf.Fingerprint(["Hydrophobic", "HBDonor", "HBAcceptor", "PiStacking", "PiCation", "CationPi", "Anionic", "Cationic"], count=True)

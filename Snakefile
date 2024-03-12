@@ -138,13 +138,14 @@ rule DescriptiveTrajAnalysis:
 
 rule InteractionAnalyzerMartin:
     input:
-        topo='{complex}/{mutation}/{seed}/MD/topo_center.pdb',
+        topo = '{complex}/{mutation}/{seed}/MD/frame_end.cif',
+        #topo='{complex}/{mutation}/{seed}/MD/topo_center.pdb',
         traj='{complex}/{mutation}/{seed}/MD/traj_center.dcd',
         pdb='{complex}/{mutation}/mutation.pdb',
     output:
         frame_pdb='{complex}/{mutation}/{seed}/frames/frame_1.pdb',
-        ligand_csv='{complex}/{mutation}/{seed}/frames/lig/1.csv',
-        receptor_csv='{complex}/{mutation}/{seed}/frames/rec/1.csv',
+        ligand_csv=ensure('{complex}/{mutation}/{seed}/frames/lig/1.csv', non_empty=True),
+        receptor_csv=ensure('{complex}/{mutation}/{seed}/frames/rec/1.csv', non_empty=True),
         dir=directory('{complex}/{mutation}/{seed}/frames/'),
         final='{complex}/{mutation}/{seed}/MD/final.pdb',
         checkpoint='{complex}/{mutation}/{seed}/frames/.done'
@@ -238,3 +239,8 @@ rule InteractionSurface:
                                  --complexes {params.complexes}
         pymol -cQ {output.pymol_cmd}
         """
+
+
+onsuccess:
+    print("Workflow finished, no error. Report will be generated")
+    shell("sqeeze --report report.html")

@@ -78,8 +78,8 @@ def calculate_distances(args):
         seed = topo.split("/")[-4]
         sim = topo.split("/")[-5]
 
-        trp = "resid 17 and name CA and chainID I"
-        arg = "resid 65 and name CZ and chainID I"
+        trp = "resid 17 and name CA and chainID A"
+        arg = "resid 65 and name CZ and chainID A"
 
         # TODO extract from external list
         if "C1s" in sim:

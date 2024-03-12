@@ -140,8 +140,8 @@ def setup_simulation(args, params, salt_concentration=0.15):
                             positiveIon = 'Na+',
                             negativeIon = 'Cl-',
                             model='tip3p',
-                            neutralize=True
-                            #padding=1 * nanometer
+                            neutralize=True,
+                            padding=1 * nanometer
                             )
 
         print('Create Forcefield..')
@@ -208,7 +208,8 @@ def run_simulation(params, args, simulation):
         print(f"Error during simulation: {e}", file=sys.stderr)
 
     # Save final frame as topology.cif
-    state = simulation.context.getState(getPositions=True, enforcePeriodicBox=True) # TODO system.usesPeriodicBoundaryConditions()
+    state = simulation.context.getState(getPositions=True, enforcePeriodicBox=True)
+
     with open(args.topo, mode="w") as file:
         PDBxFile.writeFile(simulation.topology,
                            state.getPositions(),

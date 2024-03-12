@@ -41,11 +41,13 @@ def interaction_analyzer(frame_pdb, ligand_csv, receptor_csv):
     execute(command)
 
     # Raise error if it wasn't possible to execute posco
+    """
     if os.stat(resid_lig).st_size == 0 or os.stat(resid_rec).st_size == 0:
         raise Exception("ERROR: The generation of a interaction analysis failed. This can have multiple reasons: \n"
                         "    - You have used the wrong residue to identify the ligand or receptor\n"
                         "    - The water molecules in the pdb file have a wrong format\n"
                         "    - It was not possible to export a pdb file for analysis")
+    """
 
 
 def extract_protein_water_shell(traj, cutoff=0.5):
@@ -115,8 +117,9 @@ if __name__ == '__main__':
     # Import Trajecotry
     traj = mdtraj.load(args.traj, top=args.topo)
 
+    # CHAINIDENTIFICAITON
     (resname_lig, resid_lig) = extract_complex_resids(args.pdb, 'A')
-    (resname_rec, resid_rec) = extract_complex_resids(args.pdb, 'not A')
+    (resname_rec, resid_rec) = extract_complex_resids(args.pdb, 'B')
 
     # Export the last n_frames as pdb files
     # Only the protein and 8 Angstrom around protein is exported

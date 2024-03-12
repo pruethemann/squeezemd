@@ -84,13 +84,13 @@ def set_residue_interaction_intensity(pdb_path, ligand_resids, receptor_resids, 
     # probably not necessary
     u.add_TopologyAttr('tempfactors')
 
-    # TODO: fix the issue that the ligand becomes chain B after export to topo_center.pdb
+
     for _,row in ligand_resids.iterrows():
-        selected_resid = u.select_atoms(f"resid {int(row.resid)} and chainID B")
+        selected_resid = u.select_atoms(f"resid {int(row.resid)} and chainID A")
         selected_resid.tempfactors = row.energy
 
     for _,row in receptor_resids.iterrows():
-        selected_resid = u.select_atoms(f"resid {int(row.resid)} and not chainID B")
+        selected_resid = u.select_atoms(f"resid {int(row.resid)} and not chainID A")
         selected_resid.tempfactors = row.energy
 
     # Save pdb of protein only
