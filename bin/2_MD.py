@@ -124,7 +124,9 @@ def setup_simulation(args, params, salt_concentration=0.15):
     # Setup simulation box, water model, and salt concentration here
     try:
         # Import pdb file. Prepared and checked for amber import
+        print(args.pdb)
         pdb = app.PDBFile(args.pdb)
+        print(pdb)
 
         # Define Amber 14 force field
         modeller = app.Modeller(pdb.topology, pdb.positions)

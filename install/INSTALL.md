@@ -12,7 +12,7 @@ everything. This allows a clean and fast install
 
 1. This install micromamba on Linux 64 in the folder bin
 > curl -Ls https://micro.mamba.pm/api/micromamba/linux-64/latest | tar -xvj bin/micromamba \
-> ./bin/micromamba shell init -s bash -p ~/micromamba \
+> ./bin/micromamba shell init -s bash -p ~/tools/micromamba \
 > source ~/.bashrc
 2. Execute the following command the root of this github folder
 > micromamba create -f squeeze_env.yml

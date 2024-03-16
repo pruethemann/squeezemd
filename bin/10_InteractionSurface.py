@@ -54,8 +54,15 @@ def create_pml_script(ligand_resids, receptor_resids, pdb, output_file, pymol_sc
     - output_file: Path where the generated PyMOL script will be saved.
     - target: Name of the target protein.
     """
-    #TODO find this location
-    with open('/home/pixelline/peter/miniconda3/envs/squeezeMD/pymol_template.pml', 'r') as template_file:
+
+    # Check if the script is running in a Conda environment and extract path to pymol_template in env
+    if 'CONDA_PREFIX' in os.environ:
+        conda_env = os.environ['CONDA_PREFIX']
+        pymol_template = os.path.join(conda_env, 'pymol_template.pml')
+    else:
+        raise Exception("This script is not running in a Conda environment.")
+
+    with open(pymol_template, 'r') as template_file:
         content = template_file.read().format(input_pdb=pdb,
                                                ligand_resids=ligand_resids,
                                                receptor_resids=receptor_resids,
