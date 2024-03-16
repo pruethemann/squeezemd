@@ -3,7 +3,14 @@
 # SqueezeMD specific wrapper around snakemake. Allows to execute squeezeMD in every folder
 # without defining the location of the squeezeMD Snakefile required for the pipeline
 
-# Find Snakefile from active environment
-CONDA_BASE_PATH=$CONDA_PREFIX
-
-snakemake -s $CONDA_BASE_PATH/Snakefile "$@"
+# Check whether the package requires an upgrade
+if [ "$1" == "upgrade" ]; then
+    # Execute the bash script "upgrade_package.sh" to install the current python package
+    # only works for Linux notebook
+    upgrade_package.sh
+else
+    # Execute snakemake with all provided arguments
+    # Find Snakefile from active environment
+    CONDA_BASE_PATH=$CONDA_PREFIX
+    snakemake -s $CONDA_BASE_PATH/Snakefile "$@"
+fi
