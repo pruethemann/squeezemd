@@ -181,7 +181,7 @@ rule GlobalMartinAnalysis:
 
 rule interactionFingerprint:
     input:
-        topo = '{complex}/{mutation}/{seed}/MD/frame_end.cif',
+        topo='{complex}/{mutation}/{seed}/MD/frame_end.cif',
         traj='{complex}/{mutation}/{seed}/MD/traj_center.dcd',
     output:
         '{complex}/{mutation}/{seed}/fingerprint/fingerprint.parquet',
@@ -243,4 +243,4 @@ rule InteractionSurface:
 
 onsuccess:
     print("Workflow finished, no error. Report will be generated")
-    shell("sqeeze --report report.html")
+    shell("squeeze --report report.html")

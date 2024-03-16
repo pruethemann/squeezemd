@@ -61,7 +61,12 @@ Demo workflow
 
 1. The workflow can be tested by performing the following commands:
 ```bash
+cd demo
+# Perform a dry run
 squeeze --resources gpu=1 -j4 -n
+
+# Perform the demo production run
+squeeze --resources gpu=1 -j4
 ```
 2. If this works run the pipeline
 ```
@@ -84,6 +89,13 @@ python3 setup.py sdist && pip3 install --upgrade .
 twine upload --verbose dist/squeezemd-0.1.5.tar.gz
 username: __token__
 pw: pyPi token
+```
+
+Sync results / data
+```
+rsync -avz --include '*/' --include '/pdb/***' --include '/config/***' --exclude '*' peter@gpu:/home/peter/MD/6_BD001-K10-Q9
+rsync -avz --include '/pdb/***' --include '/config/***' peter@gpu:/home/peter/MD/6_BD001-K10-Q9 .
+rsync -avz  peter@gpu:/home/peter/MD/6_BD001-K10-Q9/config .
 ```
 
 

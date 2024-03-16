@@ -113,8 +113,8 @@ def setup_simulation(args, params, salt_concentration=0.15):
 
     # Save parameters to simulation folder
     # TODO: combine args and md_settings
-    save_yaml(args, args.params)
-    save_yaml(params, args.params + 'V2.yaml')
+    #save_yaml(args, args.params)
+    save_yaml(params, args.params)
 
     # Define integrator
     integrator = LangevinMiddleIntegrator(args.temperature, friction, dt)
@@ -124,9 +124,7 @@ def setup_simulation(args, params, salt_concentration=0.15):
     # Setup simulation box, water model, and salt concentration here
     try:
         # Import pdb file. Prepared and checked for amber import
-        print(args.pdb)
         pdb = app.PDBFile(args.pdb)
-        print(pdb)
 
         # Define Amber 14 force field
         modeller = app.Modeller(pdb.topology, pdb.positions)
