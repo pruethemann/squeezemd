@@ -69,7 +69,7 @@ def parse_arguments():
     # Input files
     parser.add_argument('--pdb', required=False, help='Amber and Tleap prepated pdb file from complex or single protein')
     parser.add_argument('--md_settings', required=False, help='Configuration file with all required parameters (params.yml')
-    parser.add_argument('--seed', required=False, help='Seed for inital velocities', default=23, type=int)
+    parser.add_argument('--seed', required=False, help='Seed for inital velocities', type=int)
     # Output
     parser.add_argument('--topo', required=False, help='Cif file of last frame')
     parser.add_argument('--traj', required=False, help='Trajectory file')

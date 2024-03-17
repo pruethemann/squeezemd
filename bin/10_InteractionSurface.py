@@ -114,14 +114,16 @@ def parse_arguments():
     parser = argparse.ArgumentParser(description='Generate PyMOL script for BD001 mutation labeling and interaction surface calculation.')
     parser.add_argument('--interactions', required=True, help='Path to the interactions CSV file.')
     parser.add_argument('--seed', type=int, required=True, help='Seed number for selecting representative frames.')
-    parser.add_argument('--mutations', nargs='+', required=True, help='Mutation identifiers (e.g., WT, Y117E_Y119E_Y121E).')
+    parser.add_argument('--mutation', required=True, help='Mutation identifiers (e.g., WT, Y117E_Y119E_Y121E).')
     parser.add_argument('--frames', nargs='+', required=False, help='Paths to frame files.')
-    parser.add_argument('--receptors', nargs='+', required=False, help='List of all Receptors (e.g. C1s, MASP2, FXa')
-    parser.add_argument('--complexes', nargs='+', required=True, help='')
+    parser.add_argument('--receptors', required=False, help='List of all Receptors (e.g. C1s, MASP2, FXa') # TODO: will be used for the future
+    parser.add_argument('--complex', required=True, help='')
     return parser.parse_args()
 
 if __name__ == '__main__':
     args = parse_arguments()
+
+    print(args.seed)
 
     ENERGY_THRESHOLD = -2
     # Import interaction data
@@ -131,38 +133,37 @@ if __name__ == '__main__':
     interactions.sort_index(inplace=True)
     var_names = ['protein', 'target', 'resid', 'energy']  # Relevant var names
 
+    (mutation, complex) = (args.mutation, args.complex)
 
-    for complex in args.complexes:
-        for mutation in args.mutations:
-            pdb = os.path.join(complex, mutation, str(args.seed), 'MD', 'topo_center.pdb')
+    pdb = os.path.join(complex, mutation, str(args.seed), 'MD', 'topo_center.pdb')
 
-            interactions_filtered = interactions.loc[('inter',complex, mutation)]
+    interactions_filtered = interactions.loc[('inter',complex, mutation)]
 
-            # Aggregate data for the particular target and residue
-            interactions_agg = interactions_filtered.groupby(['protein', 'name', 'mutation', 'resid']).mean(numeric_only=True)
+    # Aggregate data for the particular target and residue
+    interactions_agg = interactions_filtered.groupby(['protein', 'name', 'mutation', 'resid']).mean(numeric_only=True)
 
-            # Extract ligand and receptor interaction data
-            data_ligand = interactions_agg.loc[('ligand',complex)].reset_index()
-            data_receptor = interactions_agg.loc[('receptor', complex)].reset_index()
+    # Extract ligand and receptor interaction data
+    data_ligand = interactions_agg.loc[('ligand',complex)].reset_index()
+    data_receptor = interactions_agg.loc[('receptor', complex)].reset_index()
 
-            # Get all receptor/ligand residues with an interaction energy smaller than -2 and join as string
-            ligand_resids = ','.join(map(str, data_ligand[data_ligand.energy < ENERGY_THRESHOLD]['resid']))
-            receptor_resids = ','.join(map(str, data_receptor[data_receptor.energy < ENERGY_THRESHOLD]['resid']))
+    # Get all receptor/ligand residues with an interaction energy smaller than -2 and join as string
+    ligand_resids = ','.join(map(str, data_ligand[data_ligand.energy < ENERGY_THRESHOLD]['resid']))
+    receptor_resids = ','.join(map(str, data_receptor[data_receptor.energy < ENERGY_THRESHOLD]['resid']))
 
-            DEBUG = True
-            if DEBUG:
-                data_ligand.to_csv('data_ligand.csv')
-                data_receptor.to_csv('data_receptor.csv')
+    DEBUG = False
+    if DEBUG:
+        data_ligand.to_csv('data_ligand.csv')
+        data_receptor.to_csv('data_receptor.csv')
 
-            # Define output paths. TODO Improve
-            dir = os.path.join('results', 'interactionSurface')
-            interaction_pdb = os.path.join(dir, f'{complex}.{mutation}.interaction.pdb')
-            pymol_out = os.path.join(dir, f'{complex}.{mutation}.final.pse')
-            pymol_script = os.path.join(dir, f'{complex}.{mutation}.pml')
-            output_png = os.path.join(dir, f'{complex}.{mutation}.png')
+    # Define output paths. TODO Improve
+    dir = os.path.join('results', 'interactionSurface')
+    interaction_pdb = os.path.join(dir, f'{complex}.{mutation}.interaction.pdb')
+    pymol_out = os.path.join(dir, f'{complex}.{mutation}.final.pse')
+    pymol_script = os.path.join(dir, f'{complex}.{mutation}.pml')
+    output_png = os.path.join(dir, f'{complex}.{mutation}.png')
 
-            # Set the interaction intensities
-            set_residue_interaction_intensity(pdb, data_ligand, data_receptor, interaction_pdb)
+    # Set the interaction intensities
+    set_residue_interaction_intensity(pdb, data_ligand, data_receptor, interaction_pdb)
 
-            # create a custom pymol script to visualize the relevant interactions
-            create_pml_script(ligand_resids, receptor_resids, interaction_pdb, pymol_out, pymol_script, output_png)
+    # create a custom pymol script to visualize the relevant interactions
+    create_pml_script(ligand_resids, receptor_resids, interaction_pdb, pymol_out, pymol_script, output_png)

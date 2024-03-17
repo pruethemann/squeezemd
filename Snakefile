@@ -20,6 +20,7 @@ replicates = config.get("replicates", 1)  # Default to 1 if not set
 # ==================================
 np.random.seed(23)  # Ensure reproducibility
 seeds = np.random.randint(100, 1000, size=replicates)
+representative_seed = seeds[0] # First seeds is used as representation for surface interaction analysis
 
 # ==================================
 # Simulation Data Preprocessing
@@ -42,9 +43,8 @@ rule proteinInteraction:
         expand('results/interactionSurface/{complex}.{mutation}.interaction.pdb', complex=complexes, mutation=mutations),
         expand('{complex}/{mutation}/{seed}/fingerprint/fingerprint.parquet',complex=complexes,mutation=mutations,seed=seeds),
         expand('{complex}/{mutation}/mutation.pdb', complex=complexes, mutation=mutations),
-        #expand('{complex}/{mutation}/{seed}/MD/traj_center.dcd', complex=complexes, mutation=mutations, seed=seeds),
+        expand('{complex}/{mutation}/{seed}/MD/trajectory.h5', complex=complexes, mutation=mutations, seed=seeds),
         expand('{complex}/{mutation}/{seed}/analysis/RMSF.svg', complex=complexes, mutation=mutations, seed=seeds),
-        #expand('{complex}/{mutation}/{seed}/frames/lig/1.csv', complex=complexes, mutation=mutations, seed=seeds),
 
 rule protein:
     input:
@@ -184,24 +184,22 @@ rule GlobalMartinAnalysis:
 
 rule InteractionSurface:
     input:
-        final_frame = expand('{complex}/{mutation}/{seed}/MD/topo_center.pdb', complex=complexes, mutation=mutations, seed=seeds),
+        final_frame = f'{{complex}}/{{mutation}}/{representative_seed}/MD/topo_center.pdb',
         interactions= 'results/martin/interactions.parquet',
     output:
-        bfactor_pdbs = expand('results/interactionSurface/{complex}.{mutation}.interaction.pdb',complex=complexes, mutation=mutations),
-        pymol_cmd = expand('results/interactionSurface/{complex}.{mutation}.pml',complex=complexes, mutation=mutations),
-        pymol = report(expand('results/interactionSurface/{complex}.{mutation}.final.pse',complex=complexes,mutation=mutations),caption="RMSF.rst",category="PyMol",labels=({"Complex": "NA", "Mutation": "NA", "Type": "PyMol"})),
-        surface= report(expand('results/interactionSurface/{complex}.{mutation}.png',complex=complexes,mutation=mutations),caption="RMSF.rst",category="PyMol")
+        bfactor_pdbs = 'results/interactionSurface/{complex}.{mutation}.interaction.pdb',
+        pymol_cmd = 'results/interactionSurface/{complex}.{mutation}.pml',
+        pymol = report('results/interactionSurface/{complex}.{mutation}.final.pse',caption="RMSF.rst",category="PyMol",labels=({"Complex": "{complex}", "Mutation": "{mutation}", "Type": "PyMol"})),
+        surface= report('results/interactionSurface/{complex}.{mutation}.png',caption="RMSF.rst",category="PyMol", labels=({"Complex": "{complex}", "Mutation": "{mutation}", "Type": "Image"}))
     params:
-        seed = seeds[0],
-        mutations = list(mutations),
-        complexes=list(complexes)
+        representative_seed = seeds[0],
     shell:
         """
         10_InteractionSurface.py --interactions {input.interactions} \
-                                 --seed {params.seed} \
-                                 --mutations {params.mutations} \
+                                 --seed {params.representative_seed} \
+                                 --mutation {wildcards.mutation} \
                                  --frames {input.final_frame} \
-                                 --complexes {params.complexes}
+                                 --complex {wildcards.complex}
         pymol -cQ {output.pymol_cmd}
         """
 
@@ -214,9 +212,6 @@ rule interactionFingerprint:
         report('{complex}/{mutation}/{seed}/fingerprint/fingerprint.parquet', labels=({"Name": "Interaction Analysis Prolif", "Type": "List"}),caption="RMSF.rst",category="Interaction Fingerprint")
     params:
         number_frames = config.get('number_frames'),
-        complex = lambda wildcards: wildcards.complex,
-        mutation = lambda wildcards: wildcards.mutation,
-        seed = lambda wildcards: wildcards.seed
     threads: 4
     shell:
         """
@@ -225,9 +220,9 @@ rule interactionFingerprint:
                                     --output {output} \
                                     --n_frames {params.number_frames} \
                                     --threads {threads} \
-                                    --complex {params.complex} \
-                                    --mutation {params.mutation} \
-                                    --seed {params.seed}
+                                    --complex {wildcards.complex} \
+                                    --mutation {wildcards.mutation} \
+                                    --seed {wildcards.seed}
         """
 
 rule GlobalFingerprintAnalysis:
@@ -243,8 +238,6 @@ rule GlobalFingerprintAnalysis:
                                         --interactions {output.interactions} \
                                         --n_frames {params.n_frames}
         """
-
-
 
 onsuccess:
     print("Workflow finished, no error. Report will be generated")
