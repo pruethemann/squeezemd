@@ -1,3 +1,4 @@
+import sys
 import numpy as np
 import pandas as pd
 from os import path
@@ -240,5 +241,11 @@ rule GlobalFingerprintAnalysis:
         """
 
 onsuccess:
-    print("Workflow finished, no error. Report will be generated")
-    shell("squeeze --report report.html")
+    # If only single protein has been analyzed
+    if 'protein' in sys.argv:
+        print("Workflow finished, no error. Report for single protein will be generated")
+        shell("squeeze protein --report report.html")
+        print("YES")
+    else:
+        print("Workflow finished, no error. Report for protein-protein Interaciton will be generated")
+        shell("squeeze --report report.html")
