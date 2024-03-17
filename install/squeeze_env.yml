@@ -30,6 +30,7 @@ dependencies:
   - pyarrow
   - mdtraj
   - pymol-bundle
+  - pygments
   - pip
   - pip:
         - tables

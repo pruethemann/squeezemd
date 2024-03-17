@@ -40,7 +40,7 @@ setup(
     license="GNU General Public License v3",
 
     include_package_data=True,
-    data_files=[('', ['Snakefile', 'config/pymol_template.pml', 'config/RMSD.rst', 'config/RMSF.rst', 'config/interaction.rst', 'config/pymol_template.pml'])],
+    data_files=[('', ['Snakefile', 'config/pymol_template.pml', 'config/RMSD.rst', 'config/RMSF.rst', 'config/interaction.rst', 'config/posco.rst','config/pymol_template.pml'])],
     keywords='squeezemd',
     name='squeezemd',
     packages=find_packages(include=['squeezemd', 'squeezemd.*']),
