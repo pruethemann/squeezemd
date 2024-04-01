@@ -4,10 +4,16 @@
 # without defining the location of the squeezeMD Snakefile required for the pipeline
 
 # Check whether the package requires an upgrade
-if [ "$1" == "upgrade" ]; then
+if [ "$1" == "upgrade" ];
+then
     # Execute the bash script "upgrade_package.sh" to install the current python package
     # only works for Linux notebook
     upgrade_package.sh
+
+elif [ "$1" == "clean" ];
+then
+    #find . -mindepth 1 ! \( -name 'config' -o -name 'pdb' \) -exec rm -rf {} +
+    echo "do nothing"
 else
     # Execute snakemake with all provided arguments
     # Find Snakefile from active environment

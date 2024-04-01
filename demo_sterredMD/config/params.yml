@@ -1,0 +1,34 @@
+replicates: 1
+number_frames: 100
+
+## MD parameters
+dt: 0.004               # Simulation time steps in ps. 2 fs is ok if HBonds are constrained.
+time: 0.004              # Simulation time in ns
+steps:                  # Total number of steps
+temperature: 310        # Simulation Temperature in K
+pressure: 1             # Pressure in ATM
+equilibrationSteps: 5
+barostatInterval: 25
+
+# No Constraints: # Recommended dt = 0.5 fs
+#constraints: None
+#rigidWater: False
+
+# Constraints 1: Fixed length of bonds containing hydrogen # Recommended dt = 2 fs (Verlet) 4 fs (Langevin)
+constraints: HBonds
+rigidWater: True
+
+# Constraint 2: Only water molecules are constrained
+#constraints: None
+#rigidWater: True
+
+# Contraint 3: Every bond is constrainted (rigid) TODO fails
+#constraints: AllBonds
+#rigidWater: True
+
+## Additional parameters
+nonbondedCutoff: 1.0          # long-range electrostatic interactions cutoff in nm
+ewaldErrorTolerance: 0.0005   # Ewald Error tolerance. PBC are applied with Particle Mesh Ewald
+
+# Recording
+recordingInterval: 0.004        # recording interval in ps

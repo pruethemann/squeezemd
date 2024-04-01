@@ -17,6 +17,7 @@ channels:
   - conda-forge
   - bioconda                # for snakemake
   - schrodinger
+  - defaults
 
 dependencies:
   - python

@@ -22,6 +22,7 @@ from openmm.unit import *
 from Helper import import_yaml, save_yaml
 import warnings
 from openmm import app
+import MDAnalysis as mda
 # suppress some MDAnalysis warnings when writing PDB files
 warnings.filterwarnings('ignore')
 import mdtraj
@@ -66,6 +67,19 @@ def simulate(args, params):
                            file,
                            keepIds=True)
 
+
+
+def get_ligand_atomids(chainID:str, pdb:os.path):
+    # Load the PDB file
+    u = mda.Universe(pdb)
+    # Select atoms in chain A
+    # f'chainID {chainID} and resid 122'
+    chain_a = u.select_atoms('name Na') # TODO REVERT: f'chainID {chainID} and resid 122'
+    # Save the atom ids in a list
+    atom_ids_chain = [atom.id for atom in chain_a.atoms]
+    # Print the list of atom ids
+    return atom_ids_chain
+
 def parse_arguments():
     """Parse command line arguments."""
     parser = argparse.ArgumentParser(description='Run Molecular Dynamics simulations.')
@@ -81,7 +95,7 @@ def parse_arguments():
     parser.add_argument('--params', required=False, help='MD parameter file saved for every MD')
     return parser.parse_args()
 
-def setup_simulation(args, params, salt_concentration=0.15):
+def setup_simulation(args, params, salt_concentration=0):  #TODO REVERT to 0.15
     """
     Setup the molecular dynamics simulation environment.
     """
@@ -94,7 +108,6 @@ def setup_simulation(args, params, salt_concentration=0.15):
     hydrogenMass = 1.5 * amu
     args.T = 310
     args.temperature = args.T * kelvin          # Simulation temperature
-
 
     # Time parameter
     args.steps = int(params['time'] * 1000 / params['dt'])
@@ -136,9 +149,8 @@ def setup_simulation(args, params, salt_concentration=0.15):
         print('Adding hydrogens..')
         modeller.addHydrogens(forcefield)
 
-        print("SALT ", salt_concentration)
-
         print('Adding solvent..')
+
         modeller.addSolvent(forcefield,
                             boxShape='cube', # 'dodecahedron'
                             ionicStrength=salt_concentration * molar,
@@ -146,7 +158,7 @@ def setup_simulation(args, params, salt_concentration=0.15):
                             negativeIon = 'Cl-',
                             model='tip3p',
                             neutralize=True,
-                            padding=1 * nanometer
+                            padding=10 * nanometer     # todo revert
                             )
 
         print('Create Forcefield..')
@@ -158,6 +170,31 @@ def setup_simulation(args, params, salt_concentration=0.15):
                                          ewaldErrorTolerance=ewaldErrorTolerance,
                                          hydrogenMass=hydrogenMass
                                          )
+
+        # Implement force which pulls on ligand (chain A)
+
+        # 1. Get the ligand atoms ids in a list
+
+        force_expression = '0.5 * k * ((x-x0)^2 + (y-y0)^2 + (z-z0)^2)'
+        pulling_force = CustomExternalForce(force_expression)
+
+        (x0,y0,z0) = (0,0,0)
+
+        # Reference https://sci-hub.se/https://doi.org/10.1111/cbdd.13485
+        pulling_force.addGlobalParameter('k', 20 * kilocalories_per_mole / angstroms ** 2)  # Spring constant
+        pulling_force.addGlobalParameter('x0', x0 * nanometers)
+        pulling_force.addGlobalParameter('y0', y0 * nanometers)
+        pulling_force.addGlobalParameter('z0', z0 * nanometers)
+
+        ligand_atoms = get_ligand_atomids(pdb=args.pdb, chainID='A')
+        print("ligands")
+        ligand_atoms = [1]
+        print(ligand_atoms)
+
+        for atom_index in ligand_atoms:
+            pulling_force.addParticle(atom_index, [])
+
+        system.addForce(pulling_force)
 
         print('Add MonteCarloBarostat')
         system.addForce(MonteCarloBarostat(pressure, args.temperature, barostatInterval))
@@ -182,7 +219,7 @@ def run_simulation(params, args, simulation):
     try:
         # Minimize and Equilibrate
         print('Performing energy minimization..')
-        simulation.minimizeEnergy()
+        #simulation.minimizeEnergy(maxIterations=1000) # todo revert
 
         print('Equilibrating..')
         simulation.context.setVelocitiesToTemperature(args.temperature, args.seed)

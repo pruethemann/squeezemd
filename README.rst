@@ -119,3 +119,10 @@ CHEATSHEET
 ------
 Code version for execution
 > snakemake -R `snakemake --list-code-changes`
+
+
+STEERED MD
+______
+
+- Jarzynski equality or similar thermodynamic relationships
+- https://pubs.acs.org/doi/10.1021/acs.jcim.2c01529
