@@ -66,8 +66,8 @@ def get_distances(u, group_a, group_b):
 
 def calculate_distances(args):
     # Just consider all topos and trajectors which have been centered
-    topos = glob(f"output/{args.job_id}/**/**/MD/center/*.pdb", recursive=True)
-    trajs = glob(f"output/{args.job_id}/**/**/MD/center/*.dcd", recursive=True)
+    topos = glob(f"C1s_BD001/**/**/MD/center/topo_center.pdb", recursive=True)
+    trajs = glob(f"C1s_BD001/**/**/MD/center/traj_center.dcd", recursive=True)
 
     dataset = []
 
@@ -79,9 +79,9 @@ def calculate_distances(args):
         sim = topo.split("/")[-5]
 
         trp = "resid 17 and name CA and chainID A"
-        arg = "resid 65 and name CZ and chainID A"
+        gly = "resid 440 and name CZ and chainID B"
 
-        # TODO extract from external list
+        """
         if "C1s" in sim:
             enzyme = 'resid 526 and name CA'
             asp = 'resid 572 and name CG'
@@ -101,14 +101,16 @@ def calculate_distances(args):
             print(sim)
             print("FAIL")
 
+        """
+
         u = mda.Universe(topo, traj)
 
         # N terminus
-        group1 = u.select_atoms(trp)
-        group2 = u.select_atoms(enzyme)
+        trp_grp = u.select_atoms(trp)
+        enzyme_grp = u.select_atoms(enzyme)
 
 
-        dists_N = get_distances(u, group1, group2)
+        dists_N = get_distances(u, trp_grp, enzyme_grp)
         dists_N = pd.DataFrame(dists_N, columns=['time', 'distance'])
 
         dists_N['sim'] = sim
@@ -117,8 +119,8 @@ def calculate_distances(args):
 
 
         # core distances
-        group1 = u.select_atoms(arg)
-        group2 = u.select_atoms(asp)
+        group1 = u.select_atoms(trp_grp)
+        group2 = u.select_atoms(enzyme_grp)
 
         dists_core = get_distances(u, group1, group2)
         dists_core = pd.DataFrame(dists_core, columns=['time', 'distance'])
@@ -142,13 +144,10 @@ if __name__ == '__main__':
     # Parse Arguments
     parser = argparse.ArgumentParser()
 
-    # Input
-    parser.add_argument('--job_id', required=False)
-
     # Output
-    parser.add_argument('--rmsd', required=False)
-    parser.add_argument('--rmsd_png', required=False)
-    parser.add_argument('--distances', required=False)
+    parser.add_argument('--rmsd', required=False, default='rmsd.csv')
+    parser.add_argument('--rmsd_png', required=False, default='rsmd.png')
+    parser.add_argument('--distances', required=False, default='distances.png')
 
     args = parser.parse_args()
 

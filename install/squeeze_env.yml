@@ -11,12 +11,13 @@
 
 
 
-name: squeeze
+name: squeezemd
 
 channels:
   - conda-forge
   - bioconda                # for snakemake
   - schrodinger
+  - defaults
 
 dependencies:
   - python

@@ -10,8 +10,9 @@ everything. This allows a clean and fast install
 
 ## Micromamba install
 
-1. This install micromamba on Linux 64 in the folder bin
+1. This install micromamba on Linux 64 in the folder bin # TODO create tools/micromamba_bin
 > curl -Ls https://micro.mamba.pm/api/micromamba/linux-64/latest | tar -xvj ~/tools/micromamba_bin \
+> curl -Ls https://micro.mamba.pm/api/micromamba/linux-64/latest | tar -xvj bin/micromamba
 > ~/tools/micromamba_bin/micromamba shell init -s bash -p ~/tools/micromamba \
 > source ~/.bashrc
 2. Execute the following command the root of this github folder

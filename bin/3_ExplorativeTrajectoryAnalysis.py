@@ -118,8 +118,8 @@ def calculate_RMSD(u: mda.Universe, args):
 
     print("Init RMSD analysis")
     # CHAINIDENTIFICAITON
-    ligand = u.select_atoms('chainID A') # "backbone and chainID I"
-    receptor = u.select_atoms('chainID B')  # "backbone and chainID B"
+    ligand = u.select_atoms('chainID A')
+    receptor = u.select_atoms('chainID B')
 
     # 3. Compute RMSD for receptor and ligand
     RMSD_ligand = rms.RMSD(ligand, ref_frame=0).run()
