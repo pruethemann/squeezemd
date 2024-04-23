@@ -40,9 +40,9 @@ mutations = simulations_df.mutation_all.unique()
 rule proteinInteraction:
     input:
         'results/martin/interactions.parquet',
-        'results/fingerprints/interactions.parquet',
+        #'results/fingerprints/interactions.parquet',
         expand('results/interactionSurface/{complex}.{mutation}.interaction.pdb', complex=complexes, mutation=mutations),
-        expand('{complex}/{mutation}/{seed}/fingerprint/fingerprint.parquet',complex=complexes,mutation=mutations,seed=seeds),
+        #expand('{complex}/{mutation}/{seed}/fingerprint/fingerprint.parquet',complex=complexes,mutation=mutations,seed=seeds),
         expand('{complex}/{mutation}/mutation.pdb', complex=complexes, mutation=mutations),
         expand('{complex}/{mutation}/{seed}/MD/trajectory.h5', complex=complexes, mutation=mutations, seed=seeds),
         expand('{complex}/{mutation}/{seed}/analysis/RMSF.svg', complex=complexes, mutation=mutations, seed=seeds),

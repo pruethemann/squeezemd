@@ -16,21 +16,18 @@ name: squeeze
 channels:
   - conda-forge
   - bioconda                # for snakemake
-  - schrodinger
   - defaults
 
 dependencies:
   - python
   - openmm
-  - ucx
   - mdanalysis
-  - cudatoolkit
   - snakemake-minimal
   - prolif              # Interaction fingerprint
   - pandas
   - pyarrow
   - mdtraj
-  - pymol-bundle
+  - pymol-open-source
   - pygments
   - pip
   - pip:
