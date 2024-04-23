@@ -87,8 +87,10 @@ def calculate_RMSF(u: mda.Universe, args):
         plt.ylabel('RMSF ($\AA$)')
         plt.title(f'RMSF {protein}')
 
-        RMSF_df = pd.DataFrame([c_alphas.resids, R.results.rmsf])
-        #RMSF_df.to_csv(args.rmsf[-4] + '.csv')
+        # TODO: extend for ligand and receptor
+        if chain == 'A':
+            RMSF_df = pd.DataFrame([c_alphas.resids, R.results.rmsf])
+            RMSF_df.to_csv(args.rmsf[-4] + '.csv')
 
     plt.tight_layout()
     plt.savefig(args.rmsf)
@@ -144,7 +146,7 @@ def calculate_RMSD(u: mda.Universe, args):
     plt.legend(title='Molecule')
     plt.tight_layout()
 
-    #df_melted.to_csv(args.rmsd[-4:] + '.csv')
+    df_melted.to_csv(args.rmsd[-4:] + '.csv')
     plt.savefig(args.rmsd)
     plt.close()
 

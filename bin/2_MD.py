@@ -136,8 +136,6 @@ def setup_simulation(args, params, salt_concentration=0.15):
         print('Adding hydrogens..')
         modeller.addHydrogens(forcefield)
 
-        print("SALT ", salt_concentration)
-
         print('Adding solvent..')
         modeller.addSolvent(forcefield,
                             boxShape='cube', # 'dodecahedron'
