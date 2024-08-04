@@ -51,5 +51,5 @@ setup(
     zip_safe=False,
     scripts=['bin/squeeze','bin/1_mutation.py', 'bin/2_MD.py', 'bin/3_ExplorativeTrajectoryAnalysis.py', 'bin/4_centerMDTraj.py', 'bin/5_Martin_analyzer.py',
              'bin/6_GlobalMartinInteractions.py', 'bin/7_interactionFingerprint.py', 'bin/8_GlobalFinterprintAnalysis.py', 'bin/9_FreeEnergyStats.py',
-             'bin/10_InteractionSurface.py' ,'bin/Helper.py', 'install/install_bins.sh', 'install/upgrade_package.sh'],
+             'bin/10_InteractionSurface.py' ,'bin/Helper.py', 'install/install_bins_mac.sh', 'install/install_bins_linux.sh','install/upgrade_package.sh'],
 )

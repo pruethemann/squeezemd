@@ -113,7 +113,12 @@ def setup_simulation(args, params, salt_concentration=0.15):
 
     # Technical parameters
     # TODO: Fall back from CUDA to CPU if driver issue
-    platform = Platform.getPlatformByName(params['platform'])
+    try:
+        platform = Platform.getPlatformByName('CUDA')
+    except OpenMMException:
+        # TODO: Write a log
+        print("ATTENTION: no CUDA driver or GPU detected. Simulation runs on CPU")
+        platform = Platform.getPlatformByName('CPU')
 
     # Save parameters to simulation folder
     # TODO: combine args and md_settings

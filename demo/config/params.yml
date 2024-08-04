@@ -32,6 +32,3 @@ ewaldErrorTolerance: 0.0005   # Ewald Error tolerance. PBC are applied with Part
 
 # Recording
 recordingInterval: 0.004        # recording interval in ps
-
-# Platform                    # CUDA: nvidia Geforce GPUs (driver needs to be installed)
-platform: CPU                 # CPU:  Computational only CPU (extremly slow, only for testing)
