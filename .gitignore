@@ -113,3 +113,4 @@ ENV/
 .DS_Store
 
 dev*
+.panoptes.db
