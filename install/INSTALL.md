@@ -19,6 +19,13 @@ everything. This allows a clean and fast install
 > micromamba create -f squeeze_env.yml
 3. Activate the environment after a successful install
 > micromamba activate squeeze
+4. Install additional bins (foldX, posCo)
+chmod +x install_bins.sh
+./install_bins.sh
+
+Version 1.5.8
+1. "${SHELL}" <(curl -L micro.mamba.pm/install.sh)
+
 
 
 ## Test install

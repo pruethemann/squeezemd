@@ -10,6 +10,7 @@ import mdtraj
 import numpy as np
 import multiprocessing
 import MDAnalysis as mda
+from functools import partial
 
 
 def extract_complex_resids(pdb_ligand: os.path, chainID:str):
@@ -19,10 +20,12 @@ def extract_complex_resids(pdb_ligand: os.path, chainID:str):
     # Extract ligand at chain A
     protein = u.select_atoms(f'segid {chainID}')
 
+    print(protein)
+
     # Return First resname and position
     return (protein.residues[0].resname, protein.residues[0].resid)
 
-def interaction_analyzer(frame_pdb, ligand_csv, receptor_csv):
+def interaction_analyzer(frame_pdb, ligand_csv, receptor_csv, resname_lig, resname_rec, resid_lig, resid_rec):
     """
     Execute Martin's interaction analyzer.
     In a first step the Analyzer is executed on the pdb file from the ligand perspective
@@ -82,22 +85,22 @@ def extract_protein_water_shell(traj, cutoff=0.5):
     water_shell = traj.atom_slice(combined_indices)
     return water_shell
 
-def extract_protein(frame_number:int):
-    frame_id = -args.n_frames + frame_number
+def extract_protein(frame_number:int, n_frames:int, dir:os.path, traj, resname_lig:str, resname_rec:str, resid_lig:int, resid_rec:int):
+    frame_id = n_frames + frame_number
 
     water_sele = extract_protein_water_shell(traj[frame_id], 0.8)
     # Save the new trajectory as a DCD file
-    frame_path = os.path.join(args.dir, f'frame_{frame_number}.pdb')
+    frame_path = os.path.join(dir, f'frame_{frame_number}.pdb')
 
     water_sele.save(frame_path)
 
     # Execute Martin interaction analyzer
-    lig_csv = os.path.join(args.dir, 'lig', f'{frame_number}.csv')
-    rec_csv = os.path.join(args.dir, 'rec', f'{frame_number}.csv')
+    lig_csv = os.path.join(dir, 'lig', f'{frame_number}.csv')
+    rec_csv = os.path.join(dir, 'rec', f'{frame_number}.csv')
 
-    interaction_analyzer(frame_path, lig_csv, rec_csv)
+    interaction_analyzer(frame_path, lig_csv, rec_csv, resname_lig, resname_rec, resid_lig, resid_rec)
 
-    return "Sucess"
+    return "Success"
 
 
 if __name__ == '__main__':
@@ -126,7 +129,10 @@ if __name__ == '__main__':
     # frame_number is number from 0:n_frames, frame_id corresponds to number in traj from the end
     # Process i parallized
     with multiprocessing.Pool(args.cpus) as pool:
-        for frame_number in pool.map(extract_protein, range(args.n_frames)):
+        # Trick to combine function with arguments
+        partial_func = partial(extract_protein, n_frames=args.n_frames, dir=args.dir, traj=traj, resname_lig=resname_lig, resname_rec=resname_rec, resid_lig=resid_lig, resid_rec=resid_rec)
+
+        for frame_number in pool.map(partial_func, range(args.n_frames)):
             print(frame_number)
 
     pool.close()

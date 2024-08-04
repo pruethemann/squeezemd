@@ -11,7 +11,7 @@
 
 
 
-name: squeeze
+name: squeezemd
 
 channels:
   - conda-forge
