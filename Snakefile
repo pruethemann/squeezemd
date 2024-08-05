@@ -142,7 +142,8 @@ rule DescriptiveTrajAnalysis:
                                                    --fig_stats {output.stats}
         """
 
-rule InteractionAnalyzerMartin:
+# PosCo
+rule PoseScoring:
     input:
         topo = '{complex}/{mutation}/{seed}/MD/frame_end.cif',
         traj='{complex}/{mutation}/{seed}/MD/traj_center.dcd',
@@ -158,17 +159,17 @@ rule InteractionAnalyzerMartin:
     threads: 4
     shell:
         """
-        5_Martin_analyzer.py  --topo {input.topo} \
-                              --traj {input.traj} \
-                              --pdb {input.pdb} \
-                              --n_frames {number_frames} \
-                              --final {output.final} \
-                              --cpu {threads} \
-                              --dir {output.dir}  > {log}
+        5_PoseScoring.py  --topo {input.topo} \
+                          --traj {input.traj} \
+                          --pdb {input.pdb} \
+                          --n_frames {number_frames} \
+                          --final {output.final} \
+                          --cpu {threads} \
+                          --dir {output.dir}  > {log}
         """
 
 
-rule GlobalMartinAnalysis:
+rule Ana_PoseScoring:
     input:
         dirs=expand('{complex}/{mutation}/{seed}/frames/', complex=complexes, mutation=mutations, seed=seeds),
     output:
@@ -177,10 +178,10 @@ rule GlobalMartinAnalysis:
         totalEnergy= report('results/martin/totalEnergy.svg', caption="posco.rst",category="Posco", labels=({"Name": "Total Energy", "Type": "Plot"}))
     shell:
         """
-        6_GlobalMartinInteractions.py  --dirs {input.dirs} \
-                                       --interactions {output.interactions} \
-                                       --residueEnergy {output.residueEnergy} \
-                                       --totalEnergy {output.totalEnergy}
+        6_Ana_PoseScoring.py  --dirs {input.dirs} \
+                              --interactions {output.interactions} \
+                              --residueEnergy {output.residueEnergy} \
+                              --totalEnergy {output.totalEnergy}
         """
 
 rule InteractionSurface:
