@@ -17,6 +17,10 @@ from MDAnalysis.analysis import rms
 from Helper import remap_MDAnalysis
 import openmm.app as app
 
+# Only works in MDAnalysis 2.8
+from MDAnalysis.analysis.dssp import DSSP, translate
+import MDAnalysis as mda
+
 def visualize_MDStats(stats_file, output_graph):
     data = pd.read_csv(stats_file, sep='\t')
 
@@ -100,6 +104,18 @@ def calculate_RMSF(u: mda.Universe, args):
     c_alphas = u.select_atoms('protein and name CA')
     R = mda.analysis.rms.RMSF(c_alphas).run()
     calculate_bfactors(R)
+
+
+def predict_secondary_structure():
+
+
+
+u = mda.Universe('/Users/husedo15/Dropbox/code/SqueezeMD/squeezemd/bin/dev/gigastasin_C1s.pdb')
+
+long_run = DSSP(u).run()
+mean_secondary_structure = translate(long_run.results.dssp_ndarray.mean(axis=0))
+print(''.join(mean_secondary_structure))
+
 
 
 def calculate_bfactors(R):
