@@ -12,5 +12,7 @@ else
     # Execute snakemake with all provided arguments
     # Find Snakefile from active environment
     CONDA_BASE_PATH=$CONDA_PREFIX
-    snakemake -s $CONDA_BASE_PATH/Snakefile --wms-monitor "http://127.0.0.1:5000" "$@"
+    snakemake -s $CONDA_BASE_PATH/Snakefile "$@"
 fi
+
+#snakemake -s $CONDA_BASE_PATH/Snakefile --wms-monitor "http://127.0.0.1:5000" "$@"

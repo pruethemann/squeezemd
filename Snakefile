@@ -45,12 +45,12 @@ rule proteinInteraction:
         expand('{complex}/{mutation}/{seed}/fingerprint/fingerprint.parquet',complex=complexes,mutation=mutations,seed=seeds),
         expand('{complex}/{mutation}/mutation.pdb', complex=complexes, mutation=mutations),
         expand('{complex}/{mutation}/{seed}/MD/trajectory.h5', complex=complexes, mutation=mutations, seed=seeds),
-        expand('{complex}/{mutation}/{seed}/analysis/RMSF.svg', complex=complexes, mutation=mutations, seed=seeds),
+        expand('{complex}/{mutation}/{seed}/analysis/RMSF.html', complex=complexes, mutation=mutations, seed=seeds),
 
 rule protein:
     input:
         expand('{complex}/{mutation}/{seed}/MD/traj_center.dcd', complex=complexes, mutation=mutations, seed=seeds),
-        expand('{complex}/{mutation}/{seed}/analysis/RMSF.svg', complex=complexes, mutation=mutations, seed=seeds),
+        expand('{complex}/{mutation}/{seed}/analysis/RMSF.html', complex=complexes, mutation=mutations, seed=seeds),
 
 rule Mutagensis:
     input:
@@ -125,7 +125,7 @@ rule DescriptiveTrajAnalysis:
         traj='{complex}/{mutation}/{seed}/MD/traj_center.dcd',
         stats='{complex}/{mutation}/{seed}/MD/MDStats.csv'
     output:
-        rmsf= report('{complex}/{mutation}/{seed}/analysis/RMSF.svg',caption="RMSF.rst",category="RMSF",labels={"Complex": "{complex}", "Mutation": "{mutation}"}),
+        rmsf= report('{complex}/{mutation}/{seed}/analysis/RMSF.html',caption="RMSF.rst",category="RMSF",labels={"Complex": "{complex}", "Mutation": "{mutation}"}),
         rmsd= report('{complex}/{mutation}/{seed}/analysis/RMSD.svg',caption="RMSF.rst",category="RMSD",labels={"Complex": "{complex}", "Mutation": "{mutation}"}),
         bfactors='{complex}/{mutation}/{seed}/analysis/bfactors.pdb',
         stats='{complex}/{mutation}/{seed}/analysis/Stats.svg',

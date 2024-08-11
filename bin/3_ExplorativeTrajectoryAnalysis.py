@@ -1,25 +1,16 @@
 #!/usr/bin/env python
 
-"""
-    This module analyses typical properties of a MD trajectory:
-    - RMSF of receptor and ligand
-    - RMSD of recetpor and ligand
-    - Statistics of MD properties like T,p,energies
-
-"""
-
-import argparse
-import seaborn as sns
+import plotly.graph_objects as go
+from plotly.subplots import make_subplots
 import pandas as pd
-import matplotlib.pyplot as plt
 import MDAnalysis as mda
 from MDAnalysis.analysis import rms
 from Helper import remap_MDAnalysis
 import openmm.app as app
-
-# Only works in MDAnalysis 2.8
 from MDAnalysis.analysis.dssp import DSSP, translate
-import MDAnalysis as mda
+import argparse
+import matplotlib.pyplot as plt
+import seaborn as sns
 
 def visualize_MDStats(stats_file, output_graph):
     data = pd.read_csv(stats_file, sep='\t')
@@ -62,60 +53,31 @@ def visualize_MDStats(stats_file, output_graph):
     plt.savefig(output_graph)
 
 
-def calculate_RMSF(u: mda.Universe, args):
-    """
-    Calculate the RMSF of the ligand and the receptor
+def calculate_RMSF_and_secondary_structure(u: mda.Universe, args):
+    # Extract all unique chainIDs from the Universe object
+    chains = list(set(atom.chainID for atom in u.atoms))
+    # Exclude numeric values which correspond to salts and solvents
+    chains = [item for item in chains if not item.isdigit()]
+    
+    rmsf_data = {}
+    secondary_structure_data = {}
 
-    info:
-    https://userguide.mdanalysis.org/stable/examples/analysis/alignment_and_rms/rmsf.html
-    :param u:
-    :param args:
-    :return:
-    """
-
-    # CHAINIDENTIFICAITON
-    chains = {'ligand': 'A',
-              'receptor': 'B'}
-
-
-    print("Init RMSF analysis")
-
-    for i,(protein, chain) in enumerate(chains.items()):
+    for chain in chains:
         c_alphas = u.select_atoms(f'chainID {chain} and name CA')
         R = rms.RMSF(c_alphas).run()
 
-        plt.subplot(2,1,i+1)
+        # Store RMSF and secondary structure data
+        rmsf_data[chain] = (c_alphas.resids, R.results.rmsf)
+        secondary_str = predict_secondary_structure(u, chain)
+        secondary_structure_data[chain] = secondary_str
 
-        plt.plot(c_alphas.resids, R.results.rmsf)
-        plt.xlabel('Residue number')
-        plt.ylabel('RMSF ($\AA$)')
-        plt.title(f'RMSF {protein}')
-
-        # TODO: extend for ligand and receptor
-        if chain == 'A':
-            RMSF_df = pd.DataFrame([c_alphas.resids, R.results.rmsf])
-            RMSF_df.to_csv(args.rmsf[-4] + '.csv')
-
-    plt.tight_layout()
-    plt.savefig(args.rmsf)
-    plt.close()
+    # Visualize combined RMSF and secondary structure for all chains
+    visualize_combined_rmsf_and_secondary_structure(rmsf_data, secondary_structure_data, args.rmsf)
 
     # Calculate bfactors
     c_alphas = u.select_atoms('protein and name CA')
     R = mda.analysis.rms.RMSF(c_alphas).run()
     calculate_bfactors(R)
-
-
-def predict_secondary_structure():
-
-
-
-u = mda.Universe('/Users/husedo15/Dropbox/code/SqueezeMD/squeezemd/bin/dev/gigastasin_C1s.pdb')
-
-long_run = DSSP(u).run()
-mean_secondary_structure = translate(long_run.results.dssp_ndarray.mean(axis=0))
-print(''.join(mean_secondary_structure))
-
 
 
 def calculate_bfactors(R):
@@ -125,6 +87,68 @@ def calculate_bfactors(R):
         residue.atoms.tempfactors = r_value
 
     u.atoms.write(args.bfactors)
+
+def predict_secondary_structure(u: mda.Universe, chainID: str):
+    chain = u.select_atoms(f'chainID {chainID}')
+    dssp_analysis = DSSP(chain).run()
+    mean_secondary_structure = translate(dssp_analysis.results.dssp_ndarray.mean(axis=0))
+    secondary = ''.join(mean_secondary_structure)
+    print(secondary)
+    return secondary
+
+
+def visualize_combined_rmsf_and_secondary_structure(rmsf_data, secondary_structure_data, output_file):
+    num_chains = len(rmsf_data)
+    fig = make_subplots(rows=num_chains, cols=1, shared_xaxes=False, vertical_spacing=0.05)
+
+    helix_color = 'rgba(0, 100, 250, 0.3)'
+    sheet_color = 'rgba(250, 150, 0, 0.3)'
+
+    row = 1
+    for chain, (resids, rmsf_values) in sorted(rmsf_data.items()):
+        secondary_str = secondary_structure_data[chain]
+
+        # Plot RMSF
+        fig.add_trace(go.Scatter(x=resids, y=rmsf_values, mode='lines', name=f'Chain {chain} RMSF'),
+                      row=row, col=1)
+
+        # Add secondary structure as filled areas instead of shapes
+        helix_x, helix_y = [], []
+        sheet_x, sheet_y = [], []
+        y_max = max(rmsf_values)  # maximum value on y-axis
+        for i, ss in enumerate(secondary_str):
+            if ss == 'H':  # Helix
+                helix_x.extend([resids[i], resids[i] + 1, resids[i] + 1, resids[i], resids[i]])  # Loop back to start
+                helix_y.extend([0, 0, y_max, y_max, 0])  # Loop back to start
+            elif ss == 'E':  # Sheet
+                sheet_x.extend([resids[i], resids[i] + 1, resids[i] + 1, resids[i], resids[i]])  # Loop back to start
+                sheet_y.extend([0, 0, y_max, y_max, 0])  # Loop back to start
+
+        # Add filled areas for helices
+        if helix_x:
+            fig.add_trace(go.Scatter(x=helix_x, y=helix_y, fill='toself', mode='lines', line=dict(color=helix_color),
+                                     name='Helix', legendgroup='Helix', showlegend=(row == 1)),
+                          row=row, col=1)
+
+        # Add filled areas for sheets
+        if sheet_x:
+            fig.add_trace(go.Scatter(x=sheet_x, y=sheet_y, fill='toself', mode='lines', line=dict(color=sheet_color),
+                                     name='Sheet', legendgroup='Sheet', showlegend=(row == 1)),
+                          row=row, col=1)
+
+        # Set the x-axis title for each subplot
+        fig.update_xaxes(title_text=f"Residue IDs (Chain {chain})", row=row, col=1)
+
+        row += 1
+
+    # Update layout with proper size and a clear title
+    fig.update_layout(height=300*num_chains, width=800, title_text="RMSF and Secondary Structure per Chain",
+                      legend=dict(yanchor="top", y=0.99, xanchor="left", x=0.01))
+
+    # Save the figure to the specified output file
+    fig.write_image('output_rmsf_secondary_structure_corrected.png')  # Save as an image file
+    fig.write_html(output_file)  # Save as an HTML file for interactive viewing
+    #fig.show()
 
 def calculate_RMSD(u: mda.Universe, args):
     """
@@ -167,33 +191,35 @@ def calculate_RMSD(u: mda.Universe, args):
     plt.close()
 
 
-if __name__ == '__main__':
-
+def parse_arguments():
     parser = argparse.ArgumentParser()
 
     # Input
-    parser.add_argument('--topo', required=False, help='Topo file', default='output/WT-simple/topo.pdb')
-    parser.add_argument('--traj', required=False, help='Trajectory', default='output/WT-simple/traj_150.dcd')
-    parser.add_argument('--stats', required=False, help='MD Stats file')
+    parser.add_argument('--topo', required=True, help='Topo file', default='output/WT-simple/topo.pdb')
+    parser.add_argument('--traj', required=True, help='Trajectory', default='output/WT-simple/traj_150.dcd')
+    parser.add_argument('--stats', required=True, help='MD Stats file')
 
     # Output
-    parser.add_argument('--rmsf', required=False, help='')
-    parser.add_argument('--bfactors', required=False, help='')
-    parser.add_argument('--rmsd', required=False, help='')
-    parser.add_argument('--fig_stats', required=False, help='')
+    parser.add_argument('--rmsf', required=False, default='results/rmsf.html', help='')
+    parser.add_argument('--bfactors', required=False, help='', default='results/bfactors.pdb')
+    parser.add_argument('--rmsd', required=False, help='', default='results/rmsd.png')
+    parser.add_argument('--fig_stats', required=False, help='', default='results/stats.png')
 
-    args = parser.parse_args()
+    return parser.parse_args()
+
+# Example of running the function
+if __name__ == '__main__':
+    args = parse_arguments()
 
     # Import Trajectory
-    topo = app.PDBxFile(args.topo)      # Transform cif to MDAnalysis topology
+    topo = app.PDBxFile(args.topo)
     u = mda.Universe(topo, args.traj, in_memory=False)
-    u = remap_MDAnalysis(u,topo)
 
     traj_length = len(u.trajectory)
-    print(traj_length)
+    print(f'Number of frames: {traj_length}')
 
-    # Calculate multiple MD trajectery properties
-    calculate_RMSF(u, args)
+    calculate_RMSF_and_secondary_structure(u, args)
+
     calculate_RMSD(u, args)
 
     # Visualize Energies, T, ...
