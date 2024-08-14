@@ -31,6 +31,7 @@ dependencies:
   - mdtraj
   - pymol-open-source
   - pygments
+  - plotly
   - pip
   - pip:
         - tables

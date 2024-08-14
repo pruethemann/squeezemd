@@ -5,7 +5,6 @@ from plotly.subplots import make_subplots
 import pandas as pd
 import MDAnalysis as mda
 from MDAnalysis.analysis import rms
-from Helper import remap_MDAnalysis
 import openmm.app as app
 from MDAnalysis.analysis.dssp import DSSP, translate
 import argparse
