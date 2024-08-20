@@ -3,6 +3,7 @@
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 import pandas as pd
+from Helper import remap_MDAnalysis
 import MDAnalysis as mda
 from MDAnalysis.analysis import rms
 import openmm.app as app
@@ -51,6 +52,29 @@ def visualize_MDStats(stats_file, output_graph):
     plt.tight_layout(pad=0.4, w_pad=0.5, h_pad=1.0)
     plt.savefig(output_graph)
 
+def find_series(sec_str, structure):
+    """
+    This function finds all consecutive series of 'H' in a given string and returns a list of tuples
+    with the start and end positions of each series.
+
+    :param sec_str: A string containing '-' and 'H'.
+    :return: A list of tuples, where each tuple contains the start and end positions of a series of 'H'.
+    """
+    secondary_series = []
+    serie_start = None
+    
+    for i, char in enumerate(sec_str):
+        if char == structure and serie_start is None:
+            serie_start = i  # Start of a new H series
+        elif char != structure and serie_start is not None:
+            secondary_series.append((serie_start+2, i))  # End of the current series
+            serie_start = None
+    
+    # Handle case where string ends with an H series
+    if serie_start is not None:
+        secondary_series.append((serie_start, len(sec_str) - 1))
+    
+    return secondary_series
 
 def calculate_RMSF_and_secondary_structure(u: mda.Universe, args):
     # Extract all unique chainIDs from the Universe object
@@ -71,7 +95,7 @@ def calculate_RMSF_and_secondary_structure(u: mda.Universe, args):
         secondary_structure_data[chain] = secondary_str
 
     # Visualize combined RMSF and secondary structure for all chains
-    visualize_combined_rmsf_and_secondary_structure(rmsf_data, secondary_structure_data, args.rmsf)
+    visualize_RMSF(rmsf_data, secondary_structure_data, args.rmsf)
 
     # Calculate bfactors
     c_alphas = u.select_atoms('protein and name CA')
@@ -92,62 +116,84 @@ def predict_secondary_structure(u: mda.Universe, chainID: str):
     dssp_analysis = DSSP(chain).run()
     mean_secondary_structure = translate(dssp_analysis.results.dssp_ndarray.mean(axis=0))
     secondary = ''.join(mean_secondary_structure)
-    print(secondary)
     return secondary
 
 
-def visualize_combined_rmsf_and_secondary_structure(rmsf_data, secondary_structure_data, output_file):
+def visualize_RMSF(rmsf_data, secondary_structure_data, output_file):
     num_chains = len(rmsf_data)
     fig = make_subplots(rows=num_chains, cols=1, shared_xaxes=False, vertical_spacing=0.05)
 
     helix_color = 'rgba(0, 100, 250, 0.3)'
     sheet_color = 'rgba(250, 150, 0, 0.3)'
+    legend = True
+    legend_beta = True
 
     row = 1
+
     for chain, (resids, rmsf_values) in sorted(rmsf_data.items()):
         secondary_str = secondary_structure_data[chain]
 
         # Plot RMSF
         fig.add_trace(go.Scatter(x=resids, y=rmsf_values, mode='lines', name=f'Chain {chain} RMSF'),
                       row=row, col=1)
+        
+        ceil_rmsf = max(rmsf_values)
+        floor_rmsf = min(rmsf_values)
 
         # Add secondary structure as filled areas instead of shapes
-        helix_x, helix_y = [], []
-        sheet_x, sheet_y = [], []
-        y_max = max(rmsf_values)  # maximum value on y-axis
-        for i, ss in enumerate(secondary_str):
-            if ss == 'H':  # Helix
-                helix_x.extend([resids[i], resids[i] + 1, resids[i] + 1, resids[i], resids[i]])  # Loop back to start
-                helix_y.extend([0, 0, y_max, y_max, 0])  # Loop back to start
-            elif ss == 'E':  # Sheet
-                sheet_x.extend([resids[i], resids[i] + 1, resids[i] + 1, resids[i], resids[i]])  # Loop back to start
-                sheet_y.extend([0, 0, y_max, y_max, 0])  # Loop back to start
+        beta_series = find_series(secondary_str, 'E')
+        helix_series = find_series(secondary_str, 'H')
 
-        # Add filled areas for helices
-        if helix_x:
-            fig.add_trace(go.Scatter(x=helix_x, y=helix_y, fill='toself', mode='lines', line=dict(color=helix_color),
-                                     name='Helix', legendgroup='Helix', showlegend=(row == 1)),
-                          row=row, col=1)
+        start_residue = min(resids)
 
-        # Add filled areas for sheets
-        if sheet_x:
-            fig.add_trace(go.Scatter(x=sheet_x, y=sheet_y, fill='toself', mode='lines', line=dict(color=sheet_color),
-                                     name='Sheet', legendgroup='Sheet', showlegend=(row == 1)),
-                          row=row, col=1)
+        # Draw secondary structure shades
+        # 4. Add a blue shade in the background of the graph from x=5 to x=10           
+
+        for helix in helix_series:
+            # Second shade from x=15 to x=20
+            # TODO: Check if the residue numbers for secondary structures are correct
+            helix += start_residue
+            fig.add_trace(go.Scatter(
+                        x=[helix[0], helix[0], helix[1], helix[1]], y=[floor_rmsf, ceil_rmsf, ceil_rmsf, floor_rmsf], fill='toself',
+                        fillcolor=helix_color, line=dict(color="rgba(0, 0, 0, 0)"),
+                        name='Alpha', legendgroup='Alpha', showlegend=legend),row=row, col=1)
+            # Only show one legend (first)
+            legend=False
+
+        for beta in beta_series:
+            beta += start_residue
+            fig.add_trace(go.Scatter(
+                        x=[beta[0], beta[0], beta[1], beta[1]], y=[floor_rmsf, ceil_rmsf, ceil_rmsf, floor_rmsf], fill='toself',
+                        fillcolor=sheet_color, line=dict(color="rgba(0, 0, 0, 0)"),
+                        name='Beta', legendgroup='Beta', showlegend=legend_beta),row=row, col=1)
+            # Only show one legend (first)
+            legend_beta=False
 
         # Set the x-axis title for each subplot
         fig.update_xaxes(title_text=f"Residue IDs (Chain {chain})", row=row, col=1)
+
+        # Update layout to ensure the shading fits the entire y-axis range and show legend
+        fig.update_layout(title="Toy Example with Shaded Area", xaxis_title="Residue number", yaxis_title="RMSF", 
+                  showlegend=True)
+        
+        x_axis_range = [min(resids), max(resids)]
+
+        # Inside your function after plotting everything but before saving or showing the figure:
+        fig.update_xaxes(range=x_axis_range, row=row, col=1)
 
         row += 1
 
     # Update layout with proper size and a clear title
     fig.update_layout(height=300*num_chains, width=800, title_text="RMSF and Secondary Structure per Chain",
                       legend=dict(yanchor="top", y=0.99, xanchor="left", x=0.01))
+    
+    # Set the x-axis range to the min and max of all residue IDs
+
 
     # Save the figure to the specified output file
     fig.write_image('output_rmsf_secondary_structure_corrected.png')  # Save as an image file
     fig.write_html(output_file)  # Save as an HTML file for interactive viewing
-    #fig.show()
+    fig.show()
 
 def calculate_RMSD(u: mda.Universe, args):
     """
@@ -194,9 +240,9 @@ def parse_arguments():
     parser = argparse.ArgumentParser()
 
     # Input
-    parser.add_argument('--topo', required=True, help='Topo file', default='output/WT-simple/topo.pdb')
-    parser.add_argument('--traj', required=True, help='Trajectory', default='output/WT-simple/traj_150.dcd')
-    parser.add_argument('--stats', required=True, help='MD Stats file')
+    parser.add_argument('--topo', required=False, help='Topo file', default='frame_end.cif')
+    parser.add_argument('--traj', required=False, help='Trajectory', default='traj_center.dcd')
+    parser.add_argument('--stats', required=False, default='MDStats.csv')
 
     # Output
     parser.add_argument('--rmsf', required=False, default='results/rmsf.html', help='')
@@ -213,9 +259,10 @@ if __name__ == '__main__':
     # Import Trajectory
     topo = app.PDBxFile(args.topo)
     u = mda.Universe(topo, args.traj, in_memory=False)
+    u = remap_MDAnalysis(u, topo)
 
     traj_length = len(u.trajectory)
-    print(f'Number of frames: {traj_length}')
+    #print(f'Number of frames: {traj_length}')
 
     calculate_RMSF_and_secondary_structure(u, args)
 
