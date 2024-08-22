@@ -41,6 +41,7 @@ rule proteinInteraction:
     input:
         'results/martin/interactions.parquet',
         'results/fingerprints/interactions.parquet',
+        'results/metaReport.html',
         expand('results/interactionSurface/{complex}.{mutation}.interaction.pdb', complex=complexes, mutation=mutations),
         expand('{complex}/{mutation}/{seed}/fingerprint/fingerprint.parquet',complex=complexes,mutation=mutations,seed=seeds),
         expand('{complex}/{mutation}/mutation.pdb', complex=complexes, mutation=mutations),
@@ -50,6 +51,20 @@ rule protein:
     input:
         expand('{complex}/{mutation}/{seed}/MD/traj_center.dcd', complex=complexes, mutation=mutations, seed=seeds),
         expand('{complex}/{mutation}/{seed}/analysis/RMSF.html', complex=complexes, mutation=mutations, seed=seeds),
+
+
+rule metaReport:
+    input:
+        params='config/params.yml',
+        sims='config/simulations.csv'
+    output:
+        report('results/metaReport.html',caption="RMSF.rst",category="Meta"),
+    shell:
+        """
+        metaReport.py  --param {input.params}  \
+                       --sims {input.sims}  \
+                       --output {output}  \
+        """
 
 rule Mutagensis:
     input:
@@ -173,13 +188,15 @@ rule Ana_PoseScoring:
         dirs=expand('{complex}/{mutation}/{seed}/frames/', complex=complexes, mutation=mutations, seed=seeds),
     output:
         interactions = report('results/martin/interactions.parquet', caption="posco.rst",category="Posco", labels=({"Name": "All Interactions", "Type": "List"})),
-        residueEnergy= report('results/martin/residueEnergy.svg', caption="posco.rst",category="Posco", labels=({"Name": "Per Residue Interaction Energy", "Type": "Plot"})),
+        fingerprint_lig= report('results/martin/fingerprintLigand.html', caption="posco.rst",category="Posco", labels=({"Name": "Per Residue Interaction Energy", "Type": "Plot"})),
+        fingerprint_rec= report('results/martin/fingerprintRecptor.html', caption="posco.rst",category="Posco", labels=({"Name": "Per Residue Interaction Energy", "Type": "Plot"})),
         totalEnergy= report('results/martin/totalEnergy.svg', caption="posco.rst",category="Posco", labels=({"Name": "Total Energy", "Type": "Plot"}))
     shell:
         """
         6_Ana_PoseScoring.py  --dirs {input.dirs} \
                               --interactions {output.interactions} \
-                              --residueEnergy {output.residueEnergy} \
+                              --fingerprint_lig {output.fingerprint_lig} \
+                              --fingerprint_rec {output.fingerprint_rec} \
                               --totalEnergy {output.totalEnergy}
         """
 
