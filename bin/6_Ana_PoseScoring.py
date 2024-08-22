@@ -32,6 +32,8 @@ import pandas as pd
 from os import path
 import seaborn as sns
 import matplotlib.pyplot as plt
+import plotly.express as px
+import plotly.graph_objects as go
 import argparse
 import os
 from glob import glob
@@ -137,26 +139,38 @@ def main(args):
     ligand = data.lig.unique()[0]
 
     # Per residue interaction: ligand vs receptor
-    for i,protein in enumerate(['ligand', 'receptor']):
-        plt.subplot(2,1,i+1)
+    for protein in ['ligand', 'receptor']:
         data_filter = data_agg.loc[(protein,'inter', receptor, ligand)]
 
-        sns.barplot(data=data_filter,
+            # Calculate mean and standard deviation for energy
+        data_summary = data_filter.groupby(['resid', 'mutation']).agg(
+                        energy_mean=('energy', 'mean'),
+                        energy_std=('energy', 'std')
+                        ).reset_index()
+
+        fig = px.bar(data_summary,
                     x='resid',
-                    y='energy',
-                    hue='mutation',
-                    errorbar='sd',
-                    capsize=0.1
+                    y='energy_mean',
+                    color='mutation',
+                    error_y='energy_std',  # Use standard deviation as error bars
+                    title=f"{protein}: Total per residue inter molecular interaction energy"
                     )
+        
+            # Set the bars to be grouped horizontally rather than stacked
+        fig.update_layout(xaxis_title="Residue ID",
+                        yaxis_title="Energy",
+                        xaxis_tickangle=-90,
+                        barmode='group')  # Group bars for different mutations side by side
 
-        plt.xticks(rotation=90)
-        plt.title(f"{protein}: Total per residue inter molecular interaction energy")
-
-        # Save aggregated data
-        data_filter.to_csv(f'{args.residueEnergy[:-4]}_{protein}.csv')
-
-    plt.savefig(args.residueEnergy)
-    plt.close()
+        fig.update_layout(xaxis_title="Residue ID",
+                          yaxis_title="Energy",
+                          xaxis_tickangle=-90)
+        
+        # Save figure as an HTML file
+        if protein == 'ligand':
+            fig.write_html(args.fingerprint_lig)
+        else:
+            fig.write_html(args.fingerprint_rec)
 
     # Total Energy
     total_energy = data.groupby(['interaction', 'protein', 'target', 'lig', 'mutation']).sum(numeric_only=True)
@@ -182,8 +196,11 @@ def parse_arguments():
 
     # Output
     parser.add_argument('--interactions', required=False, default='dev3/interactions.feather')
-    parser.add_argument('--residueEnergy', help="Location for per residue interaction analysis", required=False, default='residues.svg')
+    parser.add_argument('--fingerprint_rec', help="Location for per residue interaction analysis", required=False, default='residues.svg')
+    parser.add_argument('--fingerprint_lig', help="Location for per residue interaction analysis", required=False, default='residues.svg')
     parser.add_argument('--totalEnergy', help="Location for total energy interaction analysis", required=False, default='total_energy.svg')
+
+
     return parser.parse_args()
 
 if __name__ == '__main__':
