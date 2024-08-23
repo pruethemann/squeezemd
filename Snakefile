@@ -97,7 +97,7 @@ rule MD:
         pdb='{complex}/{mutation}/mutation.pdb',
     output:
         topo = '{complex}/{mutation}/{seed}/MD/frame_end.cif',
-        traj='{complex}/{mutation}/{seed}/MD/trajectory.h5',
+        traj=temp('{complex}/{mutation}/{seed}/MD/trajectory.h5'),
         stats='{complex}/{mutation}/{seed}/MD/MDStats.csv',
         params='{complex}/{mutation}/{seed}/MD/params.yml',
     resources:
@@ -119,7 +119,7 @@ rule MD:
 rule centerMDTraj:
     input:
         topo = '{complex}/{mutation}/{seed}/MD/frame_end.cif',
-        traj=temp('{complex}/{mutation}/{seed}/MD/trajectory.h5'),
+        traj='{complex}/{mutation}/{seed}/MD/trajectory.h5',
     output:
         topo_center = '{complex}/{mutation}/{seed}/MD/topo_center.pdb',
         traj_center='{complex}/{mutation}/{seed}/MD/traj_center.dcd',

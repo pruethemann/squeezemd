@@ -108,6 +108,38 @@ def find_analysis_posco_files():
 
     return (ligand_files, receptor_files)
 
+def plot_interaction_fingerprint(data, complex_protein:str, output, receptor, ligand):
+
+
+    data_filter = data.loc[(complex_protein,'inter', receptor, ligand)]
+
+        # Calculate mean and standard deviation for energy
+    data_summary = data_filter.groupby(['resid', 'mutation']).agg(
+                    energy_mean=('energy', 'mean'),
+                    energy_std=('energy', 'std')
+                    ).reset_index()
+
+    fig = px.bar(data_summary,
+                x='resid',
+                y='energy_mean',
+                color='mutation',
+                error_y='energy_std',  # Use standard deviation as error bars
+                title=f"{complex_protein}: Total per residue inter molecular interaction energy"
+                )
+    
+        # Set the bars to be grouped horizontally rather than stacked
+    fig.update_layout(xaxis_title="Residue ID",
+                    yaxis_title="Energy",
+                    xaxis_tickangle=-90,
+                    barmode='group')  # Group bars for different mutations side by side
+
+    fig.update_layout(xaxis_title="Residue ID",
+                        yaxis_title="Energy",
+                        xaxis_tickangle=-90)
+    
+    # Save figure as an HTML file
+    fig.write_html(output)
+
 def main(args):
 
     DEBUG = False
@@ -135,42 +167,12 @@ def main(args):
     del data_agg['frame']
 
     # TODO Extend for multiple different receptors
+    # TODO extremly ugly
     receptor = data.target.unique()[0]
     ligand = data.lig.unique()[0]
 
-    # Per residue interaction: ligand vs receptor
-    for protein in ['ligand', 'receptor']:
-        data_filter = data_agg.loc[(protein,'inter', receptor, ligand)]
-
-            # Calculate mean and standard deviation for energy
-        data_summary = data_filter.groupby(['resid', 'mutation']).agg(
-                        energy_mean=('energy', 'mean'),
-                        energy_std=('energy', 'std')
-                        ).reset_index()
-
-        fig = px.bar(data_summary,
-                    x='resid',
-                    y='energy_mean',
-                    color='mutation',
-                    error_y='energy_std',  # Use standard deviation as error bars
-                    title=f"{protein}: Total per residue inter molecular interaction energy"
-                    )
-        
-            # Set the bars to be grouped horizontally rather than stacked
-        fig.update_layout(xaxis_title="Residue ID",
-                        yaxis_title="Energy",
-                        xaxis_tickangle=-90,
-                        barmode='group')  # Group bars for different mutations side by side
-
-        fig.update_layout(xaxis_title="Residue ID",
-                          yaxis_title="Energy",
-                          xaxis_tickangle=-90)
-        
-        # Save figure as an HTML file
-        if protein == 'ligand':
-            fig.write_html(args.fingerprint_lig)
-        else:
-            fig.write_html(args.fingerprint_rec)
+    plot_interaction_fingerprint(data_agg, 'ligand', args.fingerprint_lig, receptor, ligand)
+    plot_interaction_fingerprint(data_agg, 'receptor', args.fingerprint_rec, receptor, ligand)
 
     # Total Energy
     total_energy = data.groupby(['interaction', 'protein', 'target', 'lig', 'mutation']).sum(numeric_only=True)
