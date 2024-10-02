@@ -5,7 +5,7 @@ import os
 import prolif as plf
 import MDAnalysis as mda
 import openmm.app as app
-from Helper import remap_MDAnalysis, extract_ligand_sequence
+from Helper import remap_MDAnalysis
 
 def create_interaction_fingerprint(topology_file, trajectory_file, output_file, n_frames=100, threads=4, complex_name='Target_Ligand', mutation='Wildtype', seed=-1):
     """
@@ -55,8 +55,6 @@ def create_interaction_fingerprint(topology_file, trajectory_file, output_file, 
         'seed': seed,
         'n_residues_ligand': n_residues_ligand
     }
-
-
 
     interactions_df.to_parquet(output_file)
     interactions_df.to_csv(output_file.replace('.parquet', '.csv'))

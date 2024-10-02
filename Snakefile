@@ -247,13 +247,15 @@ rule GlobalFingerprintAnalysis:
         fingerprints=expand('{complex}/{mutation}/{seed}/fingerprint/fingerprint.parquet', complex=complexes, mutation=mutations, seed=seeds),
     output:
         interactions = report('results/fingerprints/interactions.parquet',labels=({"Name": "Interaction Analysis Prolif", "Type": "List"}),caption="RMSF.rst",category="Interaction Fingerprint"),
+        figure = report('results/fingerprints/fingerprints.html',labels=({"Name": "Interaction Analysis Prolif", "Type": "Plot"}),caption="RMSF.rst",category="Interaction Fingerprint"),
     params:
         n_frames = config.get('number_frames')
     shell:
         """
         8_GlobalFinterprintAnalysis.py  --fingerprints {input.fingerprints} \
                                         --interactions {output.interactions} \
-                                        --n_frames {params.n_frames}
+                                        --n_frames {params.n_frames} \
+                                        --figure {output.figure}
         """
 
 onsuccess:
