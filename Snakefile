@@ -178,7 +178,6 @@ rule PoseScoring:
                           --pdb {input.pdb} \
                           --n_frames {number_frames} \
                           --final {output.final} \
-                          --cpu {threads} \
                           --dir {output.dir}  > {log}
         """
 
@@ -187,10 +186,10 @@ rule Ana_PoseScoring:
     input:
         dirs=expand('{complex}/{mutation}/{seed}/frames/', complex=complexes, mutation=mutations, seed=seeds),
     output:
-        interactions = report('results/martin/interactions.parquet', caption="posco.rst",category="Posco", labels=({"Name": "All Interactions", "Type": "List"})),
-        fingerprint_lig= report('results/martin/fingerprintLigand.html', caption="posco.rst",category="Posco", labels=({"Name": "Per Residue Interaction Energy", "Type": "Plot"})),
-        fingerprint_rec= report('results/martin/fingerprintRecptor.html', caption="posco.rst",category="Posco", labels=({"Name": "Per Residue Interaction Energy", "Type": "Plot"})),
-        totalEnergy= report('results/martin/totalEnergy.svg', caption="posco.rst",category="Posco", labels=({"Name": "Total Energy", "Type": "Plot"}))
+        interactions = report('results/martin/interactions.parquet', caption="posco.rst",category="Pose Scoring", labels=({"Name": "All Interactions", "Type": "List"})),
+        fingerprint_lig= report('results/martin/fingerprintLigand.html', caption="posco.rst",category="Pose Scoring", labels=({"Name": "Ligand Interactions", "Type": "Plot"})),
+        fingerprint_rec= report('results/martin/fingerprintRecptor.html', caption="posco.rst",category="Pose Scoring", labels=({"Name": "Receptor Interactions", "Type": "Plot"})),
+        totalEnergy= report('results/martin/totalEnergy.svg', caption="posco.rst",category="Pose Scoring", labels=({"Name": "Total Energy", "Type": "Plot"}))
     shell:
         """
         6_Ana_PoseScoring.py  --dirs {input.dirs} \

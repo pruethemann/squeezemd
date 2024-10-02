@@ -30,6 +30,13 @@ chmod +x install_bins_linux.sh
 chmod +x install_bins_mac.sh
 ./install_bins_mac.sh
 
+# Install MDAnalysis 2.8
+
+git clone https://github.com/MDAnalysis/mdanalysis
+cd mdanalysis
+# assuming you have already installed required dependencies
+pip install -e package/
+
 
 
 ## Test install

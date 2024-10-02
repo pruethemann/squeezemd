@@ -1,141 +1,115 @@
 #!/usr/bin/env python
 
 """
-
+This script processes molecular dynamics trajectories and performs interaction analysis between a ligand and a receptor.
 """
-import argparse
-import os
-from Helper import execute, remap_MDAnalysis
-import mdtraj
-import numpy as np
-import multiprocessing
-import MDAnalysis as mda
-from functools import partial
 
+import argparse, os
+from Helper import execute, remap_MDAnalysis  # Helper functions for execution and MDAnalysis remapping
+import MDAnalysis as mda  # MDAnalysis for atom selection and structure manipulation
+import openmm.app as app
 
-def extract_complex_resids(pdb_ligand: os.path, chainID:str):
+def extract_complex_resids(pdb_ligand: os.path, chainID: str):
+    """
+    Extract the residue name and residue ID of the first residue of the specified chain in the pdb file.
+    :param pdb_ligand: The PDB file path.
+    :param chainID: The chain identifier (e.g., 'A' for ligand, 'B' for receptor).
+    :return: Tuple containing the residue name and residue ID of the first residue in the chain.
+    """
     # Import pdb file with MDAnalysis
     u = mda.Universe(pdb_ligand)
 
-    # Extract ligand at chain A
+    # Extract the ligand or receptor based on the provided chainID
     protein = u.select_atoms(f'segid {chainID}')
 
-    print(protein)
-
-    # Return First resname and position
+    # Return the residue name and ID of the first residue in the chain
     return (protein.residues[0].resname, protein.residues[0].resid)
 
-def interaction_analyzer(frame_pdb, ligand_csv, receptor_csv, resname_lig, resname_rec, resid_lig, resid_rec):
+def extract_binding_surface(u, frame_count, t=8):
     """
-    Execute Martin's interaction analyzer.
-    In a first step the Analyzer is executed on the pdb file from the ligand perspective
-    then from the receptor perspective.
-    :param frames_nr:
-    :param args:
-    :return:
+    Extracts the protein from the frame plus all complete water molecules t=8 Angstrom from the binding
+    surface
     """
+    
+    print(f"Processing frame {frame_count}: {ts.frame}")
 
-    # Analyze interactions of ligand to receptor
-    command = f'interaction-analyzer-csv.x {frame_pdb} {resname_lig} {resid_lig} > {ligand_csv}'
-    execute(command)
+    # Select chain A and chain B
+    ligand = u.select_atoms('segid A')
+    receptor = u.select_atoms('not segid A and protein')
 
-    # Analyze interaction of receptor to ligand
-    command = f'interaction-analyzer-csv.x {frame_pdb} {resname_rec} {resid_rec} > {receptor_csv}'
-    execute(command)
+    # Select water molecules within 5 Å of both chain A and chain B
+    water_binding_site = u.select_atoms(f'resname HOH and (around {t} segid A) and (around {t} (not segid A and protein))')
 
-    # Raise error if it wasn't possible to execute posco
+    # Get the residues of selected water molecules
+    water_residues = water_binding_site.residues
+
+    # Filter out incomplete water molecules (keep only those with exactly 3 atoms)
+    complete_water_residues = water_residues[[len(res.atoms) == 3 for res in water_residues]]
+
+    # Get the atoms of the complete water molecules
+    complete_water = complete_water_residues.atoms
+
+    # Combine all selections
+    return ligand + receptor + complete_water
+
+def parse_arguments():
     """
-    if os.stat(resid_lig).st_size == 0 or os.stat(resid_rec).st_size == 0:
-        raise Exception("ERROR: The generation of a interaction analysis failed. This can have multiple reasons: \n"
-                        "    - You have used the wrong residue to identify the ligand or receptor\n"
-                        "    - The water molecules in the pdb file have a wrong format\n"
-                        "    - It was not possible to export a pdb file for analysis")
+    Parse command-line arguments for the script.
+    :return: Parsed arguments.
     """
-
-
-def extract_protein_water_shell(traj, cutoff=0.5):
-
-    # Select protein and water
-    protein = traj.topology.select('protein')
-    water = traj.topology.select('water')
-
-    # Determine all water indices which are in a distance < cutoff
-    water_indices = mdtraj.compute_neighbors(traj, cutoff=cutoff, query_indices=protein, haystack_indices=water)
-    water_indices = np.array(water_indices)
-
-    # Incomplete water molecules need to be restored
-    # Assuming each water molecule consists of 1 oxygen and 2 hydrogens
-    complete_water_indices = []
-    for frame in water_indices:
-        for atom_idx in frame:
-            atom = traj.topology.atom(atom_idx)
-            if atom.element.symbol == 'O':  # If the atom is an oxygen
-                # Get the indices of the water molecule to which this oxygen belongs
-                water_molecule = [atom.index for atom in atom.residue.atoms]
-                complete_water_indices.append(water_molecule)
-
-    # Deduplicate and flatten the list
-    complete_water_indices = np.array(complete_water_indices).flatten()
-
-    # combine water shell and protein
-    # ToDO add salts
-    combined_indices = np.concatenate([protein, complete_water_indices])
-
-    # Extract the trajectory of complete water molecules
-    water_shell = traj.atom_slice(combined_indices)
-    return water_shell
-
-def extract_protein(frame_number:int, n_frames:int, dir:os.path, traj, resname_lig:str, resname_rec:str, resid_lig:int, resid_rec:int):
-    frame_id = n_frames + frame_number
-
-    water_sele = extract_protein_water_shell(traj[frame_id], 0.8)
-    # Save the new trajectory as a DCD file
-    frame_path = os.path.join(dir, f'frame_{frame_number}.pdb')
-
-    water_sele.save(frame_path)
-
-    # Execute Martin interaction analyzer
-    lig_csv = os.path.join(dir, 'lig', f'{frame_number}.csv')
-    rec_csv = os.path.join(dir, 'rec', f'{frame_number}.csv')
-
-    interaction_analyzer(frame_path, lig_csv, rec_csv, resname_lig, resname_rec, resid_lig, resid_rec)
-
-    return "Success"
-
-
-if __name__ == '__main__':
+    # Initialize argument parser
     parser = argparse.ArgumentParser()
 
-    # Input
-    parser.add_argument('--topo', required=False,help='', default='trajectory.dcd')
-    parser.add_argument('--traj', required=False,help='', default='trajectory.dcd')
-    parser.add_argument('--n_frames', required=False, help='The last number of frames exported from the trajectory', default=10, type=int)
-    parser.add_argument('--dir', required=False, help='The working dir for the analysis', default='tmp')
-    parser.add_argument('--final', required=False,help='', default='trajectory.dcd')
-    parser.add_argument('--cpus', required=False, help='', default=1, type=int)
-    parser.add_argument('--pdb', required=False, help='')
+    # Add arguments for input files, output options, and parallelization settings
+    parser.add_argument('--topo', required=False, help='', default='trajectory.dcd')
+    parser.add_argument('--traj', required=False, help='', default='trajectory.dcd')
+    parser.add_argument('--n_frames', required=False, help='The number of frames exported from the trajectory', default=10, type=int)
+    parser.add_argument('--dir', required=False, help='The working directory for analysis', default='tmp')
+    parser.add_argument('--final', required=False, help='', default='trajectory.dcd')
+    parser.add_argument('--pdb', required=False, help='PDB file for the ligand and receptor')
 
-    args = parser.parse_args()
+    return parser.parse_args()
 
-    # Import Trajecotry
-    traj = mdtraj.load(args.traj, top=args.topo)
+if __name__ == '__main__':
+    # Parse command-line arguments
+    args = parse_arguments()
 
-    # CHAINIDENTIFICAITON
-    (resname_lig, resid_lig) = extract_complex_resids(args.pdb, 'A')
-    (resname_rec, resid_rec) = extract_complex_resids(args.pdb, 'B')
+    # Import Trajectory #TODO export to helpers
+    topo = app.PDBxFile(args.topo)
+    u = mda.Universe(topo, args.traj, in_memory=False)
+    u = remap_MDAnalysis(u, topo)
 
-    # Export the last n_frames as pdb files
-    # Only the protein and 8 Angstrom around protein is exported
-    # frame_number is number from 0:n_frames, frame_id corresponds to number in traj from the end
-    # Process i parallized
-    with multiprocessing.Pool(args.cpus) as pool:
-        # Trick to combine function with arguments
-        partial_func = partial(extract_protein, n_frames=args.n_frames, dir=args.dir, traj=traj, resname_lig=resname_lig, resname_rec=resname_rec, resid_lig=resid_lig, resid_rec=resid_rec)
+    # Extract ligand and receptor residue information from the PDB
+    (resname_lig, resid_lig) = extract_complex_resids(args.pdb, 'A')  # For ligand (chain A)
+    (resname_rec, resid_rec) = extract_complex_resids(args.pdb, 'B')  # For receptor (chain B)
 
-        for frame_number in pool.map(partial_func, range(args.n_frames)):
-            print(frame_number)
+    frame_count = 0
+    for ts in u.trajectory[-args.n_frames:]:
+        # Extract protein and water in binding surface
+        bind_surface_sele = extract_binding_surface(u, frame_count)
 
-    pool.close()
+        # Save the selection of the current frame as a PDB file
+        pdb_binding_surface = os.path.join(args.dir, f'frame_{frame_count}.pdb')
+        bind_surface_sele.write(pdb_binding_surface)
 
-    # Export last centered frame
-    traj[-1].save(args.final)
+        # Perform interaction analyzer
+        lig_csv = os.path.join(args.dir, 'lig', f'{frame_count}.csv')
+        rec_csv = os.path.join(args.dir, 'rec', f'{frame_count}.csv')
+
+        # Analyze interactions of the ligand
+        command = f'interaction-analyzer-csv.x {pdb_binding_surface} {resname_lig} {resid_lig} > {lig_csv}'
+        execute(command)
+
+        # Analyze interactions of the receptor
+        command = f'interaction-analyzer-csv.x {pdb_binding_surface} {resname_rec} {resid_rec} > {rec_csv}'
+        execute(command)
+
+        frame_count += 1
+            
+
+    # Save the last frame
+    u.trajectory[-1]
+
+    # Save the last frame as a pdb file
+    with mda.Writer(args.final, n_atoms=u.atoms.n_atoms) as W:
+        W.write(u)

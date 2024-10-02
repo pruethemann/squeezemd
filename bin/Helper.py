@@ -128,19 +128,16 @@ def remap_MDAnalysis(u: mda.Universe, topo):
         if chainID.id == '4': continue
         if chainID.id == '5': continue
         selected_segid = u.select_atoms(f"segid {chain_cont.segid}")
-        print(chainID.id)
         selected_segid.segments.segids = chainID.id
 
     for res_cont, resid in zip(u.residues, topo.topology.residues()):
 
         if is_numeric(resid.chain.id):
             continue
-        print(resid.chain.id)
         resid_sele = u.select_atoms(f"resid {int(res_cont.resid)}")
         resid_sele.residues.resids = int(resid.id)
 
     return u
-
 
 
 def remap_amber(mapping_file, u):
