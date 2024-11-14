@@ -29,7 +29,15 @@ dependencies:
   - mdtraj
   - pymol-open-source
   - pygments
+  - mmtf-python  # for MDAnalysis
+  - mda-xdrlib   # for MDAnalysis
   - pip
   - pip:
         - tables
         - squeezemd
+
+# TODO
+
+# conda install conda-forge::mmtf-python
+# install conda-forge::mda-xdrlib
+# conda-forge::fasteners

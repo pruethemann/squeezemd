@@ -128,7 +128,7 @@ def create_fig(fp_df, fig_path):
             )
 
         # Update x-axis to cover the full range of residues for consistency
-        fig.update_xaxes(range=[min_resid, max_resid], row=i+1, col=1)
+        fig.update_xaxes(range=[min_resid, max_resid], tickvals=list(range(min_resid, max_resid + 1)), row=i+1, col=1)
 
     # Update the layout of the figure to have a shared legend and consistent color mapping
     fig.update_layout(
@@ -156,7 +156,6 @@ def parse_arguments():
 
 if __name__ == '__main__':
     args = parse_arguments()
-    print(args)
 
     # Import all fingerprints data
     fingerprints = import_data(args.fingerprints)

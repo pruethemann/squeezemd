@@ -193,7 +193,7 @@ def visualize_RMSF(rmsf_data, secondary_structure_data, output_file):
     # Save the figure to the specified output file
     fig.write_html(output_file)  # Save as an HTML file for interactive viewing
     #fig.show()
-    fig.close()
+
 
 def calculate_RMSD(u: mda.Universe, args):
     """

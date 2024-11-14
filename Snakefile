@@ -170,7 +170,7 @@ rule PoseScoring:
         final='{complex}/{mutation}/{seed}/MD/final.pdb',
     log:
         '{complex}/{mutation}/{seed}/MD/center.log'
-    threads: 4
+    threads: 1
     shell:
         """
         5_PoseScoring.py  --topo {input.topo} \
