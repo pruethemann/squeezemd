@@ -94,7 +94,7 @@ def setup_simulation(args, params, salt_concentration=0.15):
     # Physical parapeters
     nonbondedCutoff = params['nonbondedCutoff'] * nanometers
     ewaldErrorTolerance = params['ewaldErrorTolerance']
-    constraintTolerance = 0.000001
+    constraintTolerance = 0.00001
     hydrogenMass = 1.5 * amu
     args.T = 310
     args.temperature = args.T * kelvin          # Simulation temperature
