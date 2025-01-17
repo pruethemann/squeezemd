@@ -129,13 +129,14 @@ def setup_simulation(args, params, salt_concentration=0.15):
     #save_yaml(args, args.params)
     save_yaml(params, args.params)
 
-    MD_type = 'acceleratedMD' # acceleratedMD / 'standard'
+    MD_type = 'standard' # acceleratedMD / 'standard'
 
     if MD_type == 'standard':
         # Define integrator
         integrator = LangevinMiddleIntegrator(args.temperature, friction, dt)
         integrator.setConstraintTolerance(constraintTolerance)
         integrator.setRandomNumberSeed(args.seed)
+        
     else: # First experiments with accelerated MD
         # Define aMD parameters
         # Note: These values are examples; you should calculate or estimate them based on your system

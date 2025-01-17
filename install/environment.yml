@@ -3,23 +3,22 @@
 
 
 # Option 1: micromamba (recommanded)
-# micromamba create -f squeeze_env.yml
+# micromamba create -f environment.yml
 
 # Option 2: Classical mamba
 # conda install -c conda-forge mamba
-# mamba env create -f squeeze_env.yml
+# mamba env create -f environment.yml
 
 # Option 3: Classical conda install (slow)
-# conda env create -f squeeze_env.yml
+# conda env create -f environment.yml
 
 
 
-name: squeeze-dev
+name: squeeze
 
 channels:
   - conda-forge
   - bioconda                # for snakemake
-  - defaults
 
 dependencies:
   - python
@@ -32,6 +31,7 @@ dependencies:
   - pymol-open-source
   - pygments
   - plotly
+  - cudatoolkit         # Cudatoolkit 11.8 works with nvidia driver 535
   - pip
   - pip:
         - json2html

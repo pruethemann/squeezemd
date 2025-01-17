@@ -75,7 +75,7 @@ rule Mutagensis:
     params:
         out_dir=directory('{complex}/{mutation}'),
         pdb= lambda wildcards: simulations_df.loc[f'{wildcards.complex}_{wildcards.mutation}']['input'],
-        foldX='foldx_20241231'
+        foldX='foldx_20251231'              # Needs to be updated every year
     log:
         '{complex}/{mutation}/mutation.log'
     shell:
