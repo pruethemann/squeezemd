@@ -45,9 +45,9 @@ rule proteinInteraction:
         expand('{complex}/{mutation}/{seed}/fingerprint/fingerprint.parquet',complex=complexes,mutation=mutations,seed=seeds),
         expand('{complex}/{mutation}/mutation.pdb', complex=complexes, mutation=mutations),
         expand('{complex}/{mutation}/{seed}/analysis/RMSF.html', complex=complexes, mutation=mutations, seed=seeds),
-        expand('{complex}/{mutation}/{seed}/frames/lig_{i}.pdb', i=range(0,4), complex=complexes, mutation=mutations, seed=seeds),
-        expand('{complex}/{mutation}/{seed}/frames/rec_{i}.pdb', i=range(0,4), complex=complexes, mutation=mutations, seed=seeds),
-        expand('{complex}/{mutation}/{seed}/po-sco/{i}.txt', i=range(0,4), complex=complexes, mutation=mutations, seed=seeds),
+        expand('{complex}/{mutation}/{seed}/frames/lig_{i}.pdb', i=range(number_frames), complex=complexes, mutation=mutations, seed=seeds),
+        expand('{complex}/{mutation}/{seed}/frames/rec_{i}.pdb', i=range(number_frames), complex=complexes, mutation=mutations, seed=seeds),
+        expand('{complex}/{mutation}/{seed}/po-sco/{i}.txt', i=range(number_frames), complex=complexes, mutation=mutations, seed=seeds),
         'results/posco/posco_interactions.parquet',
         'results/posco/posco.html'
 
@@ -176,7 +176,7 @@ rule ExtractLast100FramesFromMDTrajectory:
     threads: 1
     shell:
         """
-        5_ExtractLastFrames.py  --topo {input.topo} \
+        5.1_Posco_ExtractLastFrames.py  --topo {input.topo} \
                           --traj {input.traj} \
                           --n_frames {params.n_frames} \
                           --dir {params.output_dir}
@@ -199,13 +199,13 @@ rule posco:
 # PosCo
 rule concat:
     input:
-        expand('{complex}/{mutation}/{seed}/po-sco/{i}.txt', i=range(0,4), complex=complexes, mutation=mutations, seed=seeds),
+        expand('{complex}/{mutation}/{seed}/po-sco/{i}.txt', i=range(number_frames), complex=complexes, mutation=mutations, seed=seeds),
     output:
         'results/posco/posco_interactions.parquet'
     threads: 1
     shell:
         """
-        6_TransformDF.py --input {input} --output {output}
+        5.2_Posco_TransformDF.py --input {input} --output {output}
         """
 
 # PosCo
@@ -217,7 +217,7 @@ rule PoScoAnalysis:
     threads: 1
     shell:
         """
-        7_PoscoAnalysis.py --input {input} --output {output}
+        5.3_Posco_Analysis.py --input {input} --output {output}
         """
 
 rule interactionFingerprint:
