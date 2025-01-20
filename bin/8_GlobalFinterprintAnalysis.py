@@ -1,11 +1,10 @@
 #!/usr/bin/env python
 
 import pandas as pd
-import seaborn as sns
-import matplotlib.pyplot as plt
-import numpy as np
+import plotly.express as px
+import plotly.subplots as sp
+import plotly.graph_objects as go
 import argparse
-
 
 def import_data(fingerprints):
     """
@@ -86,52 +85,61 @@ def data_engineering(data, n_frames):
     data_agg['resid'] = data_agg['ligand'].str.extract('(\d+)').astype(int)
     return data_agg
 
-def visualize_data(fingerprints, mutation):
-    """
-    Generates visualizations for the processed fingerprint data.
+def create_fig(fp_df, fig_path):
 
-    Parameters:
-    - data: DataFrame containing processed fingerprint data.
-    """
-    sns.set(rc={'figure.figsize':(25,30)})
+    # Group by 'interaction_type', 'mutation', and 'resid', and calculate mean and standard deviation of the 'sum'
+    df_grouped = fp_df.groupby(['interaction_type', 'mutation', 'resid']).agg(
+        mean_sum=('sum', 'mean'),
+        std_sum=('sum', 'std')
+    ).reset_index()
 
-    n_residues= fingerprints.attrs['n_residues']
+    # Determine the minimum and maximum residue across all data
+    min_resid = fp_df['resid'].min()
+    max_resid = fp_df['resid'].max()
 
-    # Group all interactions per residue
-    interaction_types = ['salt bridge', 'H bonds', 'PiStacking', 'Hydrophobic', 'Cation-Pi']
+    # Define a color map for mutations
+    unique_mutations = df_grouped['mutation'].unique()
+    color_map = px.colors.qualitative.Plotly[:len(unique_mutations)]  # Use Plotly's color scheme
+    mutation_color_mapping = dict(zip(unique_mutations, color_map))
 
-    data = fingerprints.reset_index().copy()
+    # Create subplots for each 'interaction_type' with consistent colors for mutations
+    interaction_types = df_grouped['interaction_type'].unique()
+    fig = sp.make_subplots(rows=len(interaction_types), cols=1, subplot_titles=interaction_types)
 
-    data = data[data.mutation == mutation]
+    # Add bar plots to the corresponding subplots
+    for i, interaction_type in enumerate(interaction_types):
+        filtered_data = df_grouped[df_grouped['interaction_type'] == interaction_type]
+        
+        for mutation in filtered_data['mutation'].unique():
+            mutation_data = filtered_data[filtered_data['mutation'] == mutation]
+            
+            # Create a bar plot for each mutation, ensuring color consistency
+            fig.add_trace(
+                go.Bar(
+                    x=mutation_data['resid'],
+                    y=mutation_data['mean_sum'],
+                    error_y=dict(type='data', array=mutation_data['std_sum']),
+                    name=mutation,
+                    legendgroup=mutation,  # Group by mutation name for synchronized legend
+                    marker_color=mutation_color_mapping[mutation],  # Ensure consistent color for the mutation
+                    showlegend=(i == 0)  # Show legend only in the first subplot
+                ),
+                row=i+1, col=1
+            )
 
-    for i,interaction_type in enumerate(interaction_types):
-        # Add missing interactions to get a even distribution
-        data_interaction = data[data.interaction_type == interaction_type]
+        # Update x-axis to cover the full range of residues for consistency
+        fig.update_xaxes(range=[min_resid, max_resid], tickvals=list(range(min_resid, max_resid + 1)), row=i+1, col=1)
 
-        data_interaction = data_interaction.groupby(['resid', 'seed']).agg({'interaction_type': 'first', 'sum':'sum'} ).reset_index()
+    # Update the layout of the figure to have a shared legend and consistent color mapping
+    fig.update_layout(
+        height=300 * len(interaction_types),  # Adjust height based on number of subplots
+        title_text="Interaction Types vs Residue",
+        showlegend=True,
+        barmode='group'
+    )
 
-        #Debug
-        #data_interaction.to_csv(f'{mutation}_{interaction_type}.seed.csv')
-
-        # Generate a DataFrame with all residue numbers between 1 and 100
-        all_resid = pd.DataFrame({'resid': range(1, n_residues + 1),
-                                  'interaction_type': interaction_type})
-
-        # Merge the original DataFrame with the complete list of residues
-        # Use left join to keep all residues and fill missing energies with -1
-        data_interaction = pd.merge(all_resid, data_interaction, on='resid', how='left').fillna(0)
-
-        plt.subplot(5, 1, i+1)
-        sns.barplot(data=data_interaction,
-                    x='resid',
-                    y='sum'
-                    )
-        plt.title(interaction_type)
-        plt.xticks(rotation=90)
-
-    # TODO: Clean up paths
-    plt.savefig(f'{args.interactions}_{mutation}.svg')
-    plt.close()
+    # Save the updated figure as an html file
+    fig.write_html(fig_path)
 
 
 def parse_arguments():
@@ -143,7 +151,7 @@ def parse_arguments():
 
     # Output
     parser.add_argument('--interactions', help="Joined fingerprint csv file path", required=False, default='fingerprint.csv')
-    parser.add_argument('--figure', help="Fingerprints figure", required=False, default='fingerprint.svg')
+    parser.add_argument('--figure', help="Fingerprints figure", required=False, default='fingerprint.html')
     return parser.parse_args()
 
 if __name__ == '__main__':
@@ -152,9 +160,7 @@ if __name__ == '__main__':
     # Import all fingerprints data
     fingerprints = import_data(args.fingerprints)
 
-
-    for mutation in fingerprints.mutation.unique():
-        visualize_data(fingerprints, mutation)
+    create_fig(fingerprints, args.figure)
 
     # Export data
-    fingerprints.to_csv(args.interactions)
+    fingerprints.to_parquet(args.interactions)

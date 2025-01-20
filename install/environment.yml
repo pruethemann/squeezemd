@@ -1,0 +1,63 @@
+# The dev environment installs the in development version of MDAnalysis 2.8
+# https://userguide.mdanalysis.org/2.8.0-dev0/contributing_code.html#create-virtual-environment
+
+
+# Option 1: micromamba (recommanded)
+# micromamba create -f environment.yml
+
+# Option 2: Classical mamba
+# conda install -c conda-forge mamba
+# mamba env create -f environment.yml
+
+# Option 3: Classical conda install (slow)
+# conda env create -f environment.yml
+
+
+
+name: squeeze
+
+channels:
+  - conda-forge
+  - bioconda                # for snakemake
+
+dependencies:
+  - python
+  - openmm
+  - snakemake-minimal
+  - prolif              # Interaction fingerprint
+  - pandas
+  - pyarrow
+  - mdtraj
+  - pymol-open-source
+  - pygments
+  - plotly
+  - cudatoolkit         # Cudatoolkit 11.8 works with nvidia driver 535
+  - pip
+  - pip:
+        - json2html
+        - kaleido
+        - tables
+        - squeezemd
+        - Cython>=0.28
+        - biopython>=1.80
+        - networkx>=2.0
+        - GridDataFormats>=0.4.0
+        - mmtf-python>=1.0.0
+        - joblib>=0.12
+        - scipy>=1.5.0
+        - tqdm>=4.43.0
+        - threadpoolctl
+        - packaging
+        - fasteners
+        - netCDF4>=1.0
+        - h5py>=2.10
+        - chemfiles>=0.10
+        - pyedr>=0.7.0
+        - pytng>=0.2.3
+        - gsd>3.0.0
+        - rdkit>=2020.03.1
+        - parmed
+        - seaborn
+        - scikit-learn
+        - tidynamics>=1.0.0
+        #- mda-xdrli

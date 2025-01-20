@@ -95,6 +95,17 @@ def chain2resid(file_csv):
 
     return chains
 
+def is_numeric(character):
+    """
+    This function checks if a given character is numeric.
+
+    :param character: A single character (string) to check.
+    :return: True if the character is numeric, False otherwise.
+    """
+    if len(character) != 1:
+        raise ValueError("Input must be a single character.")
+    return character.isdigit()
+
 def remap_MDAnalysis(u: mda.Universe, topo):
     """
     Remaps the correct residues Ids from the OpenMM topology to
@@ -111,15 +122,22 @@ def remap_MDAnalysis(u: mda.Universe, topo):
 
     # Currently resets the segment ID to the original chainID
     for chain_cont, chainID in zip(u.segments, topo.topology.chains()):
+        if chainID.id == '1': continue
+        if chainID.id == '2': continue
+        if chainID.id == '3': continue
+        if chainID.id == '4': continue
+        if chainID.id == '5': continue
         selected_segid = u.select_atoms(f"segid {chain_cont.segid}")
         selected_segid.segments.segids = chainID.id
 
     for res_cont, resid in zip(u.residues, topo.topology.residues()):
+
+        if is_numeric(resid.chain.id):
+            continue
         resid_sele = u.select_atoms(f"resid {int(res_cont.resid)}")
         resid_sele.residues.resids = int(resid.id)
 
     return u
-
 
 
 def remap_amber(mapping_file, u):

@@ -22,10 +22,14 @@ from openmm.unit import *
 from Helper import import_yaml, save_yaml
 import warnings
 from openmm import app
-# suppress some MDAnalysis warnings when writing PDB files
+from openmm.amd import AMDIntegrator
+
+
 warnings.filterwarnings('ignore')
 import mdtraj
 import mdtraj.reporters
+
+
 
 def simulate(args, params):
     """
@@ -90,7 +94,7 @@ def setup_simulation(args, params, salt_concentration=0.15):
     # Physical parapeters
     nonbondedCutoff = params['nonbondedCutoff'] * nanometers
     ewaldErrorTolerance = params['ewaldErrorTolerance']
-    constraintTolerance = 0.000001
+    constraintTolerance = 0.00001
     hydrogenMass = 1.5 * amu
     args.T = 310
     args.temperature = args.T * kelvin          # Simulation temperature
@@ -125,10 +129,25 @@ def setup_simulation(args, params, salt_concentration=0.15):
     #save_yaml(args, args.params)
     save_yaml(params, args.params)
 
-    # Define integrator
-    integrator = LangevinMiddleIntegrator(args.temperature, friction, dt)
-    integrator.setConstraintTolerance(constraintTolerance)
-    integrator.setRandomNumberSeed(args.seed)
+    MD_type = 'standard' # acceleratedMD / 'standard'
+
+    if MD_type == 'standard':
+        # Define integrator
+        integrator = LangevinMiddleIntegrator(args.temperature, friction, dt)
+        integrator.setConstraintTolerance(constraintTolerance)
+        integrator.setRandomNumberSeed(args.seed)
+        
+    else: # First experiments with accelerated MD
+        # Define aMD parameters
+        # Note: These values are examples; you should calculate or estimate them based on your system
+        E_total = -500 * kilocalories_per_mole    # Total potential energy threshold
+        alpha_total = 200 * kilocalories_per_mole  # Acceleration factor for total potential energy
+        # Create the aMD integrator
+        # dt, alpha, E
+        integrator = AMDIntegrator(E=E_total,
+                                   alpha=alpha_total,
+                                   dt=2.0 * femtoseconds  # Time step
+                                    )
 
     # Setup simulation box, water model, and salt concentration here
     try:

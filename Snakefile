@@ -39,18 +39,37 @@ mutations = simulations_df.mutation_all.unique()
 
 rule proteinInteraction:
     input:
-        'results/martin/interactions.parquet',
-        #'results/fingerprints/interactions.parquet',
-        expand('results/interactionSurface/{complex}.{mutation}.interaction.pdb', complex=complexes, mutation=mutations),
-        #expand('{complex}/{mutation}/{seed}/fingerprint/fingerprint.parquet',complex=complexes,mutation=mutations,seed=seeds),
+        'results/fingerprints/interactions.parquet',
+        'results/metaReport.html',
+        #expand('results/interactionSurface/{complex}.{mutation}.interaction.pdb', complex=complexes, mutation=mutations),
+        expand('{complex}/{mutation}/{seed}/fingerprint/fingerprint.parquet',complex=complexes,mutation=mutations,seed=seeds),
         expand('{complex}/{mutation}/mutation.pdb', complex=complexes, mutation=mutations),
-        expand('{complex}/{mutation}/{seed}/MD/trajectory.h5', complex=complexes, mutation=mutations, seed=seeds),
-        expand('{complex}/{mutation}/{seed}/analysis/RMSF.svg', complex=complexes, mutation=mutations, seed=seeds),
+        expand('{complex}/{mutation}/{seed}/analysis/RMSF.html', complex=complexes, mutation=mutations, seed=seeds),
+        expand('{complex}/{mutation}/{seed}/frames/lig_{i}.pdb', i=range(0,4), complex=complexes, mutation=mutations, seed=seeds),
+        expand('{complex}/{mutation}/{seed}/frames/rec_{i}.pdb', i=range(0,4), complex=complexes, mutation=mutations, seed=seeds),
+        expand('{complex}/{mutation}/{seed}/po-sco/{i}.txt', i=range(0,4), complex=complexes, mutation=mutations, seed=seeds),
+        'results/posco/posco_interactions.parquet',
+        'results/posco/posco.html'
+
 
 rule protein:
     input:
         expand('{complex}/{mutation}/{seed}/MD/traj_center.dcd', complex=complexes, mutation=mutations, seed=seeds),
-        expand('{complex}/{mutation}/{seed}/analysis/RMSF.svg', complex=complexes, mutation=mutations, seed=seeds),
+        expand('{complex}/{mutation}/{seed}/analysis/RMSF.html', complex=complexes, mutation=mutations, seed=seeds),
+
+
+rule metaReport:
+    input:
+        params='config/params.yml',
+        sims='config/simulations.csv'
+    output:
+        report('results/metaReport.html',caption="RMSF.rst",category="Meta"),
+    shell:
+        """
+        metaReport.py  --param {input.params}  \
+                       --sims {input.sims}  \
+                       --output {output}  \
+        """
 
 rule Mutagensis:
     input:
@@ -61,7 +80,7 @@ rule Mutagensis:
     params:
         out_dir=directory('{complex}/{mutation}'),
         pdb= lambda wildcards: simulations_df.loc[f'{wildcards.complex}_{wildcards.mutation}']['input'],
-        foldX='foldx_20241231'
+        foldX='foldx_20251231'              # Needs to be updated every year
     log:
         '{complex}/{mutation}/mutation.log'
     shell:
@@ -125,7 +144,7 @@ rule DescriptiveTrajAnalysis:
         traj='{complex}/{mutation}/{seed}/MD/traj_center.dcd',
         stats='{complex}/{mutation}/{seed}/MD/MDStats.csv'
     output:
-        rmsf= report('{complex}/{mutation}/{seed}/analysis/RMSF.svg',caption="RMSF.rst",category="RMSF",labels={"Complex": "{complex}", "Mutation": "{mutation}"}),
+        rmsf= report('{complex}/{mutation}/{seed}/analysis/RMSF.html',caption="RMSF.rst",category="RMSF",labels={"Complex": "{complex}", "Mutation": "{mutation}"}),
         rmsd= report('{complex}/{mutation}/{seed}/analysis/RMSD.svg',caption="RMSF.rst",category="RMSD",labels={"Complex": "{complex}", "Mutation": "{mutation}"}),
         bfactors='{complex}/{mutation}/{seed}/analysis/bfactors.pdb',
         stats='{complex}/{mutation}/{seed}/analysis/Stats.svg',
@@ -142,68 +161,64 @@ rule DescriptiveTrajAnalysis:
                                                    --fig_stats {output.stats}
         """
 
-rule InteractionAnalyzerMartin:
+
+rule ExtractLast100FramesFromMDTrajectory:
     input:
-        topo = '{complex}/{mutation}/{seed}/MD/frame_end.cif',
+        topo='{complex}/{mutation}/{seed}/MD/frame_end.cif',
         traj='{complex}/{mutation}/{seed}/MD/traj_center.dcd',
-        pdb='{complex}/{mutation}/mutation.pdb',
+        pdb='{complex}/{mutation}/mutation.pdb'
     output:
-        frame_pdb='{complex}/{mutation}/{seed}/frames/frame_1.pdb',
-        ligand_csv=ensure('{complex}/{mutation}/{seed}/frames/lig/1.csv', non_empty=True),
-        receptor_csv=ensure('{complex}/{mutation}/{seed}/frames/rec/1.csv', non_empty=True),
-        dir=directory('{complex}/{mutation}/{seed}/frames/'),
-        final='{complex}/{mutation}/{seed}/MD/final.pdb',
-    log:
-        '{complex}/{mutation}/{seed}/MD/center.log'
-    threads: 4
-    shell:
-        """
-        5_Martin_analyzer.py  --topo {input.topo} \
-                              --traj {input.traj} \
-                              --pdb {input.pdb} \
-                              --n_frames {number_frames} \
-                              --final {output.final} \
-                              --cpu {threads} \
-                              --dir {output.dir}  > {log}
-        """
-
-
-rule GlobalMartinAnalysis:
-    input:
-        dirs=expand('{complex}/{mutation}/{seed}/frames/', complex=complexes, mutation=mutations, seed=seeds),
-    output:
-        interactions = report('results/martin/interactions.parquet', caption="posco.rst",category="Posco", labels=({"Name": "All Interactions", "Type": "List"})),
-        residueEnergy= report('results/martin/residueEnergy.svg', caption="posco.rst",category="Posco", labels=({"Name": "Per Residue Interaction Energy", "Type": "Plot"})),
-        totalEnergy= report('results/martin/totalEnergy.svg', caption="posco.rst",category="Posco", labels=({"Name": "Total Energy", "Type": "Plot"}))
-    shell:
-        """
-        6_GlobalMartinInteractions.py  --dirs {input.dirs} \
-                                       --interactions {output.interactions} \
-                                       --residueEnergy {output.residueEnergy} \
-                                       --totalEnergy {output.totalEnergy}
-        """
-
-rule InteractionSurface:
-    input:
-        final_frame = f'{{complex}}/{{mutation}}/{representative_seed}/MD/topo_center.pdb',
-        interactions= 'results/martin/interactions.parquet',
-    output:
-        bfactor_pdbs = 'results/interactionSurface/{complex}.{mutation}.interaction.pdb',
-        pymol_cmd = 'results/interactionSurface/{complex}.{mutation}.pml',
-        pymol = report('results/interactionSurface/{complex}.{mutation}.final.pse',caption="RMSF.rst",category="PyMol",labels=({"Complex": "{complex}", "Mutation": "{mutation}", "Type": "PyMol"})),
-        surface= report('results/interactionSurface/{complex}.{mutation}.png',caption="RMSF.rst",category="PyMol", labels=({"Complex": "{complex}", "Mutation": "{mutation}", "Type": "Image"}))
+        lig_frames='{complex}/{mutation}/{seed}/frames/lig_{i}.pdb',
+        rec_frames='{complex}/{mutation}/{seed}/frames/rec_{i}.pdb'
     params:
-        representative_seed = seeds[0],
+        output_dir=lambda wildcards: f"{wildcards.complex}/{wildcards.mutation}/{wildcards.seed}/frames/",
+        n_frames=10
+    threads: 1
     shell:
         """
-        10_InteractionSurface.py --interactions {input.interactions} \
-                                 --seed {params.representative_seed} \
-                                 --mutation {wildcards.mutation} \
-                                 --frames {input.final_frame} \
-                                 --complex {wildcards.complex}
-        pymol -cQ {output.pymol_cmd}
+        5_ExtractLastFrames.py  --topo {input.topo} \
+                          --traj {input.traj} \
+                          --n_frames {params.n_frames} \
+                          --dir {params.output_dir}
         """
 
+
+# PosCo
+rule posco:
+    input:
+        lig_frames='{complex}/{mutation}/{seed}/frames/lig_{i}.pdb',
+        rec_frames='{complex}/{mutation}/{seed}/frames/rec_{i}.pdb'
+    output:
+        '{complex}/{mutation}/{seed}/po-sco/{i}.txt'
+    threads: 1
+    shell:
+        """
+        po-sco {input.rec_frames} {input.lig_frames} -b  > {output}
+        """
+
+# PosCo
+rule concat:
+    input:
+        expand('{complex}/{mutation}/{seed}/po-sco/{i}.txt', i=range(0,4), complex=complexes, mutation=mutations, seed=seeds),
+    output:
+        'results/posco/posco_interactions.parquet'
+    threads: 1
+    shell:
+        """
+        6_TransformDF.py --input {input} --output {output}
+        """
+
+# PosCo
+rule PoScoAnalysis:
+    input:
+        'results/posco/posco_interactions.parquet'
+    output:
+        report('results/posco/posco.html', caption="posco.rst",category="Pose Scoring", labels=({"Name": "Interactions", "Type": "Plot"})),
+    threads: 1
+    shell:
+        """
+        7_PoscoAnalysis.py --input {input} --output {output}
+        """
 
 rule interactionFingerprint:
     input:
@@ -231,13 +246,15 @@ rule GlobalFingerprintAnalysis:
         fingerprints=expand('{complex}/{mutation}/{seed}/fingerprint/fingerprint.parquet', complex=complexes, mutation=mutations, seed=seeds),
     output:
         interactions = report('results/fingerprints/interactions.parquet',labels=({"Name": "Interaction Analysis Prolif", "Type": "List"}),caption="RMSF.rst",category="Interaction Fingerprint"),
+        figure = report('results/fingerprints/fingerprints.html',labels=({"Name": "Interaction Analysis Prolif", "Type": "Plot"}),caption="RMSF.rst",category="Interaction Fingerprint"),
     params:
         n_frames = config.get('number_frames')
     shell:
         """
         8_GlobalFinterprintAnalysis.py  --fingerprints {input.fingerprints} \
                                         --interactions {output.interactions} \
-                                        --n_frames {params.n_frames}
+                                        --n_frames {params.n_frames} \
+                                        --figure {output.figure}
         """
 
 onsuccess:

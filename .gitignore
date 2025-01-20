@@ -113,3 +113,9 @@ ENV/
 .DS_Store
 
 dev*
+.panoptes.db
+report/
+MASP2_090824/
+demo*
+simulations/
+tmp_*
