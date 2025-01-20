@@ -51,5 +51,7 @@ if libtinfo.so.5 is missing
 > squeeze -j4 -n
 > squeeze -j4
 
+Make sure algoriths completes successfully and uses GPU during Molecular dynamics step
+
 
 

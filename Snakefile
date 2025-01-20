@@ -39,13 +39,18 @@ mutations = simulations_df.mutation_all.unique()
 
 rule proteinInteraction:
     input:
-        'results/martin/interactions.parquet',
         'results/fingerprints/interactions.parquet',
         'results/metaReport.html',
-        expand('results/interactionSurface/{complex}.{mutation}.interaction.pdb', complex=complexes, mutation=mutations),
+        #expand('results/interactionSurface/{complex}.{mutation}.interaction.pdb', complex=complexes, mutation=mutations),
         expand('{complex}/{mutation}/{seed}/fingerprint/fingerprint.parquet',complex=complexes,mutation=mutations,seed=seeds),
         expand('{complex}/{mutation}/mutation.pdb', complex=complexes, mutation=mutations),
         expand('{complex}/{mutation}/{seed}/analysis/RMSF.html', complex=complexes, mutation=mutations, seed=seeds),
+        expand('{complex}/{mutation}/{seed}/frames/lig_{i}.pdb', i=range(0,4), complex=complexes, mutation=mutations, seed=seeds),
+        expand('{complex}/{mutation}/{seed}/frames/rec_{i}.pdb', i=range(0,4), complex=complexes, mutation=mutations, seed=seeds),
+        expand('{complex}/{mutation}/{seed}/po-sco/{i}.txt', i=range(0,4), complex=complexes, mutation=mutations, seed=seeds),
+        'results/posco/posco_interactions.parquet',
+        'results/posco/posco.html'
+
 
 rule protein:
     input:
@@ -156,70 +161,64 @@ rule DescriptiveTrajAnalysis:
                                                    --fig_stats {output.stats}
         """
 
-# PosCo
-rule PoseScoring:
+
+rule ExtractLast100FramesFromMDTrajectory:
     input:
-        topo = '{complex}/{mutation}/{seed}/MD/frame_end.cif',
+        topo='{complex}/{mutation}/{seed}/MD/frame_end.cif',
         traj='{complex}/{mutation}/{seed}/MD/traj_center.dcd',
-        pdb='{complex}/{mutation}/mutation.pdb',
+        pdb='{complex}/{mutation}/mutation.pdb'
     output:
-        frame_pdb='{complex}/{mutation}/{seed}/frames/frame_1.pdb',
-        ligand_csv=ensure('{complex}/{mutation}/{seed}/frames/lig/1.csv', non_empty=True),
-        receptor_csv=ensure('{complex}/{mutation}/{seed}/frames/rec/1.csv', non_empty=True),
-        dir=directory('{complex}/{mutation}/{seed}/frames/'),
-        final='{complex}/{mutation}/{seed}/MD/final.pdb',
-    log:
-        '{complex}/{mutation}/{seed}/MD/center.log'
+        lig_frames='{complex}/{mutation}/{seed}/frames/lig_{i}.pdb',
+        rec_frames='{complex}/{mutation}/{seed}/frames/rec_{i}.pdb'
+    params:
+        output_dir=lambda wildcards: f"{wildcards.complex}/{wildcards.mutation}/{wildcards.seed}/frames/",
+        n_frames=10
     threads: 1
     shell:
         """
-        5_PoseScoring.py  --topo {input.topo} \
+        5_ExtractLastFrames.py  --topo {input.topo} \
                           --traj {input.traj} \
-                          --pdb {input.pdb} \
-                          --n_frames {number_frames} \
-                          --final {output.final} \
-                          --dir {output.dir}  > {log}
+                          --n_frames {params.n_frames} \
+                          --dir {params.output_dir}
         """
 
 
-rule Ana_PoseScoring:
+# PosCo
+rule posco:
     input:
-        dirs=expand('{complex}/{mutation}/{seed}/frames/', complex=complexes, mutation=mutations, seed=seeds),
+        lig_frames='{complex}/{mutation}/{seed}/frames/lig_{i}.pdb',
+        rec_frames='{complex}/{mutation}/{seed}/frames/rec_{i}.pdb'
     output:
-        interactions = report('results/martin/interactions.parquet', caption="posco.rst",category="Pose Scoring", labels=({"Name": "All Interactions", "Type": "List"})),
-        fingerprint_lig= report('results/martin/fingerprintLigand.html', caption="posco.rst",category="Pose Scoring", labels=({"Name": "Ligand Interactions", "Type": "Plot"})),
-        fingerprint_rec= report('results/martin/fingerprintRecptor.html', caption="posco.rst",category="Pose Scoring", labels=({"Name": "Receptor Interactions", "Type": "Plot"})),
-        totalEnergy= report('results/martin/totalEnergy.svg', caption="posco.rst",category="Pose Scoring", labels=({"Name": "Total Energy", "Type": "Plot"}))
+        '{complex}/{mutation}/{seed}/po-sco/{i}.txt'
+    threads: 1
     shell:
         """
-        6_Ana_PoseScoring.py  --dirs {input.dirs} \
-                              --interactions {output.interactions} \
-                              --fingerprint_lig {output.fingerprint_lig} \
-                              --fingerprint_rec {output.fingerprint_rec} \
-                              --totalEnergy {output.totalEnergy}
+        po-sco {input.rec_frames} {input.lig_frames} -b  > {output}
         """
 
-rule InteractionSurface:
+# PosCo
+rule concat:
     input:
-        final_frame = f'{{complex}}/{{mutation}}/{representative_seed}/MD/topo_center.pdb',
-        interactions= 'results/martin/interactions.parquet',
+        expand('{complex}/{mutation}/{seed}/po-sco/{i}.txt', i=range(0,4), complex=complexes, mutation=mutations, seed=seeds),
     output:
-        bfactor_pdbs = 'results/interactionSurface/{complex}.{mutation}.interaction.pdb',
-        pymol_cmd = 'results/interactionSurface/{complex}.{mutation}.pml',
-        pymol = report('results/interactionSurface/{complex}.{mutation}.final.pse',caption="RMSF.rst",category="PyMol",labels=({"Complex": "{complex}", "Mutation": "{mutation}", "Type": "PyMol"})),
-        surface= report('results/interactionSurface/{complex}.{mutation}.png',caption="RMSF.rst",category="PyMol", labels=({"Complex": "{complex}", "Mutation": "{mutation}", "Type": "Image"}))
-    params:
-        representative_seed = seeds[0],
+        'results/posco/posco_interactions.parquet'
+    threads: 1
     shell:
         """
-        10_InteractionSurface.py --interactions {input.interactions} \
-                                 --seed {params.representative_seed} \
-                                 --mutation {wildcards.mutation} \
-                                 --frames {input.final_frame} \
-                                 --complex {wildcards.complex}
-        pymol -cQ {output.pymol_cmd}
+        6_TransformDF.py --input {input} --output {output}
         """
 
+# PosCo
+rule PoScoAnalysis:
+    input:
+        'results/posco/posco_interactions.parquet'
+    output:
+        report('results/posco/posco.html', caption="posco.rst",category="Pose Scoring", labels=({"Name": "Interactions", "Type": "Plot"})),
+    threads: 1
+    shell:
+        """
+        7_PoscoAnalysis.py --input {input} --output {output}
+        """
 
 rule interactionFingerprint:
     input:

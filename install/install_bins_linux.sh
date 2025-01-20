@@ -6,7 +6,7 @@
 
 # Download archive containing all bins
 echo "Download software in current folder"
-curl -L -o squeezemd-bin.tar.gz "https://www.dropbox.com/scl/fi/4v5f8z42m38yypj48biwb/squeezemd-bin.tar.gz?rlkey=04m2g789pry8pqiribd7u0uii&dl=1"
+curl -L -o squeezemd-bin.tar.gz "https://www.dropbox.com/scl/fi/ngo4nhh0mcj09goob10wk/squeezemd-bin.tar.gz?rlkey=1kw69tmcrrgmqzbx096ksd7l1&st=ouhq22rf&dl=1"
 
 # Unpack archiv in ~/tools/
 INSTALLDIR=~/tools/
@@ -15,11 +15,11 @@ tar -xvf squeezemd-bin.tar.gz -C $INSTALLDIR
 
 # Save paths in bashrc (extended bash on current Mac)
 echo "# foldX
-export PATH=\$PATH:~/tools/foldx/linux64" >> ~/.bashrc
+export PATH=\$PATH:~/tools/foldx/foldx5_1Linux64_0" >> ~/.bashrc
 
 # PosCo
 echo "# foldX
-export PATH=\$PATH:~/tools/interaction-analyzer/linux" >> ~/.bashrc
+export PATH=\$PATH:~/tools/po-sco" >> ~/.bashrc
 
 # source
 source ~/.bashrc

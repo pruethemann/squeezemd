@@ -9,21 +9,6 @@ from Helper import execute, remap_MDAnalysis  # Helper functions for execution a
 import MDAnalysis as mda  # MDAnalysis for atom selection and structure manipulation
 import openmm.app as app
 
-def extract_complex_resids(pdb_ligand: os.path, chainID: str):
-    """
-    Extract the residue name and residue ID of the first residue of the specified chain in the pdb file.
-    :param pdb_ligand: The PDB file path.
-    :param chainID: The chain identifier (e.g., 'A' for ligand, 'B' for receptor).
-    :return: Tuple containing the residue name and residue ID of the first residue in the chain.
-    """
-    # Import pdb file with MDAnalysis
-    u = mda.Universe(pdb_ligand)
-
-    # Extract the ligand or receptor based on the provided chainID
-    protein = u.select_atoms(f'segid {chainID}')
-
-    # Return the residue name and ID of the first residue in the chain
-    return (protein.residues[0].resname, protein.residues[0].resid)
 
 def extract_binding_surface(u, frame_count, t=8):
     """
@@ -50,7 +35,7 @@ def extract_binding_surface(u, frame_count, t=8):
     complete_water = complete_water_residues.atoms
 
     # Combine all selections
-    return ligand + receptor + complete_water
+    return (ligand, receptor + complete_water)
 
 def parse_arguments():
     """
@@ -79,30 +64,17 @@ if __name__ == '__main__':
     u = mda.Universe(topo, args.traj, in_memory=False)
     u = remap_MDAnalysis(u, topo)
 
-    # Extract ligand and receptor residue information from the PDB
-    (resname_lig, resid_lig) = extract_complex_resids(args.pdb, 'A')  # For ligand (chain A)
-    (resname_rec, resid_rec) = extract_complex_resids(args.pdb, 'B')  # For receptor (chain B)
-
     frame_count = 0
     for ts in u.trajectory[-args.n_frames:]:
         # Extract protein and water in binding surface
-        bind_surface_sele = extract_binding_surface(u, frame_count)
+        (ligand, receptor) = extract_binding_surface(u, frame_count)
 
-        # Save the selection of the current frame as a PDB file
-        pdb_binding_surface = os.path.join(args.dir, f'frame_{frame_count}.pdb')
-        bind_surface_sele.write(pdb_binding_surface)
+        # Save ligand and receptor files separatly
+        ligand_pdb = os.path.join(args.dir, f'lig_{frame_count}.pdb')
+        ligand.write(ligand_pdb)
 
-        # Perform interaction analyzer
-        lig_csv = os.path.join(args.dir, 'lig', f'{frame_count}.csv')
-        rec_csv = os.path.join(args.dir, 'rec', f'{frame_count}.csv')
-
-        # Analyze interactions of the ligand
-        command = f'interaction-analyzer-csv.x {pdb_binding_surface} {resname_lig} {resid_lig} > {lig_csv}'
-        execute(command)
-
-        # Analyze interactions of the receptor
-        command = f'interaction-analyzer-csv.x {pdb_binding_surface} {resname_rec} {resid_rec} > {rec_csv}'
-        execute(command)
+        receptor_pdb = os.path.join(args.dir, f'rec_{frame_count}.pdb')
+        receptor.write(receptor_pdb)
 
         frame_count += 1
             

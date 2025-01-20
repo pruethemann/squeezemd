@@ -40,7 +40,7 @@ from glob import glob
 
 sns.set(rc={'figure.figsize':(40,8.27)})
 
-def generate_data(interactions:list, protein='ligand'):
+def generate_data(interactions:list):
     """
     Imports all the single data files and merges them together to 1 dataframe
     :param sim_df:
@@ -67,7 +67,7 @@ def generate_data(interactions:list, protein='ligand'):
 
         # Import data
         try:
-            frame_ana = pd.read_csv(interaction_csv, names=['interaction', 'resname', 'resid', 'energy'])
+            frame_ana = pd.read_csv(interaction_csv)
         except FileNotFoundError:
             print("Error with import from: ", interaction_csv)
             continue
@@ -88,25 +88,19 @@ def generate_data(interactions:list, protein='ligand'):
     # Merge all data together
     stats = pd.concat(stats)
 
-    # Determine inter and intramolecular interactions
-    stats['interaction type'] = stats.interaction
-    stats.loc[stats['interaction type'].str.contains('L-P'), 'interaction'] = 'inter'
-    stats.loc[stats['interaction type'].str.contains('L-L'), 'interaction'] = 'intra'
-
     stats['protein'] = protein
 
     return stats
 
 def find_analysis_posco_files():
-    ligand_files = []
-    receptor_files = []
-    for dir in args.dirs:
-        lig_dir = os.path.join(dir, 'lig/')
-        rec_dir = os.path.join(dir, 'rec/')
-        ligand_files.extend(glob(lig_dir + '*.csv'))
-        receptor_files.extend(glob(rec_dir+ '*.csv'))
+    posco_files = []
 
-    return (ligand_files, receptor_files)
+    for dir in args.dirs:
+        posco_dir = os.path.join(dir, 'lig/')
+
+        posco_files.extend(glob(posco_dir + '*.csv'))
+
+    return (posco_files)
 
 def plot_interaction_fingerprint(data, complex_protein:str, output, receptor, ligand):
 
@@ -148,14 +142,12 @@ def main(args):
         del data['Unnamed: 0']
     else:
         # Find all paths to Posco analysis files. One file per simutation and frame
-        (ligand_files, receptor_files) = find_analysis_posco_files()
+        po_sco_files = find_analysis_posco_files()
 
         # 3. Create result table including: inter and intramolecular interactions / all simulations / all seeds / ligand and receptor perspective for ligand AND receptor
-        data_ligand = generate_data(ligand_files, protein='ligand')
-        data_receptor = generate_data(receptor_files, protein='receptor')
+        data = generate_data(po_sco_files)
 
         # Merge and export ligand and receptor data
-        data = pd.concat([data_ligand, data_receptor])
         data.to_parquet(args.interactions)
         data.to_csv('interactions.csv')
 
