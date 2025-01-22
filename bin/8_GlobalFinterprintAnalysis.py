@@ -82,6 +82,7 @@ def data_engineering(data, n_frames):
     data_agg['interaction_type'] = data_agg['interaction'].map(interaction_map)
 
     # extract resids
+    print(data_agg['ligand'])
     data_agg['resid'] = data_agg['ligand'].str.extract('(\d+)').astype(int)
     return data_agg
 

@@ -172,7 +172,7 @@ rule ExtractLast100FramesFromMDTrajectory:
         rec_frames='{complex}/{mutation}/{seed}/frames/rec_{i}.pdb'
     params:
         output_dir=lambda wildcards: f"{wildcards.complex}/{wildcards.mutation}/{wildcards.seed}/frames/",
-        n_frames=10
+        n_frames=number_frames
     threads: 1
     shell:
         """

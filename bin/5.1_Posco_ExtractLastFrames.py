@@ -5,7 +5,7 @@ This script processes molecular dynamics trajectories and performs interaction a
 """
 
 import argparse, os
-from Helper import execute, remap_MDAnalysis  # Helper functions for execution and MDAnalysis remapping
+from Helper import remap_MDAnalysis  # Helper functions for execution and MDAnalysis remapping
 import MDAnalysis as mda  # MDAnalysis for atom selection and structure manipulation
 import openmm.app as app
 
@@ -78,7 +78,6 @@ if __name__ == '__main__':
 
         frame_count += 1
             
-
     # Save the last frame
     u.trajectory[-1]
 

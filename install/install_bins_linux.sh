@@ -15,10 +15,10 @@ tar -xvf squeezemd-bin.tar.gz -C $INSTALLDIR
 
 # Save paths in bashrc (extended bash on current Mac)
 echo "# foldX
-export PATH=\$PATH:~/tools/foldx/foldx5_1Linux64_0" >> ~/.bashrc
+export PATH=\$PATH:~/tools/foldX/foldx5_1Linux64_0" >> ~/.bashrc
 
 # PosCo
-echo "# foldX
+echo "# Po-Sco
 export PATH=\$PATH:~/tools/po-sco" >> ~/.bashrc
 
 # source
