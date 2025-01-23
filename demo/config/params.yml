@@ -1,5 +1,5 @@
 replicates: 1
-number_frames: 100
+number_frames: 20
 
 ## MD parameters
 dt: 0.004               # Simulation time steps in ps. 2 fs is ok if HBonds are constrained.

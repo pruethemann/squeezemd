@@ -162,24 +162,26 @@ rule DescriptiveTrajAnalysis:
         """
 
 
-rule ExtractithFrameFromTrajectory:
+rule ExtractLast100FramesFromMDTrajectory:
     input:
         topo='{complex}/{mutation}/{seed}/MD/frame_end.cif',
-        traj='{complex}/{mutation}/{seed}/MD/traj_center.dcd'
+        traj='{complex}/{mutation}/{seed}/MD/traj_center.dcd',
+        pdb='{complex}/{mutation}/mutation.pdb'
     output:
-        lig_frame='{complex}/{mutation}/{seed}/frames/lig_{i}.pdb',
-        rec_frame='{complex}/{mutation}/{seed}/frames/rec_{i}.pdb'
+        lig_frames='{complex}/{mutation}/{seed}/frames/lig_{i}.pdb',
+        rec_frames='{complex}/{mutation}/{seed}/frames/rec_{i}.pdb'
+    params:
+        output_dir=lambda wildcards: f"{wildcards.complex}/{wildcards.mutation}/{wildcards.seed}/frames/",
+        n_frames=number_frames
     threads: 1
     shell:
         """
         5.1_Posco_ExtractLastFrames.py  --topo {input.topo} \
-                                        --traj {input.traj} \
-                                        --frame {wildcards.i} \
-                                        --lig_frame {output.lig_frame} \
-                                        --rec_frame {output.rec_frame}
+                          --traj {input.traj} \
+                          --n_frames {params.n_frames} \
+                          --dir {params.output_dir}
         """
 
-#         touch {output.lig_frame} && touch {output.rec_frame}
 
 # PosCo
 rule posco:
