@@ -29,20 +29,17 @@
 """
 
 import pandas as pd
-from os import path
 import seaborn as sns
-import matplotlib.pyplot as plt
 import plotly.express as px
-import plotly.graph_objects as go
 import argparse
-import os
-from glob import glob
 
 sns.set(rc={'figure.figsize':(40,8.27)})
 
 def plot_interaction_fingerprint(data, figure):
 
     data['ligand_resid'] = data['ligand_resid'].astype(int)
+
+    # TODO: Exclude Water data
     data = data[data.ligand_resid <= 122]
 
     fig = px.bar(data,
@@ -52,7 +49,7 @@ def plot_interaction_fingerprint(data, figure):
                 error_y='energy_std'
                 )
     
-        # Set the bars to be grouped horizontally rather than stacked
+    # Set the bars to be grouped horizontally rather than stacked
     fig.update_layout(xaxis_title="Residue ID",
                     yaxis_title="Energy",
                     xaxis_tickangle=-90,

@@ -29,14 +29,8 @@
 """
 
 import pandas as pd
-from os import path
 import seaborn as sns
-import matplotlib.pyplot as plt
-import plotly.express as px
-import plotly.graph_objects as go
 import argparse
-import os
-from glob import glob
 
 sns.set(rc={'figure.figsize':(40,8.27)})
 
@@ -94,14 +88,21 @@ def generate_data(interactions:list):
 
 
 def parse_lipophilic(parts):
+        
         interaction_info = parts[0].split()
         donor_acceptor = parts[1].strip().split()
 
         receptor_resname = donor_acceptor[1]
-        receptor_resid = donor_acceptor[2]
+        receptor_resid = int(donor_acceptor[2])
 
         ligand_resname = donor_acceptor[-2]
-        ligand_resid = donor_acceptor[-1]
+        ligand_resid = int(donor_acceptor[-1])
+
+        # TODO: solve the differentiation issue of ligand vs receptor
+        if ligand_resid > 122:
+             (ligand_resid, receptor_resid) = (receptor_resid, ligand_resid)
+             (ligand_resname, receptor_resname) = (receptor_resname,ligand_resname)
+
         distance = float(interaction_info[2].split("=")[1])
         energy = float(interaction_info[3].split("=")[1])
 
@@ -118,17 +119,21 @@ def parse_lipophilic(parts):
         return interaction
 
 
-
 def parse_hbonds(parts):
 
         interaction_info = parts[0].split()
         donor_acceptor = parts[1].strip().split()
 
         ligand_resname = donor_acceptor[1]
-        ligand_resid = donor_acceptor[2]
+        ligand_resid = int(donor_acceptor[2])
 
         receptor_resname = donor_acceptor[-2]
-        receptor_resid = donor_acceptor[-1]
+        receptor_resid = int(donor_acceptor[-1])
+
+        # TODO: solve the differentiation issue of ligand vs receptor
+        if ligand_resid > 122:
+             (ligand_resid, receptor_resid) = (receptor_resid, ligand_resid)
+             (ligand_resname, receptor_resname) = (receptor_resname,ligand_resname)
 
         distance = float(interaction_info[2].split("=")[1])
         angle = float(interaction_info[3].split("=")[1])
@@ -183,7 +188,7 @@ def main(args):
     results = pd.concat(results)
 
     results.to_parquet(args.output)
-    results.to_csv('posco_interactions.csv')
+    #results.to_csv('posco_interactions.csv')
 
 
 def extract_metadata(file_path, data):

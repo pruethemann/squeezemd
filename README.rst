@@ -17,6 +17,10 @@ squeezeMD - A Comprehensive Molecular Dynamics Analysis Workflow
 * Free software: GNU General Public License v3
 * Documentation: https://squeezemd.readthedocs.io.
 
+Install
+--------
+
+Please follow the description in install/INSTALL.md
 
 Summary
 --------

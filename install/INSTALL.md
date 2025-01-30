@@ -13,15 +13,15 @@ everything. This allows a clean and fast install
 1. Install micromamba
 > "${SHELL}" <(curl -L micro.mamba.pm/install.sh)
 2. Install the conda environment
-> micromamba create -f environment.yml
+> micromamba create -f environment.yml  \
 > micromamba activate squeeze-dev
 3. Install additional binaries (Posco and foldX)
-chmod +x install_bins_linux.sh
+chmod +x install_bins_linux.sh \
 ./install_bins_linux.sh
 4. source .bashrc
 5. Upgrade the current squeezeMD code
-cd squeezemd
-python3 setup.py sdist && pip3 install --upgrade .
+cd squeezemd  \
+python3 setup.py sdist && pip3 install --upgrade . 
 5. Test binaries by executing:
 > po-sco
 > foldx_20251231
@@ -46,9 +46,9 @@ if libtinfo.so.5 is missing
 > sudo apt-get install libtinfo5
 
 2. Run the demo workflow in the folder demo
-> cd demo
-> micromamba activate squeeze
-> squeeze -j4 -n
+> cd demo  \
+> micromamba activate squeeze  \
+> squeeze -j4 -n  \
 > squeeze -j4
 
 Make sure algoriths completes successfully and uses GPU during Molecular dynamics step
