@@ -138,6 +138,20 @@ rule centerMDTraj:
                             --topo_center {output.topo_center}
         """
 
+
+rule aquaduct:
+    input:
+        topo_center = '{complex}/{mutation}/{seed}/MD/topo_center.pdb',
+        traj_center='{complex}/{mutation}/{seed}/MD/traj_center.dcd',
+    output:
+        pymol='{complex}/{mutation}/{seed}/MD/aquaduct.pse',
+    shell:
+        """
+        #TODO
+        echo "Hello World"
+        """
+
+
 rule DescriptiveTrajAnalysis:
     input:
         topo='{complex}/{mutation}/{seed}/MD/frame_end.cif',
