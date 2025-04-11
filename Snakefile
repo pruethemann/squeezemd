@@ -43,19 +43,19 @@ rule proteinInteraction:
         'results/metaReport.html',
         #expand('results/interactionSurface/{complex}.{mutation}.interaction.pdb', complex=complexes, mutation=mutations),
         expand('{complex}/{mutation}/{seed}/fingerprint/fingerprint.parquet',complex=complexes,mutation=mutations,seed=seeds),
-        expand('{complex}/{mutation}/mutation.pdb', complex=complexes, mutation=mutations),
         expand('{complex}/{mutation}/{seed}/analysis/RMSF.html', complex=complexes, mutation=mutations, seed=seeds),
         expand('{complex}/{mutation}/{seed}/frames/lig_{i}.pdb', i=range(number_frames), complex=complexes, mutation=mutations, seed=seeds),
         expand('{complex}/{mutation}/{seed}/frames/rec_{i}.pdb', i=range(number_frames), complex=complexes, mutation=mutations, seed=seeds),
         expand('{complex}/{mutation}/{seed}/po-sco/{i}.txt', i=range(number_frames), complex=complexes, mutation=mutations, seed=seeds),
         'results/posco/posco_interactions.parquet',
-        'results/posco/posco.html'
-
+        'results/posco/posco.html',
+        expand('{complex}/{mutation}/{seed}/aquaduct/aquaduct.pse',complex=complexes, mutation=mutations, seed=seeds)
 
 rule protein:
     input:
         expand('{complex}/{mutation}/{seed}/MD/traj_center.dcd', complex=complexes, mutation=mutations, seed=seeds),
         expand('{complex}/{mutation}/{seed}/analysis/RMSF.html', complex=complexes, mutation=mutations, seed=seeds),
+        expand('{complex}/{mutation}/{seed}/aquaduct/aquaduct.pse',complex=complexes, mutation=mutations, seed=seeds)
 
 
 rule metaReport:
@@ -143,12 +143,25 @@ rule aquaduct:
     input:
         topo_center = '{complex}/{mutation}/{seed}/MD/topo_center.pdb',
         traj_center='{complex}/{mutation}/{seed}/MD/traj_center.dcd',
+        aquaduct_template='config/TEMPLATE_aquaduct.txt',
     output:
-        pymol='{complex}/{mutation}/{seed}/MD/aquaduct.pse',
+        aquaduct='{complex}/{mutation}/{seed}/aquaduct/aquaduct.txt',
+        aquaduct_folder=directory('{complex}/{mutation}/{seed}/aquaduct/'),
+        pymol_cmd='{complex}/{mutation}/{seed}/aquaduct/6_visualize_results.py',
+        pymol_output='{complex}/{mutation}/{seed}/aquaduct/aquaduct.pse',
+    priority:
+        10
+    params:
+        directory('{complex}/{mutation}/{seed}')
+
     shell:
         """
-        #TODO
-        echo "Hello World"
+        eval "$(micromamba shell hook --shell bash)" &&
+        micromamba activate aquaduct_3 &&
+        sed  's|PREFIXINPUT|{params}|g' {input.aquaduct_template} > {output.aquaduct} &&
+        sed  -i 's|PREFIXOUT|{output.aquaduct_folder}|g' {output.aquaduct} &&
+        valve_run -c {output.aquaduct} &&
+        /home/anna/micromamba/envs/pymol/bin/python3 {output.pymol_cmd} --save-session aquaduct.pse
         """
 
 

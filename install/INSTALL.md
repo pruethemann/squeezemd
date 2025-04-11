@@ -8,8 +8,12 @@ all required modules and the squeezemd code. Additional dependencies can be easl
 following this script. I recommand to use mamba or in particular micromamba to install
 everything. This allows a clean and fast install
 
+
+
+
 ## Linux
 
+1. Install package over git TODO
 1. Install micromamba
 > "${SHELL}" <(curl -L micro.mamba.pm/install.sh)
 2. Install the conda environment

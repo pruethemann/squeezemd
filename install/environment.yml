@@ -12,8 +12,6 @@
 # Option 3: Classical conda install (slow)
 # conda env create -f environment.yml
 
-
-
 name: squeeze
 
 channels:
