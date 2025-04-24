@@ -21,6 +21,8 @@ channels:
 dependencies:
   - python
   - openmm
+  - openmmforcefields
+  - openff-toolkit
   - snakemake-minimal
   - prolif              # Interaction fingerprint
   - pandas

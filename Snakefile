@@ -37,6 +37,22 @@ simulations_df.set_index('name', inplace=True)
 complexes = simulations_df.complex.unique()
 mutations = simulations_df.mutation_all.unique()
 
+rule molecule:
+    input:
+        'results/fingerprints/interactions.parquet',
+        'results/metaReport.html',
+        #expand('results/interactionSurface/{complex}.{mutation}.interaction.pdb', complex=complexes, mutation=mutations),
+        expand('{complex}/{mutation}/{seed}/fingerprint/fingerprint.parquet',complex=complexes,mutation=mutations,seed=seeds),
+        expand('{complex}/{mutation}/{seed}/analysis/RMSF.html', complex=complexes, mutation=mutations, seed=seeds),
+        expand('{complex}/{mutation}/{seed}/frames/lig_{i}.pdb', i=range(number_frames), complex=complexes, mutation=mutations, seed=seeds),
+        expand('{complex}/{mutation}/{seed}/frames/rec_{i}.pdb', i=range(number_frames), complex=complexes, mutation=mutations, seed=seeds),
+        expand('{complex}/{mutation}/{seed}/po-sco/{i}.txt', i=range(number_frames), complex=complexes, mutation=mutations, seed=seeds),
+        'results/posco/posco_interactions.parquet',
+        'results/posco/posco.html',
+        expand('{complex}/{mutation}/{seed}/aquaduct/aquaduct.pse',complex=complexes, mutation=mutations, seed=seeds)
+
+
+
 rule proteinInteraction:
     input:
         'results/fingerprints/interactions.parquet',
@@ -96,29 +112,33 @@ rule Mutagensis:
         fi
         """
 
-rule MD:
+
+rule MDSmallMolecule:
     input:
         md_settings=ancient('config/params.yml'),
         pdb='{complex}/{mutation}/mutation.pdb',
+        sdf=lambda wildcards: simulations_df.loc[f'{wildcards.complex}_{wildcards.mutation}']['input_molecule']
     output:
         topo = '{complex}/{mutation}/{seed}/MD/frame_end.cif',
         traj=temp('{complex}/{mutation}/{seed}/MD/trajectory.h5'),
         stats='{complex}/{mutation}/{seed}/MD/MDStats.csv',
-        params='{complex}/{mutation}/{seed}/MD/params.yml',
+        params='{complex}/{mutation}/{seed}/MD/params.yml'
     resources:
         gpu=1
     priority:
         3
     shell:
         """
-        2_MD.py --pdb {input.pdb} \
-                --topo {output.topo} \
-                --traj {output.traj} \
-                --md_settings {input.md_settings} \
-                --params {output.params} \
-                --seed {wildcards.seed} \
-                --stats {output.stats}
+        2_MD_SmallMolecule.py --pdb {input.pdb} \
+                              --sdf {input.sdf} \
+                              --topo {output.topo} \
+                              --traj {output.traj} \
+                              --md_settings {input.md_settings} \
+                              --params {output.params} \
+                              --seed {wildcards.seed} \
+                              --stats {output.stats}
         """
+
 
 
 rule centerMDTraj:
