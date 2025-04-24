@@ -120,6 +120,11 @@ demo*
 simulations/
 tmp_*
 
+
 Helostasin
 input
 token
+
+*.pse 
+*.dcd
+
