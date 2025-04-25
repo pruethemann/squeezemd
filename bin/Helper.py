@@ -7,11 +7,9 @@ This Helper modules contains multiple function used by multiple other modules.
 
 import subprocess
 import os
-import yaml
 import MDAnalysis as mda
 import pandas as pd
-import pyarrow as pa
-import pyarrow.parquet as pq
+
 
 
 def save_file(content, output_file):
@@ -42,6 +40,7 @@ def import_yaml(yaml_path: os.path):
     :param yaml_path: File path to yaml
     :return: dictionary with parameters
     """
+    import yaml
     try:
         with open(yaml_path, 'r') as stream:
             return yaml.safe_load(stream)
@@ -66,6 +65,7 @@ def save_yaml(d, filepath):
     :param filepath:
     :return:
     """
+    import yaml
     with open(filepath, 'w') as file:
         documents = yaml.dump(d, file)
 

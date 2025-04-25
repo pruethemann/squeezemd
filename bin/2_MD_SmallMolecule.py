@@ -163,6 +163,7 @@ def simulate(args, params, salt_concentration=0.15):
     ligand_topology = ligand.to_topology().to_openmm()
     ligand_positions = ligand.conformers[0].to_openmm()
 
+    # TODO: use config file
     ff_kwargs = {
         'constraints': app.HBonds,
         'rigidWater': True,
@@ -186,7 +187,7 @@ def simulate(args, params, salt_concentration=0.15):
     modeller.add(ligand_topology, ligand_positions)
 
     #print('Adding hydrogens..')
-    #modeller.addHydrogens(system_generator.forcefield)
+    modeller.addHydrogens(system_generator.forcefield)
 
     print('Adding solvent..')
     modeller.addSolvent(system_generator.forcefield,

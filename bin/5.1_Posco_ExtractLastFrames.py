@@ -9,8 +9,7 @@ from Helper import remap_MDAnalysis  # Helper functions for execution and MDAnal
 import MDAnalysis as mda  # MDAnalysis for atom selection and structure manipulation
 import openmm.app as app
 
-
-def extract_binding_surface(u, t=8):
+def extract_binding_surface_original(u, t=8):
     """
     Extracts the protein from the frame plus all complete water molecules t=8 Angstrom from the binding
     surface
@@ -22,6 +21,39 @@ def extract_binding_surface(u, t=8):
 
     # Select water molecules within 5 Å of both chain A and chain B
     water_binding_site = u.select_atoms(f'resname HOH and (around {t} segid A) and (around {t} (not segid A and protein))')
+
+    # Get the residues of selected water molecules
+    water_residues = water_binding_site.residues
+
+    # Filter out incomplete water molecules (keep only those with exactly 3 atoms)
+    complete_water_residues = water_residues[[len(res.atoms) == 3 for res in water_residues]]
+
+    # Get the atoms of the complete water molecules
+    complete_water = complete_water_residues.atoms
+
+    # Combine all selections
+    return (ligand, receptor + complete_water)
+
+def extract_binding_surface(u, t=8):
+    """
+    Extracts the protein from the frame plus all complete water molecules t=8 Angstrom from the binding
+    surface
+    """
+
+    # Select chain A (must be always ligand) and everything else
+    ligand = u.select_atoms('segid X')
+    print(ligand)
+    receptor = u.select_atoms('not segid X and protein')
+
+    chain_ids = set(res.segid for res in u.residues)
+    print(chain_ids)
+
+    chain_ids = set(atom.chainID for atom in u.atoms)
+    print(chain_ids)
+
+
+    # Select water molecules within 5 Å of both chain A and chain B
+    water_binding_site = u.select_atoms(f'resname HOH and (around {t} segid X) and (around {t} (not segid X and protein))')
 
     # Get the residues of selected water molecules
     water_residues = water_binding_site.residues

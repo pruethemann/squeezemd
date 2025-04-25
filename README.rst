@@ -123,3 +123,9 @@ CHEATSHEET
 ------
 Code version for execution
 > snakemake -R `snakemake --list-code-changes`
+
+
+## Fix sqlite3 issue
+conda uninstall sqlite libsqlite
+conda install libsqlite==3.45.*
+python3 -c "import sqlite3"    # should work?

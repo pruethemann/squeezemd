@@ -39,11 +39,11 @@ mutations = simulations_df.mutation_all.unique()
 
 rule molecule:
     input:
-        'results/fingerprints/interactions.parquet',
         'results/metaReport.html',
+        #'results/fingerprints/interactions.parquet',
         #expand('results/interactionSurface/{complex}.{mutation}.interaction.pdb', complex=complexes, mutation=mutations),
-        expand('{complex}/{mutation}/{seed}/fingerprint/fingerprint.parquet',complex=complexes,mutation=mutations,seed=seeds),
-        expand('{complex}/{mutation}/{seed}/analysis/RMSF.html', complex=complexes, mutation=mutations, seed=seeds),
+        #expand('{complex}/{mutation}/{seed}/fingerprint/fingerprint.parquet',complex=complexes,mutation=mutations,seed=seeds),
+        #expand('{complex}/{mutation}/{seed}/analysis/RMSF.html', complex=complexes, mutation=mutations, seed=seeds),
         expand('{complex}/{mutation}/{seed}/frames/lig_{i}.pdb', i=range(number_frames), complex=complexes, mutation=mutations, seed=seeds),
         expand('{complex}/{mutation}/{seed}/frames/rec_{i}.pdb', i=range(number_frames), complex=complexes, mutation=mutations, seed=seeds),
         expand('{complex}/{mutation}/{seed}/po-sco/{i}.txt', i=range(number_frames), complex=complexes, mutation=mutations, seed=seeds),
@@ -168,22 +168,32 @@ rule aquaduct:
         aquaduct='{complex}/{mutation}/{seed}/aquaduct/aquaduct.txt',
         aquaduct_folder=directory('{complex}/{mutation}/{seed}/aquaduct/'),
         pymol_cmd='{complex}/{mutation}/{seed}/aquaduct/6_visualize_results.py',
-        pymol_output='{complex}/{mutation}/{seed}/aquaduct/aquaduct.pse',
     priority:
         10
     params:
         directory('{complex}/{mutation}/{seed}')
-
+    conda:
+        "aquaduct"
     shell:
         """
-        eval "$(micromamba shell hook --shell bash)" &&
-        micromamba activate aquaduct_3 &&
         sed  's|PREFIXINPUT|{params}|g' {input.aquaduct_template} > {output.aquaduct} &&
         sed  -i 's|PREFIXOUT|{output.aquaduct_folder}|g' {output.aquaduct} &&
-        valve_run -c {output.aquaduct} &&
-        /home/anna/micromamba/envs/pymol/bin/python3 {output.pymol_cmd} --save-session aquaduct.pse
+        valve_run -c {output.aquaduct}
         """
 
+rule aquaductPymol:
+    input:
+        '{complex}/{mutation}/{seed}/aquaduct/6_visualize_results.py',
+    output:
+        '{complex}/{mutation}/{seed}/aquaduct/aquaduct.pse',
+    priority:
+        10
+    params:
+        directory('{complex}/{mutation}/{seed}')
+    shell:
+        """
+        python3 {input} --save-session {output}
+        """
 
 rule DescriptiveTrajAnalysis:
     input:

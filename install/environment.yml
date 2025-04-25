@@ -32,6 +32,7 @@ dependencies:
   - pygments
   - plotly
   - cudatoolkit         # Cudatoolkit 11.8 works with nvidia driver 535
+  - libsqlite==3.45.*
   - pip
   - pip:
         - json2html
