@@ -75,7 +75,8 @@ def set_parameters(params):
 
     global nonbondedCutoff, ewaldErrorTolerance, constraintTolerance, hydrogenMass, temperature
     global dt, recordInterval, friction, pressure, constraint, barostatInterval, platform
-    
+    global ff_kwargs
+
     # Physical parameters
     nonbondedCutoff = params['nonbondedCutoff'] * nanometers
     ewaldErrorTolerance = params['ewaldErrorTolerance']
@@ -97,6 +98,14 @@ def set_parameters(params):
     constraints = {'HBonds': HBonds, 'AllBonds': AllBonds, 'None': None}
     constraint = constraints[params['constraints']]
     barostatInterval = 25               # Fix Barostat every 25 simulations steps
+
+    # Force field parameters
+    ff_kwargs = {
+        'constraints': constraint,
+        'rigidWater': True,                     # Allows to increase step size to 4 fs
+        'removeCMMotion': False,                # System should not drift
+        'hydrogenMass': 4 * unit.amu
+    }
 
     platform = define_platform()
 
@@ -163,14 +172,6 @@ def simulate(args, params, salt_concentration=0.15):
     ligand_topology = ligand.to_topology().to_openmm()
     ligand_positions = ligand.conformers[0].to_openmm()
 
-    # TODO: use config file
-    ff_kwargs = {
-        'constraints': app.HBonds,
-        'rigidWater': True,
-        'removeCMMotion': False,
-        'hydrogenMass': 4 * unit.amu
-    }
-
     # 3. Use SystemGenerator to combine force fields
     system_generator = SystemGenerator(
         forcefields=['amber14/protein.ff14SB.xml', 'amber14/tip3p.xml'],
@@ -181,15 +182,17 @@ def simulate(args, params, salt_concentration=0.15):
     )
 
 
-    # 4. Combine protein and ligand
+    # Add protein (receptor) to model
     modeller = Modeller(protein.topology, protein.positions)
 
+    # Add ligand to modell
     modeller.add(ligand_topology, ligand_positions)
 
-    #print('Adding hydrogens..')
+    # Adding hydrogens, fixes small issues like protonation states 
+    # at N/C terminus but may change HiS protonation
     modeller.addHydrogens(system_generator.forcefield)
 
-    print('Adding solvent..')
+    print(f'Adding solvent and {salt_concentration} M NaCl ..')
     modeller.addSolvent(system_generator.forcefield,
                         boxShape='cube', # 'dodecahedron'
                         ionicStrength=salt_concentration * molar,
@@ -226,7 +229,7 @@ def simulate(args, params, salt_concentration=0.15):
     energy_after = simulation.context.getState(getEnergy=True).getPotentialEnergy()  
     print('Energy before minimization: ', energy_before, energy_after)
 
-    #######
+    # TODO probably not necessary
     print('Checking energy components before minimization:')
     for i in range(system.getNumForces()):
         energy = simulation.context.getState(getEnergy=True, groups=2**i).getPotentialEnergy()
@@ -273,7 +276,7 @@ def parse_arguments():
     parser = argparse.ArgumentParser(description='Run Molecular Dynamics simulations.')
     
     # Input files
-    parser.add_argument('--pdb', required=False, help='Path to single protein or protein protein complex.', default='input/fix1.pdb')
+    parser.add_argument('--pdb', required=False, help='Paenergy_afterth to single protein or protein protein complex.', default='input/fix1.pdb')
     parser.add_argument('--sdf', required=False, help='Path to small molecule sdf file', default='input/1.sdf')
     parser.add_argument('--md_settings', required=False, help='Configuration file with all required parameters (params.yml', default='input/params.yml')
     parser.add_argument('--seed', required=False, help='Seed for inital velocities', type=int, default=12)
@@ -281,7 +284,6 @@ def parse_arguments():
     # Output
     parser.add_argument('--topo', required=False, help='Cif file of last frame', default="output/top.cif")
     parser.add_argument('--traj', required=False, help='Trajectory file', default="output/traj.h5")
-    parser.add_argument('--traj_dcd', required=False, help='Trajectory file', default="output/traj.dcd")
     parser.add_argument('--stats', required=False, help='Energy saves for every 1000 frames', default="output/stats.txt")
     parser.add_argument('--params', required=False, help='MD parameter file saved for every MD', default="output/params.txt")
     return parser.parse_args()

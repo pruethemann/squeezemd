@@ -10,11 +10,21 @@ from os import path
 # Define paths to key files and directories
 simulation_data = path.join('config', 'simulations.csv')
 configfile: path.join('config', 'params.yml')       # Configuration file for Snakemake
-free_energy_settings =  path.join('config', 'mmgbsa.in')
 
 # Retrieve essential parameters from the config
 number_frames = config.get("number_frames", 100)  # Default to 100 if not set
 replicates = config.get("replicates", 1)  # Default to 1 if not set
+
+# Extract the mode: 
+# a) PPi
+# b) protein
+# c) small Molecule
+try:
+    mode = [arg for arg in sys.argv[1:] if not arg.startswith("-")][1]
+except:
+    mode = 'PPi'
+
+
 
 # ==================================
 # Random Seed Generation for Replicates
@@ -29,9 +39,19 @@ representative_seed = seeds[0] # First seeds is used as representation for surfa
 # Load simulation conditions and preprocess data
 
 simulations_df = pd.read_csv(simulation_data)
+
+
+if mode == 'molecule':
+    ligs = pd.read_csv(path.join('config', 'ligands.csv'))
+    simulations_df = pd.merge(ligs, simulations_df,  how="cross")
+    simulations_df['sdf'] = 'ligands/' + simulations_df.ligand + ".sdf"
+
+
 simulations_df['complex'] = simulations_df['target'] + '_' + simulations_df['ligand']
 simulations_df['name'] = simulations_df['complex'] + '_' + simulations_df['mutation_all']
 simulations_df.set_index('name', inplace=True)
+
+print(simulations_df)
 
 # Define global variables for easy access
 complexes = simulations_df.complex.unique()
@@ -53,7 +73,7 @@ rule molecule:
 
 
 
-rule proteinInteraction:
+rule proteinProteinInteraction:
     input:
         'results/fingerprints/interactions.parquet',
         'results/metaReport.html',
@@ -117,7 +137,7 @@ rule MDSmallMolecule:
     input:
         md_settings=ancient('config/params.yml'),
         pdb='{complex}/{mutation}/mutation.pdb',
-        sdf=lambda wildcards: simulations_df.loc[f'{wildcards.complex}_{wildcards.mutation}']['input_molecule']
+        sdf=lambda wildcards: simulations_df.loc[f'{wildcards.complex}_{wildcards.mutation}']['sdf']
     output:
         topo = '{complex}/{mutation}/{seed}/MD/frame_end.cif',
         traj=temp('{complex}/{mutation}/{seed}/MD/trajectory.h5'),
@@ -288,7 +308,7 @@ rule interactionFingerprint:
         """
         7_interactionFingerprint.py --topo {input.topo} \
                                     --traj  {input.traj} \
-                                    --output {output} \
+                                    --o   parser.add_argument('--traj_dcd', required=False, help='Trajectory file', default="output/traj.dcd")utput {output} \
                                     --n_frames {params.number_frames} \
                                     --threads {threads} \
                                     --complex {wildcards.complex} \
@@ -317,7 +337,10 @@ onsuccess:
     if 'protein' in sys.argv:
         print("Workflow finished, no error. Report for single protein will be generated")
         shell("squeeze protein --report report.html")
-        print("YES")
+
+    elif 'molecule' in sys.argv:
+        print("Workflow finished, no error. Report for small molecule will be generated")
+        shell("squeeze molecule --report report.html")
     else:
-        print("Workflow finished, no error. Report for protein-protein Interaciton will be generated")
+        print("Workflow finished, no error. Report for protein-protein Interaction will be generated")
         shell("squeeze --report report.html")
