@@ -138,6 +138,27 @@ rule centerMDTraj:
                             --topo_center {output.topo_center}
         """
 
+rule InteractionSurface:
+    input:
+        final_frame = f'{{complex}}/{{mutation}}/{representative_seed}/MD/topo_center.pdb',
+        interactions= 'results/martin/interactions.parquet',
+    output:
+        bfactor_pdbs = 'results/interactionSurface/{complex}.{mutation}.interaction.pdb',
+        pymol_cmd = 'results/interactionSurface/{complex}.{mutation}.pml',
+        pymol = report('results/interactionSurface/{complex}.{mutation}.final.pse',caption="RMSF.rst",category="PyMol",labels=({"Complex": "{complex}", "Mutation": "{mutation}", "Type": "PyMol"})),
+        surface= report('results/interactionSurface/{complex}.{mutation}.png',caption="RMSF.rst",category="PyMol", labels=({"Complex": "{complex}", "Mutation": "{mutation}", "Type": "Image"}))
+    params:
+        representative_seed = seeds[0],
+    shell:
+        """
+        10_InteractionSurface.py --interactions {input.interactions} \
+                                 --seed {params.representative_seed} \
+                                 --mutation {wildcards.mutation} \
+                                 --frames {input.final_frame} \
+                                 --complex {wildcards.complex}
+        pymol -cQ {output.pymol_cmd}
+        """
+
 rule DescriptiveTrajAnalysis:
     input:
         topo='{complex}/{mutation}/{seed}/MD/frame_end.cif',

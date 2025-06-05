@@ -92,13 +92,15 @@ def set_residue_interaction_intensity(pdb_path, ligand_resids, receptor_resids, 
     u.add_TopologyAttr('tempfactors')
 
 
+    # Select all ligand resids interacting with receptor
     for _,row in ligand_resids.iterrows():
-        selected_resid = u.select_atoms(f"resid {int(row.resid)} and chainID A")
-        selected_resid.tempfactors = row.energy
+        selected_resid = u.select_atoms(f"resid {int(row['ligand_resid'])} and chainID A")
+        selected_resid.tempfactors = row['Energy (e)']
 
+    # Select all receptor resids interacting with ligand
     for _,row in receptor_resids.iterrows():
-        selected_resid = u.select_atoms(f"resid {int(row.resid)} and not chainID A")
-        selected_resid.tempfactors = row.energy
+        selected_resid = u.select_atoms(f"resid {int(row['receptor_resid'])} and not chainID A")
+        selected_resid.tempfactors = row['Energy (e)']
 
     # Save pdb of protein only
     protein = u.select_atoms("protein")
@@ -128,29 +130,26 @@ if __name__ == '__main__':
     ENERGY_THRESHOLD = -2
     # Import interaction data
     interactions = pd.read_parquet(args.interactions)
-    interactions.set_index(['interaction', 'name', 'mutation'], inplace=True)
+    interactions.set_index(['name', 'mutation'], inplace=True)
     # Sort index to improve performance
     interactions.sort_index(inplace=True)
-    var_names = ['protein', 'target', 'resid', 'energy']  # Relevant var names
+    var_names = ['target', 'resid', 'energy']  # Relevant var names
 
     (mutation, complex) = (args.mutation, args.complex)
 
     pdb = os.path.join(complex, mutation, str(args.seed), 'MD', 'topo_center.pdb')
 
-    interactions_filtered = interactions.loc[('inter',complex, mutation)]
-
-    # Aggregate data for the particular target and residue
-    interactions_agg = interactions_filtered.groupby(['protein', 'name', 'mutation', 'resid']).mean(numeric_only=True)
+    interactions_filtered = interactions.loc[(complex, mutation)]
 
     # Extract ligand and receptor interaction data
-    data_ligand = interactions_agg.loc[('ligand',complex)].reset_index()
-    data_receptor = interactions_agg.loc[('receptor', complex)].reset_index()
+    data_ligand = interactions_filtered.groupby(['name', 'mutation', 'ligand_resid']).mean(numeric_only=True).reset_index()
+    data_receptor = interactions_filtered.groupby(['name', 'mutation', 'receptor_resid']).mean(numeric_only=True).reset_index()
 
     # Get all receptor/ligand residues with an interaction energy smaller than -2 and join as string
-    ligand_resids = ','.join(map(str, data_ligand[data_ligand.energy < ENERGY_THRESHOLD]['resid']))
-    receptor_resids = ','.join(map(str, data_receptor[data_receptor.energy < ENERGY_THRESHOLD]['resid']))
+    ligand_resids = ','.join(map(str, data_ligand[data_ligand['Energy (e)'] < ENERGY_THRESHOLD]['ligand_resid']))
+    receptor_resids = ','.join(map(str, data_receptor[data_receptor['Energy (e)']  < ENERGY_THRESHOLD]['receptor_resid']))
 
-    DEBUG = False
+    DEBUG = True
     if DEBUG:
         data_ligand.to_csv('data_ligand.csv')
         data_receptor.to_csv('data_receptor.csv')

@@ -40,7 +40,7 @@ representative_seed = seeds[0] # First seeds is used as representation for surfa
 
 simulations_df = pd.read_csv(simulation_data)
 
-
+# Handle small molecule input data
 if mode == 'molecule':
     ligs = pd.read_csv(path.join('config', 'ligands.csv'))
     simulations_df = pd.merge(ligs, simulations_df,  how="cross")
@@ -73,11 +73,11 @@ rule molecule:
 
 
 
-rule proteinProteinInteraction:
+rule PPi:
     input:
         'results/fingerprints/interactions.parquet',
         'results/metaReport.html',
-        #expand('results/interactionSurface/{complex}.{mutation}.interaction.pdb', complex=complexes, mutation=mutations),
+        expand('results/interactionSurface/{complex}.{mutation}.interaction.pdb', complex=complexes, mutation=mutations),
         expand('{complex}/{mutation}/{seed}/fingerprint/fingerprint.parquet',complex=complexes,mutation=mutations,seed=seeds),
         expand('{complex}/{mutation}/{seed}/analysis/RMSF.html', complex=complexes, mutation=mutations, seed=seeds),
         expand('{complex}/{mutation}/{seed}/frames/lig_{i}.pdb', i=range(number_frames), complex=complexes, mutation=mutations, seed=seeds),
@@ -85,7 +85,7 @@ rule proteinProteinInteraction:
         expand('{complex}/{mutation}/{seed}/po-sco/{i}.txt', i=range(number_frames), complex=complexes, mutation=mutations, seed=seeds),
         'results/posco/posco_interactions.parquet',
         'results/posco/posco.html',
-        expand('{complex}/{mutation}/{seed}/aquaduct/aquaduct.pse',complex=complexes, mutation=mutations, seed=seeds)
+        #expand('{complex}/{mutation}/{seed}/aquaduct/aquaduct.pse',complex=complexes, mutation=mutations, seed=seeds)
 
 rule protein:
     input:
@@ -130,6 +130,31 @@ rule Mutagensis:
             {params.foldX} --command=BuildModel --pdb-dir="{params.out_dir}" --pdb=WT.pdb --mutant-file={wildcards.complex}/{wildcards.mutation}/mutant_file.txt --output-dir="{params.out_dir}" --rotabaseLocation ~/tools/foldx/rotabase.txt > {log} || true
             mv {params.out_dir}/WT_1.pdb {output}
         fi
+        """
+
+
+rule MD:
+    input:
+        md_settings=ancient('config/params.yml'),
+        pdb='{complex}/{mutation}/mutation.pdb',
+    output:
+        topo = '{complex}/{mutation}/{seed}/MD/frame_end.cif',
+        traj=temp('{complex}/{mutation}/{seed}/MD/trajectory.h5'),
+        stats='{complex}/{mutation}/{seed}/MD/MDStats.csv',
+        params='{complex}/{mutation}/{seed}/MD/params.yml',
+    resources:
+        gpu=1
+    priority:
+        3
+    shell:
+        """
+        2_MD.py --pdb {input.pdb} \
+                --topo {output.topo} \
+                --traj {output.traj} \
+                --md_settings {input.md_settings} \
+                --params {output.params} \
+                --seed {wildcards.seed} \
+                --stats {output.stats}
         """
 
 
@@ -308,7 +333,7 @@ rule interactionFingerprint:
         """
         7_interactionFingerprint.py --topo {input.topo} \
                                     --traj  {input.traj} \
-                                    --o   parser.add_argument('--traj_dcd', required=False, help='Trajectory file', default="output/traj.dcd")utput {output} \
+                                    --output {output} \
                                     --n_frames {params.number_frames} \
                                     --threads {threads} \
                                     --complex {wildcards.complex} \
@@ -330,6 +355,27 @@ rule GlobalFingerprintAnalysis:
                                         --interactions {output.interactions} \
                                         --n_frames {params.n_frames} \
                                         --figure {output.figure}
+        """
+
+rule InteractionSurface:
+    input:
+        final_frame = f'{{complex}}/{{mutation}}/{representative_seed}/MD/topo_center.pdb',
+        interactions= 'results/posco/posco_interactions.parquet',
+    output:
+        bfactor_pdbs = 'results/interactionSurface/{complex}.{mutation}.interaction.pdb',
+        pymol_cmd = 'results/interactionSurface/{complex}.{mutation}.pml',
+        pymol = report('results/interactionSurface/{complex}.{mutation}.final.pse',caption="RMSF.rst",category="PyMol",labels=({"Complex": "{complex}", "Mutation": "{mutation}", "Type": "PyMol"})),
+        surface= report('results/interactionSurface/{complex}.{mutation}.png',caption="RMSF.rst",category="PyMol", labels=({"Complex": "{complex}", "Mutation": "{mutation}", "Type": "Image"}))
+    params:
+        representative_seed = seeds[0],
+    shell:
+        """
+        10_InteractionSurface.py --interactions {input.interactions} \
+                                 --seed {params.representative_seed} \
+                                 --mutation {wildcards.mutation} \
+                                 --frames {input.final_frame} \
+                                 --complex {wildcards.complex}
+        pymol -cQ {output.pymol_cmd}
         """
 
 onsuccess:

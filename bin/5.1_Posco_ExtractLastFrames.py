@@ -9,7 +9,7 @@ from Helper import remap_MDAnalysis  # Helper functions for execution and MDAnal
 import MDAnalysis as mda  # MDAnalysis for atom selection and structure manipulation
 import openmm.app as app
 
-def extract_binding_surface_original(u, t=8):
+def extract_binding_surface_ppi(u, t=8):
     """
     Extracts the protein from the frame plus all complete water molecules t=8 Angstrom from the binding
     surface
@@ -34,7 +34,7 @@ def extract_binding_surface_original(u, t=8):
     # Combine all selections
     return (ligand, receptor + complete_water)
 
-def extract_binding_surface(u, t=8):
+def extract_binding_surface_molecule(u, t=8):
     """
     Extracts the protein from the frame plus all complete water molecules t=8 Angstrom from the binding
     surface
@@ -99,7 +99,9 @@ if __name__ == '__main__':
 
     # Extract protein and water in binding surface
     print(f"Processing frame {args.frame}: {ts.frame}")
-    (ligand, receptor) = extract_binding_surface(u)
+
+    # TODO: Add if statement for ppi or molecule. Selection is different
+    (ligand, receptor) = extract_binding_surface_ppi(u)
 
     # Save ligand and receptor files separatly
     ligand.write(args.lig_frame)

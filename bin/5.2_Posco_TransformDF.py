@@ -92,16 +92,20 @@ def parse_lipophilic(parts):
         interaction_info = parts[0].split()
         donor_acceptor = parts[1].strip().split()
 
-        receptor_resname = donor_acceptor[1]
-        receptor_resid = int(donor_acceptor[2])
+        ligand_atom = donor_acceptor[0]
+        ligand_resname = donor_acceptor[1]
+        ligand_resid = int(donor_acceptor[2])
 
-        ligand_resname = donor_acceptor[-2]
-        ligand_resid = int(donor_acceptor[-1])
+        receptor_atom = donor_acceptor[-3]
+        receptor_resname = donor_acceptor[-2]
+        receptor_resid = int(donor_acceptor[-1])
+    
 
         # TODO: solve the differentiation issue of ligand vs receptor
-        if ligand_resid > 122:
+        if ligand_resid != 0:
              (ligand_resid, receptor_resid) = (receptor_resid, ligand_resid)
              (ligand_resname, receptor_resname) = (receptor_resname,ligand_resname)
+             (ligand_atom, receptor_atom) = (receptor_atom, ligand_atom)
 
         distance = float(interaction_info[2].split("=")[1])
         energy = float(interaction_info[3].split("=")[1])
@@ -114,6 +118,8 @@ def parse_lipophilic(parts):
             'receptor_resid' : receptor_resid,
             'ligand_resname' : ligand_resname,
             'ligand_resid' : ligand_resid,
+            'receptor_atom' : receptor_atom,
+            'ligand_atom' : ligand_atom,
         }
 
         return interaction
@@ -124,16 +130,21 @@ def parse_hbonds(parts):
         interaction_info = parts[0].split()
         donor_acceptor = parts[1].strip().split()
 
+        ligand_atom = donor_acceptor[0]
         ligand_resname = donor_acceptor[1]
         ligand_resid = int(donor_acceptor[2])
 
+        print(donor_acceptor)
+
+        receptor_atom = donor_acceptor[-3]
         receptor_resname = donor_acceptor[-2]
         receptor_resid = int(donor_acceptor[-1])
 
         # TODO: solve the differentiation issue of ligand vs receptor
-        if ligand_resid > 122:
+        if ligand_resid != 0:
              (ligand_resid, receptor_resid) = (receptor_resid, ligand_resid)
              (ligand_resname, receptor_resname) = (receptor_resname,ligand_resname)
+             (ligand_atom, receptor_atom) = (receptor_atom, ligand_atom)
 
         distance = float(interaction_info[2].split("=")[1])
         angle = float(interaction_info[3].split("=")[1])
@@ -147,8 +158,10 @@ def parse_hbonds(parts):
             "Distance (r)": distance,
             "Angle (a)": angle,
             "Energy (e)": energy,
+            'receptor_atom' : receptor_atom,
             'receptor_resname' : receptor_resname,
             'receptor_resid' : receptor_resid,
+            'ligand_atom' : ligand_atom,
             'ligand_resname' : ligand_resname,
             'ligand_resid' : ligand_resid,
             "Marked as Salt-Bridge": marked
@@ -188,14 +201,12 @@ def main(args):
     results = pd.concat(results)
 
     results.to_parquet(args.output)
-    #results.to_csv('posco_interactions.csv')
+    results.to_csv('posco_interactions.csv')
 
 
 def extract_metadata(file_path, data):
         # Extract meta data like an idiot
         metadata = file_path.split('/')
-
-        #'{complex}/{mutation}/{seed}/po-sco/{i}.txt'
 
         complex = metadata[-5]
         mutation = metadata[-4]
