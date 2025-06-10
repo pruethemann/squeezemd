@@ -141,10 +141,20 @@ def parse_hbonds(parts):
         receptor_resid = int(donor_acceptor[-1])
 
         # TODO: solve the differentiation issue of ligand vs receptor
+
+        # THIS ONLY works for PPI and if resid numbering is not overlapping
+        if ligand_resid > 400:
+             (ligand_resid, receptor_resid) = (receptor_resid, ligand_resid)
+             (ligand_resname, receptor_resname) = (receptor_resname,ligand_resname)
+             (ligand_atom, receptor_atom) = (receptor_atom, ligand_atom)
+
+        # THIS ONLY works for small molecules
+        """
         if ligand_resid != 0:
              (ligand_resid, receptor_resid) = (receptor_resid, ligand_resid)
              (ligand_resname, receptor_resname) = (receptor_resname,ligand_resname)
              (ligand_atom, receptor_atom) = (receptor_atom, ligand_atom)
+        """
 
         distance = float(interaction_info[2].split("=")[1])
         angle = float(interaction_info[3].split("=")[1])

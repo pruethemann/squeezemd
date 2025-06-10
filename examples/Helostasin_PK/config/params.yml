@@ -1,14 +1,14 @@
-replicates: 1
-number_frames: 20
+replicates: 3
+number_frames: 100
 
 ## MD parameters
 dt: 0.004               # Simulation time steps in ps. 2 fs is ok if HBonds are constrained.
-time: 0.004              # Simulation time in ns
+time: 20             # Simulation time in ns
 steps:                  # Total number of steps
 temperature: 310        # Simulation Temperature in K
 pressure: 1             # Pressure in ATM
 equilibrationSteps: 5
-barostatInterval: 25
+barostatInterval: 10000
 
 # No Constraints: # Recommended dt = 0.5 fs
 #constraints: None
@@ -31,4 +31,4 @@ nonbondedCutoff: 1.0          # long-range electrostatic interactions cutoff in 
 ewaldErrorTolerance: 0.0005   # Ewald Error tolerance. PBC are applied with Particle Mesh Ewald
 
 # Recording
-recordingInterval: 0.004        # recording interval in ps
+recordingInterval: 5        # recording interval in ps

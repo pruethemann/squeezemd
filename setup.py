@@ -47,7 +47,7 @@ setup(
     test_suite='tests',
     tests_require=test_requirements,
     url='https://github.com/pruethemann/squeezemd',
-    version='0.8.0',
+    version='0.8.1',
     zip_safe=False,
     scripts=['bin/squeeze',
              'bin/1_mutation.py', 
@@ -65,5 +65,6 @@ setup(
              'install/upgrade_package.sh',
              'bin/5.1_Posco_ExtractLastFrames.py', 
              'bin/5.2_Posco_TransformDF.py', 
-             'bin/5.3_Posco_Analysis.py'],
+             'bin/5.3_Posco_Analysis.py',
+             'bin/4_centerMDTraj_Chunk.py'],
 )

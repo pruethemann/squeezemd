@@ -34,8 +34,9 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--topo', required=True, help='Input CIF (topology from last frame)')
     parser.add_argument('--traj', required=True, help='Input trajectory (.h5)')
-    parser.add_argument('--topo_center', required=True, help='Output topology from first frame (.pdb)')
-    parser.add_argument('--traj_center', required=True, help='Centered output trajectory (.dcd)')
+
+    parser.add_argument('--topo_center', required=False, help='Output topology from first frame (.pdb)', default="topo_center.pdb")
+    parser.add_argument('--traj_center', required=False, help='Centered output trajectory (.dcd)', default='traj_center.dcd')
     args = parser.parse_args()
 
     center_in_chunks(args)

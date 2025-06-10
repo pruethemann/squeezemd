@@ -94,12 +94,12 @@ def set_residue_interaction_intensity(pdb_path, ligand_resids, receptor_resids, 
 
     # Select all ligand resids interacting with receptor
     for _,row in ligand_resids.iterrows():
-        selected_resid = u.select_atoms(f"resid {int(row['ligand_resid'])} and chainID A")
+        selected_resid = u.select_atoms(f"resid {int(row['ligand_resid'])} and segid A")
         selected_resid.tempfactors = row['Energy (e)']
 
     # Select all receptor resids interacting with ligand
     for _,row in receptor_resids.iterrows():
-        selected_resid = u.select_atoms(f"resid {int(row['receptor_resid'])} and not chainID A")
+        selected_resid = u.select_atoms(f"resid {int(row['receptor_resid'])} and not segid A")
         selected_resid.tempfactors = row['Energy (e)']
 
     # Save pdb of protein only
@@ -127,7 +127,7 @@ if __name__ == '__main__':
 
     print(args.seed)
 
-    ENERGY_THRESHOLD = -2
+    ENERGY_THRESHOLD = -0.8
     # Import interaction data
     interactions = pd.read_parquet(args.interactions)
     interactions.set_index(['name', 'mutation'], inplace=True)
