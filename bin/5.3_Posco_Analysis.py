@@ -40,7 +40,8 @@ def plot_interaction_fingerprint(data, figure):
     data['ligand_resid'] = data['ligand_resid'].astype(int)
 
     # TODO: Exclude Water data
-    data = data[data.ligand_resid <= 122]
+    data = data[data.receptor_resname != 'HOH']
+    data = data[data.ligand_resname != 'HOH']
 
     fig = px.bar(data,
                 x='ligand_resid',

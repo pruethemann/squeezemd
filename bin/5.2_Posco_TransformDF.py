@@ -102,7 +102,7 @@ def parse_lipophilic(parts):
     
 
         # TODO: solve the differentiation issue of ligand vs receptor
-        if ligand_resid != 0:
+        if ligand_resid > 300:
              (ligand_resid, receptor_resid) = (receptor_resid, ligand_resid)
              (ligand_resname, receptor_resname) = (receptor_resname,ligand_resname)
              (ligand_atom, receptor_atom) = (receptor_atom, ligand_atom)

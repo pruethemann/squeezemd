@@ -130,6 +130,11 @@ if __name__ == '__main__':
     ENERGY_THRESHOLD = -0.8
     # Import interaction data
     interactions = pd.read_parquet(args.interactions)
+
+    # TODO Exclude all waters in analysis. TODO perform a separate water analysis
+    interactions = interactions[interactions.ligand_resname != 'HOH']
+    interactions = interactions[interactions.receptor_resname != 'HOH']
+
     interactions.set_index(['name', 'mutation'], inplace=True)
     # Sort index to improve performance
     interactions.sort_index(inplace=True)

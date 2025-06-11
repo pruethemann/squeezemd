@@ -1,47 +1,47 @@
 #!/usr/bin/env python
 
 import argparse
-import mdtraj
+import mdtraj as md
 
-def centerMDTraj(args):
+def center_in_chunks(args, chunk_size=20):
 
-    # Import Trajectory
-    traj = mdtraj.load(args.traj, top=args.topo)
+    # Load the first frame from trajectory for reference and topology saving
+    reference = md.load(args.traj, top=args.topo, frame=0)
+    alignment_indices = reference.topology.select('backbone')
+    
 
-    # TODO: this single command works in python 3.10 but not 3.11. Activate as soon bug is fixed in MDTraj
-    #traj.image_molecules(inplace=False)
+    # Prepare DCD writer
+    with md.formats.DCDTrajectoryFile(args.traj_center, 'w', force_overwrite=True) as dcd_out:
+        for chunk in md.iterload(args.traj, top=args.topo, chunk=chunk_size):
+            chunk.make_molecules_whole()
+            chunk.image_molecules(make_whole=False, inplace=True)
+           
+            # Superpose the trajectory to the first frame (or another reference frame)
+            chunk = chunk.superpose(reference, frame=0, atom_indices=alignment_indices)
 
-    # Center Trajectory. Image the molecules (deal with periodic boundary conditions). This is the workaround for 3.11
-    traj.make_molecules_whole()
-    traj.image_molecules(make_whole=False, inplace=True)
 
-    # Select atoms for alignment (e.g., protein backbone)
-    # NOTE: The other way around. Align and then image the traj. doesn't work. There is a bug
-    # which leads to water holes
-    alignment_indices = traj.topology.select('backbone')
+            # Convert nm → Å for output
+            xyz_angstrom      = chunk.xyz * 10.0
+            cell_lengths_ang  = chunk.unitcell_lengths * 10.0
 
-    # Superpose the trajectory to the first frame (or another reference frame)
-    traj = traj.superpose(traj, frame=0, atom_indices=alignment_indices)
+            # Write chunk manually
+            dcd_out.write(
+                xyz=xyz_angstrom,
+                cell_lengths=cell_lengths_ang,
+                cell_angles=chunk.unitcell_angles
+            )
 
-    # Save centered trajectory as dcd
-    traj.save_dcd(args.traj_center)
-
-    traj[-1].save(args.topo_center)
+    chunk[-1].save(args.topo_center)
 
 
 if __name__ == '__main__':
-
     parser = argparse.ArgumentParser()
+    parser.add_argument('--topo', required=True, help='Input CIF (topology from last frame)')
+    parser.add_argument('--traj', required=True, help='Input trajectory (.h5)')
 
-    # Input files
-    parser.add_argument('--topo', required=False, help='Cif file of last frame')
-    parser.add_argument('--traj', required=False, help='Trajectory file')
-
-    # Output
-    parser.add_argument('--topo_center', required=False, help='MD parameter file saved for every MD')
-    parser.add_argument('--traj_center', required=False, help='MD parameter file saved for every MD')
-
+    parser.add_argument('--topo_center', required=False, help='Output topology from first frame (.pdb)', default="topo_center.pdb")
+    parser.add_argument('--traj_center', required=False, help='Centered output trajectory (.dcd)', default='traj_center.dcd')
     args = parser.parse_args()
 
-    # Parse Arguments
-    centerMDTraj(args)
+    center_in_chunks(args)
+    
