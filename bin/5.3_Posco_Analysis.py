@@ -37,12 +37,6 @@ sns.set(rc={'figure.figsize':(40,8.27)})
 
 def plot_interaction_fingerprint(data, figure):
 
-    data['ligand_resid'] = data['ligand_resid'].astype(int)
-
-    # TODO: Exclude Water data
-    data = data[data.receptor_resname != 'HOH']
-    data = data[data.ligand_resname != 'HOH']
-
     fig = px.bar(data,
                 x='ligand_resid',
                 y='energy_mean',
@@ -67,6 +61,10 @@ def main(args):
 
     data = pd.read_parquet(args.input)
 
+    #data['ligand_resid'] = data['ligand_resid'].astype(int)
+
+    print(data.columns)
+
     # TODO Exclude all waters in analysis. TODO perform a separate water analysis
     data = data[data.ligand_resname != 'HOH']
     data = data[data.receptor_resname != 'HOH']
@@ -77,7 +75,7 @@ def main(args):
     # Take the mean of all residue contributions for all frames
     frame_mean =  resid_energy.groupby(['Interaction Type', 'target' , 'lig', 'mutation','seed', 'ligand_resid']).agg(energy_mean=('Energy (e)', 'mean'),energy_std=('Energy (e)', 'std')).reset_index()
 
-    DEBUG = True
+    DEBUG = False
     if DEBUG:
         resid_energy.to_csv('resid_energy.csv')
         frame_mean.to_csv('frame_mean.csv')
