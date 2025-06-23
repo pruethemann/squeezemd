@@ -1,59 +1,60 @@
 #!/usr/bin/env python
-
 """
 This script processes molecular dynamics trajectories and performs interaction analysis between a ligand and a receptor.
 """
 
 import argparse
 from Helper import remap_MDAnalysis  # Helper functions for execution and MDAnalysis remapping
-import MDAnalysis as mda  # MDAnalysis for atom selection and structure manipulation
+import MDAnalysis as mda             # MDAnalysis for atom selection and structure manipulation
 import openmm.app as app
+import pandas as pd
 
-def extract_binding_surface_ppi(u, t=8):
+def extract_sequence(ligand, receptor, sequence_file):
+    # Extract sequence
+    seq_ligand = {"resid": ligand.residues.resids,
+                  "resname": ligand.residues.resnames}
+    
+    seq_receptor = {"resid": receptor.residues.resids,
+                    "resname": receptor.residues.resnames}
+    
+    seq_ligand = pd.DataFrame(seq_ligand)
+    seq_receptor = pd.DataFrame(seq_receptor)
+
+    seq_ligand['protein'] = 'lig'
+    seq_receptor['protein'] = 'rec'
+
+    seq = pd.concat([seq_ligand, seq_receptor])
+    seq = seq.set_index(['resid', 'resname'])
+    seq.to_parquet(sequence_file)
+
+
+
+def extract_binding_surface(u, t=8):
     """
-    Extracts the protein from the frame plus all complete water molecules t=8 Angstrom from the binding
-    surface
+    Extracts the ligand (segid A or X), receptor, and all complete water molecules within t Angstrom
+    from the binding surface.
+    A: protein ligand
+    X: small molecule ligand
+    TODO: make sure it is always A
     """
 
-    # Select chain A (must be always ligand) and everything else
+    # Determine the ligand segid
     ligand = u.select_atoms('segid A')
-    receptor = u.select_atoms('not segid A and protein')
-
-    # Select water molecules within 5 Å of both chain A and chain B
-    water_binding_site = u.select_atoms(f'resname HOH and (around {t} segid A) and (around {t} (not segid A and protein))')
-
-    # Get the residues of selected water molecules
-    water_residues = water_binding_site.residues
-
-    # Filter out incomplete water molecules (keep only those with exactly 3 atoms)
-    complete_water_residues = water_residues[[len(res.atoms) == 3 for res in water_residues]]
-
-    # Get the atoms of the complete water molecules
-    complete_water = complete_water_residues.atoms
-
-    # Combine all selections
-    return (ligand, receptor + complete_water)
-
-def extract_binding_surface_molecule(u, t=8):
-    """
-    Extracts the protein from the frame plus all complete water molecules t=8 Angstrom from the binding
-    surface
-    """
+    if len(ligand) == 0:
+        ligand = u.select_atoms('segid X')
+        ligand_segid = 'X'
+    else:
+        ligand_segid = 'A'
 
     # Select chain A (must be always ligand) and everything else
-    ligand = u.select_atoms('segid X')
-    print(ligand)
-    receptor = u.select_atoms('not segid X and protein')
+    receptor = u.select_atoms(f'not segid {ligand_segid} and protein')
 
-    chain_ids = set(res.segid for res in u.residues)
-    print(chain_ids)
-
-    chain_ids = set(atom.chainID for atom in u.atoms)
-    print(chain_ids)
+    # Extract and save sequences information for posco
+    extract_sequence(ligand, receptor, args.sequence)
 
 
     # Select water molecules within 5 Å of both chain A and chain B
-    water_binding_site = u.select_atoms(f'resname HOH and (around {t} segid X) and (around {t} (not segid X and protein))')
+    water_binding_site = u.select_atoms(f'resname HOH and (around {t} segid {ligand_segid}) and (around {t} (not segid {ligand_segid} and protein))')
 
     # Get the residues of selected water molecules
     water_residues = water_binding_site.residues
@@ -76,11 +77,14 @@ def parse_arguments():
     parser = argparse.ArgumentParser()
 
     # Add arguments for input files, output options, and parallelization settings
-    parser.add_argument('--topo', required=False, help='', default='trajectory.dcd')
+    parser.add_argument('--topo', required=False, help='', default='frame_end.cif')
     parser.add_argument('--traj', required=False, help='', default='trajectory.dcd')
     parser.add_argument('--frame', type=int,required=False, help='PDB file for the ligand and receptor')
-    parser.add_argument('--lig_frame', required=False, help='PDB file for the ligand')
-    parser.add_argument('--rec_frame', required=False, help='PDB file for the receptor')
+
+    # Output
+    parser.add_argument('--lig_frame', required=False, help='PDB file for the ligand', default='lig.pdb')
+    parser.add_argument('--rec_frame', required=False, help='PDB file for the receptor', default='rec.pdb')
+    parser.add_argument('--sequence', required=False, help='PDB file for the receptor', default='sequence.parquet')
 
     return parser.parse_args()
 
@@ -91,7 +95,9 @@ if __name__ == '__main__':
     # Import Trajectory #TODO export to helpers
     # TODO: I am aware that it is slow to open the whole trajectory in every frame, but snakemake doesn't really like expanding output files
     topo = app.PDBxFile(args.topo)
+
     u = mda.Universe(topo, args.traj, in_memory=False)
+    #u = mda.Universe(topo,in_memory=False)
     u = remap_MDAnalysis(u, topo)
 
     # Extract frame required
@@ -100,8 +106,8 @@ if __name__ == '__main__':
     # Extract protein and water in binding surface
     print(f"Processing frame {args.frame}: {ts.frame}")
 
-    # TODO: Add if statement for ppi or molecule. Selection is different
-    (ligand, receptor) = extract_binding_surface_ppi(u)
+    # Extract water molecules around binding surface
+    (ligand, receptor) = extract_binding_surface(u)
 
     # Save ligand and receptor files separatly
     ligand.write(args.lig_frame)

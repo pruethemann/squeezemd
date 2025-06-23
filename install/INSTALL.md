@@ -8,6 +8,8 @@ all required modules and the squeezemd code. Additional dependencies can be easl
 following this script. I recommand to use mamba or in particular micromamba to install
 everything. This allows a clean and fast install
 
+## Linux Conda
+
 
 
 

@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+ #!/usr/bin/env python
 """
     Script performs descriptive analysis of the interaction analyizer of the last frames of Molecular dynamics simulations.
 
@@ -87,7 +87,7 @@ def generate_data(interactions:list):
     return stats
 
 
-def parse_lipophilic(parts):
+def parse_lipophilic(parts, sequence):
         
         interaction_info = parts[0].split()
         donor_acceptor = parts[1].strip().split()
@@ -125,7 +125,7 @@ def parse_lipophilic(parts):
         return interaction
 
 
-def parse_hbonds(parts):
+def parse_hbonds(parts, sequence):
 
         interaction_info = parts[0].split()
         donor_acceptor = parts[1].strip().split()
@@ -142,19 +142,13 @@ def parse_hbonds(parts):
 
         # TODO: solve the differentiation issue of ligand vs receptor
 
-        # THIS ONLY works for PPI and if resid numbering is not overlapping
-        if ligand_resid > 400:
-             (ligand_resid, receptor_resid) = (receptor_resid, ligand_resid)
-             (ligand_resname, receptor_resname) = (receptor_resname,ligand_resname)
-             (ligand_atom, receptor_atom) = (receptor_atom, ligand_atom)
+        print(sequence)
 
-        # THIS ONLY works for small molecules
-        """
-        if ligand_resid != 0:
+        # THIS ONLY works for PPI and if resid numbering is not overlapping
+        if sequence.loc[(receptor_resid, receptor_resname)] != 'rec':
              (ligand_resid, receptor_resid) = (receptor_resid, ligand_resid)
              (ligand_resname, receptor_resname) = (receptor_resname,ligand_resname)
              (ligand_atom, receptor_atom) = (receptor_atom, ligand_atom)
-        """
 
         distance = float(interaction_info[2].split("=")[1])
         angle = float(interaction_info[3].split("=")[1])
@@ -183,28 +177,49 @@ def parse_hbonds(parts):
 def parse(posco_output):
     data = []
 
+    # Extract meta data like an idiot
+    metadata = posco_output.split('/')
+
+    complex = metadata[-5]
+    mutation = metadata[-4]
+    target = complex.split('_')[0]
+    ligand = complex.split('_')[1]
+    frame_id = int(metadata[-1][:-4])
+    seed = int(metadata[-3])
+
+    sequence = pd.read_parquet(f'{complex}/{mutation}/{seed}/frames/sequence.parquet')
+
     with open(posco_output, 'r') as file:
         for line in file:
 
             if line.startswith("Lipo_EXT:"):
                 parts = line.split("  !  ")
-                interaction = parse_lipophilic(parts)
+                interaction = parse_lipophilic(parts, sequence)
                 data.append(interaction)
 
             if line.startswith("HB_EXT:"):
                 parts = line.split("  !  ")
-                interaction = parse_hbonds(parts)
+                interaction = parse_hbonds(parts, sequence)
                 data.append(interaction)
 
     data = pd.DataFrame(data)
-    return extract_metadata(posco_output, data)
 
+    # Determine metrics lables
+    data['name'] = complex
+    data['target'] = target
+    data['lig'] = ligand
+    data['mutation'] = mutation
+    data['frame'] = frame_id
+    data['seed'] = seed
+
+    return data
 
 
 def main(args):
 
     results = []
     for posco_output in args.input:
+         
          posco_result = parse(posco_output)
          results.append(posco_result)
 
@@ -212,28 +227,6 @@ def main(args):
 
     results.to_parquet(args.output)
     results.to_csv('posco_interactions.csv')
-
-
-def extract_metadata(file_path, data):
-        # Extract meta data like an idiot
-        metadata = file_path.split('/')
-
-        complex = metadata[-5]
-        mutation = metadata[-4]
-        target = complex.split('_')[0]
-        ligand = complex.split('_')[1]
-        frame_id = int(metadata[-1][:-4])
-        seed = int(metadata[-3])
-
-        # Determine metrics lables
-        data['name'] = complex
-        data['target'] = target
-        data['lig'] = ligand
-        data['mutation'] = mutation
-        data['frame'] = frame_id
-        data['seed'] = seed
-
-        return data
 
 
 def parse_arguments():

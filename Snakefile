@@ -271,6 +271,8 @@ rule ExtractithFrameFromTrajectory:
     output:
         lig_frame='{complex}/{mutation}/{seed}/frames/lig_{i}.pdb',
         rec_frame='{complex}/{mutation}/{seed}/frames/rec_{i}.pdb'
+    params:
+        sequence='{complex}/{mutation}/{seed}/frames/sequence.parquet'
     threads: 1
     shell:
         """
@@ -278,16 +280,16 @@ rule ExtractithFrameFromTrajectory:
                                         --traj {input.traj} \
                                         --frame {wildcards.i} \
                                         --lig_frame {output.lig_frame} \
-                                        --rec_frame {output.rec_frame}
+                                        --rec_frame {output.rec_frame} \
+                                        --sequence {params.sequence}
         """
 
-#         touch {output.lig_frame} && touch {output.rec_frame}
 
 # PosCo
 rule posco:
     input:
         lig_frames='{complex}/{mutation}/{seed}/frames/lig_{i}.pdb',
-        rec_frames='{complex}/{mutation}/{seed}/frames/rec_{i}.pdb'
+        rec_frames='{complex}/{mutation}/{seed}/frames/rec_{i}.pdb',
     output:
         '{complex}/{mutation}/{seed}/po-sco/{i}.txt'
     threads: 1
@@ -299,14 +301,14 @@ rule posco:
 # PosCo
 rule concat:
     input:
-        expand('{complex}/{mutation}/{seed}/po-sco/{i}.txt', i=range(number_frames), complex=complexes, mutation=mutations, seed=seeds),
+        posco = expand('{complex}/{mutation}/{seed}/po-sco/{i}.txt', i=range(number_frames), complex=complexes, mutation=mutations, seed=seeds),
     output:
         'results/posco/posco_interactions.parquet'
-    threads: 1
+    params:
+        sequence = expand('{complex}/{mutation}/{seed}/frames/sequence.parquet', complex=complexes, mutation=mutations, seed=seeds)
     shell:
-        """
-        5.2_Posco_TransformDF.py --input {input} --output {output}
-        """
+        """5.2_Posco_TransformDF.py --input {input.posco} --output {output} --sequences {params.sequence}"""
+
 
 # PosCo
 rule PoScoAnalysis:

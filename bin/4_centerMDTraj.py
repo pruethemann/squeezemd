@@ -22,12 +22,12 @@ def center_in_chunks(args, chunk_size=20):
 
             # Convert nm → Å for output
             xyz_angstrom      = chunk.xyz * 10.0
-            cell_lengths_ang  = chunk.unitcell_lengths * 10.0
+            cell_lengths  = chunk.unitcell_lengths * 10.0
 
             # Write chunk manually
             dcd_out.write(
                 xyz=xyz_angstrom,
-                cell_lengths=cell_lengths_ang,
+                cell_lengths=cell_lengths,
                 cell_angles=chunk.unitcell_angles
             )
 
