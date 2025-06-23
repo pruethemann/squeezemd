@@ -47,7 +47,7 @@ setup(
     test_suite='tests',
     tests_require=test_requirements,
     url='https://github.com/pruethemann/squeezemd',
-    version='0.8.2',
+    version='0.8.3',
     zip_safe=False,
     scripts=['bin/squeeze',
              'bin/1_mutation.py', 

@@ -1,4 +1,5 @@
- #!/usr/bin/env python
+#!/usr/bin/env python
+
 """
     Script performs descriptive analysis of the interaction analyizer of the last frames of Molecular dynamics simulations.
 
@@ -25,7 +26,6 @@
         interaction type: hydrophobic, electrostatic, ..
     Get SD:
         seed: Seed of MD
-
 """
 
 import pandas as pd
@@ -134,18 +134,15 @@ def parse_hbonds(parts, sequence):
         ligand_resname = donor_acceptor[1]
         ligand_resid = int(donor_acceptor[2])
 
-        print(donor_acceptor)
-
         receptor_atom = donor_acceptor[-3]
         receptor_resname = donor_acceptor[-2]
         receptor_resid = int(donor_acceptor[-1])
 
-        # TODO: solve the differentiation issue of ligand vs receptor
 
-        print(sequence)
+        print((receptor_resid, receptor_resname))
 
-        # THIS ONLY works for PPI and if resid numbering is not overlapping
-        if sequence.loc[(receptor_resid, receptor_resname)] != 'rec':
+        # Detect whether residues are from rec or ligand
+        if receptor_resname != 'HOH' and sequence.loc[(receptor_resid, receptor_resname)]['protein'] != 'rec':
              (ligand_resid, receptor_resid) = (receptor_resid, ligand_resid)
              (ligand_resname, receptor_resname) = (receptor_resname,ligand_resname)
              (ligand_atom, receptor_atom) = (receptor_atom, ligand_atom)
@@ -187,6 +184,7 @@ def parse(posco_output):
     frame_id = int(metadata[-1][:-4])
     seed = int(metadata[-3])
 
+    # Import the sequence information for ligand and receptor
     sequence = pd.read_parquet(f'{complex}/{mutation}/{seed}/frames/sequence.parquet')
 
     with open(posco_output, 'r') as file:
@@ -226,7 +224,7 @@ def main(args):
     results = pd.concat(results)
 
     results.to_parquet(args.output)
-    results.to_csv('posco_interactions.csv')
+    #results.to_csv('posco_interactions.csv')
 
 
 def parse_arguments():
@@ -238,7 +236,6 @@ def parse_arguments():
 
     # Output
     parser.add_argument('--output', required=False, default='dev3/interactions.feather')
-
 
     return parser.parse_args()
 
