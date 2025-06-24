@@ -100,18 +100,7 @@ def parse_lipophilic(parts, sequence):
         receptor_resname = donor_acceptor[-2]
         receptor_resid = int(donor_acceptor[-1])
 
-        # if any of the conditions holds, swap everything
-        should_swap = (
-            (ligand_resname == 'HOH' and sequence.loc[(receptor_resid, receptor_resname)]['protein'] == 'lig')  or
-            (receptor_resname == 'HOH' and sequence.loc[(ligand_resid, ligand_resname)]['protein'] == 'rec')    or
-            (sequence.loc[(ligand_resid, ligand_resname)]['protein'] == 'rec')
-        )
-
-        if should_swap:
-        # swap ligand ↔ receptor
-            (ligand_resid, receptor_resid) = (receptor_resid, ligand_resid)
-            (ligand_resname, receptor_resname) = (receptor_resname,ligand_resname)
-            (ligand_atom, receptor_atom) = (receptor_atom, ligand_atom)
+      
 
         distance = float(interaction_info[2].split("=")[1])
         energy = float(interaction_info[3].split("=")[1])
@@ -145,13 +134,15 @@ def parse_hbonds(parts, sequence):
         receptor_resid = int(donor_acceptor[-1])
 
         # if any of the conditions holds, swap everything
-        should_swap = (
+        """
+            should_swap = (
             (ligand_resname == 'HOH' and sequence.loc[(receptor_resid, receptor_resname)]['protein'] == 'lig')  or
             (receptor_resname == 'HOH' and sequence.loc[(ligand_resid, ligand_resname)]['protein'] == 'rec')    or
             (sequence.loc[(ligand_resid, ligand_resname)]['protein'] == 'rec')
         )
+        """
 
-        if should_swap:
+        if False:
         # swap ligand ↔ receptor
             (ligand_resid, receptor_resid) = (receptor_resid, ligand_resid)
             (ligand_resname, receptor_resname) = (receptor_resname,ligand_resname)

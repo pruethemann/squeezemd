@@ -84,7 +84,7 @@ rule PPi:
         expand('{complex}/{mutation}/{seed}/frames/rec_{i}.pdb', i=range(number_frames), complex=complexes, mutation=mutations, seed=seeds),
         expand('{complex}/{mutation}/{seed}/po-sco/{i}.txt', i=range(number_frames), complex=complexes, mutation=mutations, seed=seeds),
         'results/posco/posco_interactions.parquet',
-        'results/posco/posco.html',
+        'results/posco/lig_interaction.svg',
         #expand('{complex}/{mutation}/{seed}/aquaduct/aquaduct.pse',complex=complexes, mutation=mutations, seed=seeds)
 
 rule protein:
@@ -304,23 +304,23 @@ rule concat:
         posco = expand('{complex}/{mutation}/{seed}/po-sco/{i}.txt', i=range(number_frames), complex=complexes, mutation=mutations, seed=seeds),
     output:
         'results/posco/posco_interactions.parquet'
-    params:
-        sequence = expand('{complex}/{mutation}/{seed}/frames/sequence.parquet', complex=complexes, mutation=mutations, seed=seeds)
     shell:
-        """5.2_Posco_TransformDF.py --input {input.posco} --output {output} --sequences {params.sequence}"""
+        """5.2_Posco_TransformDF.py --input {input.posco} --output {output}"""
 
 
 # PosCo
-rule PoScoAnalysis:
+rule PoScoHeatMap:
     input:
-        'results/posco/posco_interactions.parquet'
+        data='results/posco/posco_interactions.parquet'
     output:
-        report('results/posco/posco.html', caption="posco.rst",category="Pose Scoring", labels=({"Name": "Interactions", "Type": "Plot"})),
-    threads: 1
+        lig_heatmap='results/posco/lig_interaction.svg',
+        rec_heatmap='results/posco/rec_interaction.svg',
     shell:
         """
-        5.3_Posco_Analysis.py --input {input} --output {output}
+        5.4_Posco_Heatmap.py --input {input.data} --ligand_interaction {output.lig_heatmap} --receptor_interaction {output.rec_heatmap}
         """
+
+
 
 rule interactionFingerprint:
     input:

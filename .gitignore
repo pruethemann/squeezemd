@@ -127,4 +127,7 @@ token
 
 *.pse 
 *.dcd
-
+*.pdb 
+examples/
+delete.csv
+*.log
