@@ -304,10 +304,8 @@ rule concat:
         posco = expand('{complex}/{mutation}/{seed}/po-sco/{i}.txt', i=range(number_frames), complex=complexes, mutation=mutations, seed=seeds),
     output:
         'results/posco/posco_interactions.parquet'
-    params:
-        sequence = expand('{complex}/{mutation}/{seed}/frames/sequence.parquet', complex=complexes, mutation=mutations, seed=seeds)
     shell:
-        """5.2_Posco_TransformDF.py --input {input.posco} --output {output} --sequences {params.sequence}"""
+        """5.2_Posco_TransformDF.py --input {input.posco} --output {output}"""
 
 
 # PosCo

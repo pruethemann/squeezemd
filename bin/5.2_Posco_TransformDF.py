@@ -144,7 +144,6 @@ def parse_hbonds(parts, sequence):
         receptor_resname = donor_acceptor[-2]
         receptor_resid = int(donor_acceptor[-1])
 
-        # if any of the conditions holds, swap everything
         should_swap = (
             (ligand_resname == 'HOH' and sequence.loc[(receptor_resid, receptor_resname)]['protein'] == 'lig')  or
             (receptor_resname == 'HOH' and sequence.loc[(ligand_resid, ligand_resname)]['protein'] == 'rec')    or
@@ -196,6 +195,15 @@ def parse(posco_output):
 
     # Import the sequence information for ligand and receptor
     sequence = pd.read_parquet(f'{complex}/{mutation}/{seed}/frames/sequence.parquet')
+
+
+    # In rare cases the same resname and resid can exist in rec and lig. remove this duplicates
+    # and only use lig
+    # Find duplicated index entries
+    #duplicates = sequence[sequence.index.duplicated(keep=False)]
+    if not sequence.index.is_unique:
+        sequence = sequence[~sequence.index.duplicated(keep='first')]
+    
 
     with open(posco_output, 'r') as file:
         for line in file:
