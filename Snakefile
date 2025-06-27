@@ -137,32 +137,7 @@ rule MD:
     input:
         md_settings=ancient('config/params.yml'),
         pdb='{complex}/{mutation}/mutation.pdb',
-    output:
-        topo = '{complex}/{mutation}/{seed}/MD/frame_end.cif',
-        traj=temp('{complex}/{mutation}/{seed}/MD/trajectory.h5'),
-        stats='{complex}/{mutation}/{seed}/MD/MDStats.csv',
-        params='{complex}/{mutation}/{seed}/MD/params.yml',
-    resources:
-        gpu=1
-    priority:
-        3
-    shell:
-        """
-        2_MD.py --pdb {input.pdb} \
-                --topo {output.topo} \
-                --traj {output.traj} \
-                --md_settings {input.md_settings} \
-                --params {output.params} \
-                --seed {wildcards.seed} \
-                --stats {output.stats}
-        """
-
-
-rule MDSmallMolecule:
-    input:
-        md_settings=ancient('config/params.yml'),
-        pdb='{complex}/{mutation}/mutation.pdb',
-        sdf=lambda wildcards: simulations_df.loc[f'{wildcards.complex}_{wildcards.mutation}']['sdf']
+        sdf = lambda wildcards: simulations_df.loc[f'{wildcards.complex}_{wildcards.mutation}']['sdf']
     output:
         topo = '{complex}/{mutation}/{seed}/MD/frame_end.cif',
         traj=temp('{complex}/{mutation}/{seed}/MD/trajectory.h5'),
@@ -174,17 +149,15 @@ rule MDSmallMolecule:
         3
     shell:
         """
-        2_MD_SmallMolecule.py --pdb {input.pdb} \
-                              --sdf {input.sdf} \
-                              --topo {output.topo} \
-                              --traj {output.traj} \
-                              --md_settings {input.md_settings} \
-                              --params {output.params} \
-                              --seed {wildcards.seed} \
-                              --stats {output.stats}
+        2_MD.py --pdb {input.pdb} \
+                --sdf {input.sdf} \
+                --topo {output.topo} \
+                --traj {output.traj} \
+                --md_settings {input.md_settings} \
+                --params {output.params} \
+                --seed {wildcards.seed} \
+                --stats {output.stats}
         """
-
-
 
 rule centerMDTraj:
     input:
