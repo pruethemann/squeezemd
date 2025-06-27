@@ -64,5 +64,6 @@ setup(
              'install/upgrade_package.sh',
              'bin/5.1_Posco_ExtractLastFrames.py', 
              'bin/5.2_Posco_TransformDF.py', 
-             'bin/5.3_Posco_Analysis.py'],
+             'bin/5.3_Posco_Analysis.py',
+             'bin/5.4_Posco_Heatmap.py'],
 )

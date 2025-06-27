@@ -12,18 +12,15 @@ Export of pmrtop:
     https://github.com/openforcefield/smarty/pull/187#issuecomment-262381974
 """
 
-import argparse, os
+import argparse
 from openmm.unit import nanometers, amu, kelvin, picoseconds, atmospheres, molar
-
-# TODo reactivate
-from Helper import import_yaml, save_yaml
-
-from openff.toolkit.topology import Molecule
 from openmm import app, OpenMMException, Platform, LangevinMiddleIntegrator, MonteCarloBarostat
 from openmmforcefields.generators import SystemGenerator
-
+from openff.toolkit.topology import Molecule
 import mdtraj
 import mdtraj.reporters
+from Helper import import_yaml, save_yaml
+
 
 def define_platform():
     """
@@ -39,7 +36,7 @@ def define_platform():
 
 def set_parameters(params):
 
-    global nonbondedCutoff, ewaldErrorTolerance, constraintTolerance, hydrogenMass, temperature
+    global nonbondedCutoff, ewaldErrorTolerance, constraintTolerance, temperature
     global dt, recordInterval, friction, pressure, constraint, barostatInterval, platform
     global ff_kwargs
 
@@ -47,9 +44,6 @@ def set_parameters(params):
     nonbondedCutoff = params['nonbondedCutoff'] * nanometers
     ewaldErrorTolerance = params['ewaldErrorTolerance']
     constraintTolerance = 0.00001
-
-    # TODO: What is it 1.5 or 4?
-    hydrogenMass = 1.5 * amu            # check optimal weight
     temperature = 310 * kelvin                    # TODO get from param file Simulation temperature
 
     # Time parameter
@@ -71,8 +65,7 @@ def set_parameters(params):
     ff_kwargs = {
         'constraints': constraint,
         'rigidWater': True,                     # Allows to increase step size to 4 fs
-        'removeCMMotion': False,                # System should not drift
-        'hydrogenMass': 4 * amu
+        'removeCMMotion': False                # System should not drift
     }
 
     platform = define_platform()
@@ -116,8 +109,7 @@ def create_model_ppi(modeller, salt_concentration, params):
                                         nonbondedCutoff=nonbondedCutoff,
                                         constraints=constraint,
                                         rigidWater=params['rigidWater'],
-                                        ewaldErrorTolerance=ewaldErrorTolerance,
-                                        hydrogenMass=hydrogenMass
+                                        ewaldErrorTolerance=ewaldErrorTolerance
                                         )
     
     return system
