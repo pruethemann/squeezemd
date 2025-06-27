@@ -133,11 +133,18 @@ rule Mutagensis:
         """
 
 
+def get_sdf_input(wildcards):
+    if mode == "molecule":
+        return simulations_df.loc[f'{wildcards.complex}_{wildcards.mutation}']['sdf']
+    else:
+        return None  # Don't require an sdf input
+
+
 rule MD:
     input:
         md_settings=ancient('config/params.yml'),
         pdb='{complex}/{mutation}/mutation.pdb',
-        sdf = lambda wildcards: simulations_df.loc[f'{wildcards.complex}_{wildcards.mutation}']['sdf']
+        sdf=simulations_df.loc[f'{wildcards.complex}_{wildcards.mutation}']['sdf'] if mode=="molecule" else [],
     output:
         topo = '{complex}/{mutation}/{seed}/MD/frame_end.cif',
         traj=temp('{complex}/{mutation}/{seed}/MD/trajectory.h5'),
