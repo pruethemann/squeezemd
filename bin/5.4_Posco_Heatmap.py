@@ -11,12 +11,12 @@ def parse_arguments():
     parser = argparse.ArgumentParser()
 
     # Input
-    parser.add_argument("-i", "--input", required=False, help="Define interaction input file, .parquet or .csv", default="/home/iman/code/squeeze-toy/demo-H08-MASP2-link/results/posco/posco_interactions.parquet")
+    parser.add_argument("-i", "--input", required=False, help="Define interaction input file, .parquet or .csv", default="C:/Users/imata/Desktop/peter@gpu_server/H08--MASP2/analysis/posco_interactions.parquet")
     
     
     # Output
-    parser.add_argument("-l", "--ligand_interaction", required=False, help="Define ligand analysis output file/directory, .svg", default="lig_interaction_sum3.svg")
-    parser.add_argument("-r", "--receptor_interaction", required=False, help="Define receptor analysis output file/directory, .svg", default="rec_interaction_sum3.svg")
+    parser.add_argument("-l", "--ligand_interaction", required=False, help="Define ligand analysis output file/directory, .svg", default="lig_heatmap.svg")
+    parser.add_argument("-r", "--receptor_interaction", required=False, help="Define receptor analysis output file/directory, .svg", default="rec_heatmap.svg")
 
     """     
         parser.add_argument("-l", "--ligand", required=True, help="Define interaction partner to be considered (ligand)", default="")
@@ -34,7 +34,10 @@ def interaction_data_aggregation(interaction_partner, interaction_type):
 
     # filter for each interaction type
     # TODO: remove SB
-    if interaction_type == "H-bond" or "lipophilic":
+    if interaction_type == "H-bond":
+        df_interaction = df_filtered[(df_filtered['Interaction Type'] == interaction_type) &
+                                     (df_filtered['Marked as Salt-Bridge'] == 0)]
+    elif interaction_type == "lipophilic":
         df_interaction = df_filtered[(df_filtered['Interaction Type'] == interaction_type)]
     elif interaction_type == "Salt bridge":
         df_interaction = df_filtered[(df_filtered['Marked as Salt-Bridge'] == 1)]
@@ -49,12 +52,16 @@ def interaction_data_aggregation(interaction_partner, interaction_type):
     n_seeds = len(df_interaction.seed.unique())
 
     # data wrangling/aggregating for desired values
+    # TODO: Generalise for Lig / Rec / mutation
     seed_avg = df_interaction.groupby([resid, resname, 'frame'])['Energy (e)'].sum().reset_index()
     seed_avg["Energy (e)"] = seed_avg["Energy (e)"].div(n_seeds)
     seed_avg["residue_labels"] = seed_avg[resname] + ' ' + seed_avg[resid].astype(str)
 
     # get maximum binding energy for cbar value limit
     emax = seed_avg["Energy (e)"].min()*-1
+    #emax = emax.round(0)
+
+    print(f"Interaction type: {interaction_type}, emax: {emax}")
 
     # create pivot for sns.heatmap
     heatmap_data = pd.pivot_table(seed_avg, 
@@ -119,8 +126,7 @@ if __name__ == "__main__":
         df = pd.read_parquet(args.input)
         print("File successfully read as .parquet")
     except Exception as parquet_error:
-        print("Failed to read file as .parquet")
-        raise ValueError("Failed to read file")
+        raise ("Failed to read file")
     
     # 2. Data cleaning 
     # TODO: Perform a water analysis...?
@@ -130,10 +136,10 @@ if __name__ == "__main__":
     # 3. Data visualtisation
     figure_files = [args.ligand_interaction, args.receptor_interaction]
 
-    for fig_file, interaction_type in zip(figure_files, ["ligand", "receptor"]):
+    for fig_file, interaction_partner in zip(figure_files, ["ligand", "receptor"]):
         plt.figure(figsize=(15, 30))
         for i,interaction_type in enumerate(["total", 'H-bond', 'lipophilic', "Salt bridge"]): # , 'Marked as Salt-Bridge'
-            interaction_pivot, energy_max = interaction_data_aggregation('ligand', interaction_type)
+            interaction_pivot, energy_max = interaction_data_aggregation(interaction_partner, interaction_type)
             
             plt.subplot(4, 1, i+1)
             plot_interactions(interaction_pivot, energy_max)

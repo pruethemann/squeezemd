@@ -84,7 +84,7 @@ rule PPi:
         expand('{complex}/{mutation}/{seed}/frames/rec_{i}.pdb', i=range(number_frames), complex=complexes, mutation=mutations, seed=seeds),
         expand('{complex}/{mutation}/{seed}/po-sco/{i}.txt', i=range(number_frames), complex=complexes, mutation=mutations, seed=seeds),
         'results/posco/posco_interactions.parquet',
-        'results/posco/lig_interaction.svg',
+        'results/posco/lig_heatmap.svg',
         #expand('{complex}/{mutation}/{seed}/aquaduct/aquaduct.pse',complex=complexes, mutation=mutations, seed=seeds)
 
 rule protein:
@@ -293,8 +293,8 @@ rule PoScoHeatMap:
     input:
         data='results/posco/posco_interactions.parquet'
     output:
-        lig_heatmap='results/posco/lig_interaction.svg',
-        rec_heatmap='results/posco/rec_interaction.svg',
+        lig_heatmap='results/posco/lig_heatmap.svg',
+        rec_heatmap='results/posco/rec_heatmap.svg',
     shell:
         """
         5.4_Posco_Heatmap.py --input {input.data} --ligand_interaction {output.lig_heatmap} --receptor_interaction {output.rec_heatmap}
