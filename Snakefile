@@ -85,6 +85,7 @@ rule PPi:
         expand('{complex}/{mutation}/{seed}/po-sco/{i}.txt', i=range(number_frames), complex=complexes, mutation=mutations, seed=seeds),
         'results/posco/posco_interactions.parquet',
         'results/posco/lig_heatmap.svg',
+        'results/posco/lig_barplot.svg',
         #expand('{complex}/{mutation}/{seed}/aquaduct/aquaduct.pse',complex=complexes, mutation=mutations, seed=seeds)
 
 rule protein:
@@ -157,7 +158,6 @@ rule MD:
     shell:
         """
         2_MD.py --pdb {input.pdb} \
-                --sdf {input.sdf} \
                 --topo {output.topo} \
                 --traj {output.traj} \
                 --md_settings {input.md_settings} \
@@ -300,7 +300,17 @@ rule PoScoHeatMap:
         5.4_Posco_Heatmap.py --input {input.data} --ligand_interaction {output.lig_heatmap} --receptor_interaction {output.rec_heatmap}
         """
 
-
+# PosCo
+rule PoScoBarplot:
+    input:
+        data='results/posco/posco_interactions.parquet'
+    output:
+        lig_barplot='results/posco/lig_barplot.svg',
+        rec_barplot='results/posco/rec_barplot.svg',
+    shell:
+        """
+        5.5_Posco_Barplot.py --input {input.data} --ligand_interaction {output.lig_barplot} --receptor_interaction {output.rec_barplot}
+        """
 
 rule interactionFingerprint:
     input:
@@ -371,4 +381,4 @@ onsuccess:
         shell("squeeze molecule --report report.html")
     else:
         print("Workflow finished, no error. Report for protein-protein Interaction will be generated")
-        shell("squeeze --report report.html")
+        shell("squeeze PPi --report report.html")

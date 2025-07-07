@@ -12,18 +12,15 @@ Export of pmrtop:
     https://github.com/openforcefield/smarty/pull/187#issuecomment-262381974
 """
 
-import argparse, os
+import argparse
 from openmm.unit import nanometers, amu, kelvin, picoseconds, atmospheres, molar
-
-# TODo reactivate
-from Helper import import_yaml, save_yaml
-
-from openff.toolkit.topology import Molecule
 from openmm import app, OpenMMException, Platform, LangevinMiddleIntegrator, MonteCarloBarostat
 from openmmforcefields.generators import SystemGenerator
-
+from openff.toolkit.topology import Molecule
 import mdtraj
 import mdtraj.reporters
+from Helper import import_yaml, save_yaml
+
 
 def define_platform():
     """
@@ -47,9 +44,6 @@ def set_parameters(params):
     nonbondedCutoff = params['nonbondedCutoff'] * nanometers
     ewaldErrorTolerance = params['ewaldErrorTolerance']
     constraintTolerance = 0.00001
-
-    # TODO: What is it 1.5 or 4?
-    hydrogenMass = 1.5 * amu            # check optimal weight
     temperature = 310 * kelvin                    # TODO get from param file Simulation temperature
 
     # Time parameter
@@ -62,9 +56,7 @@ def set_parameters(params):
 
     # Constraints
     friction = 1.0 / picoseconds
-    friction = 1.0 / picoseconds
     pressure = 1.0 * atmospheres        # Simulation pressure
-    constraints = {'HBonds': app.HBonds, 'AllBonds': app.AllBonds, 'None': None}
     constraints = {'HBonds': app.HBonds, 'AllBonds': app.AllBonds, 'None': None}
     constraint = constraints[params['constraints']]
     barostatInterval = 25               # Fix Barostat every 25 simulations steps
@@ -73,8 +65,7 @@ def set_parameters(params):
     ff_kwargs = {
         'constraints': constraint,
         'rigidWater': True,                     # Allows to increase step size to 4 fs
-        'removeCMMotion': False,                # System should not drift
-        'hydrogenMass': 4 * amu
+        'removeCMMotion': False                # System should not drift
     }
 
     platform = define_platform()
@@ -97,8 +88,6 @@ def energy_minimisation(simulation):
 
 def create_model_ppi(modeller, salt_concentration, params):
     forcefield = app.ForceField('amber14-all.xml', 'amber14/tip3pfb.xml')
-def create_model_ppi(modeller, salt_concentration, params):
-    forcefield = app.ForceField('amber14-all.xml', 'amber14/tip3pfb.xml')
 
     print('Adding hydrogens..')
     modeller.addHydrogens(forcefield)
@@ -111,7 +100,6 @@ def create_model_ppi(modeller, salt_concentration, params):
                         negativeIon = 'Cl-',
                         model='tip3p',
                         neutralize=True,
-                        padding=1 * nanometers
                         padding=1 * nanometers
                         )
 
@@ -160,7 +148,6 @@ def create_model_smallmolecule(modeller, salt_concentration):
                         model='tip3p',
                         neutralize=True,
                         padding=1 * nanometers
-                        padding=1 * nanometers
                         )
     
 
@@ -170,7 +157,6 @@ def create_model_smallmolecule(modeller, salt_concentration):
     return system
 
 
-def simulate(args, params, salt_concentration=0.15):
 def simulate(args, params, salt_concentration=0.15):
     """
     Function that handles a molecular dynamics simulation.
@@ -218,18 +204,13 @@ def simulate(args, params, salt_concentration=0.15):
 
     # add small molecule to system
 
-    if args.sdf == "":
-        system = create_model_ppi(modeller, salt_concentration, params)
-    if args.sdf == "":
-        system = create_model_ppi(modeller, salt_concentration, params)
-    else:
-        system = create_model_smallmolecule(modeller, salt_concentration)
 
-    print('Add MonteCarloBarostat')
+    system = create_model_ppi(modeller, salt_concentration, params)
+
+
     print('Add MonteCarloBarostat')
     system.addForce(MonteCarloBarostat(pressure, temperature, barostatInterval))
 
-    simulation = app.Simulation(modeller.topology,
     simulation = app.Simulation(modeller.topology,
                             system,
                             integrator,
@@ -258,7 +239,6 @@ def simulate(args, params, salt_concentration=0.15):
     HDF5Reporter = mdtraj.reporters.HDF5Reporter(args.traj, recordInterval)
 
     dataReporter = app.StateDataReporter(args.stats,
-    dataReporter = app.StateDataReporter(args.stats,
                                         recordInterval,
                                         totalSteps=args.steps,
                                         step=True,
@@ -280,11 +260,9 @@ def simulate(args, params, salt_concentration=0.15):
 
     with open(args.topo, mode="w") as file:
         app.PDBxFile.writeFile(simulation.topology,
-        app.PDBxFile.writeFile(simulation.topology,
                            state.getPositions(),
                            file,
                            keepIds=True)
-        
         
 
 def parse_arguments():
@@ -293,7 +271,6 @@ def parse_arguments():
     
     # Input files
     parser.add_argument('--pdb', required=False, help='Paenergy_afterth to single protein or protein protein complex.', default='input/fix1.pdb')
-    parser.add_argument('--sdf', required=False, help='Path to small molecule sdf file', nargs='?', const='')
     parser.add_argument('--sdf', required=False, help='Path to small molecule sdf file', nargs='?', const='')
     parser.add_argument('--md_settings', required=False, help='Configuration file with all required parameters (params.yml', default='input/params.yml')
     parser.add_argument('--seed', required=False, help='Seed for inital velocities', type=int, default=12)
@@ -311,9 +288,5 @@ if __name__ == '__main__':
     # Import Argparse and MDsettings from yaml
     args = parse_arguments()
     yaml_params = import_yaml(args.md_settings)
-    print(args.sdf)
-
-    simulate(args, yaml_params)
-    print(args.sdf)
 
     simulate(args, yaml_params)
