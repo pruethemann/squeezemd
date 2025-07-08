@@ -7,6 +7,7 @@ import pandas as pd
 import numpy as np
 from matplotlib import pyplot as plt
 import seaborn as sns
+from glob import glob
 
 def parse_arguments():
     parser = argparse.ArgumentParser()
@@ -14,7 +15,7 @@ def parse_arguments():
     #LINUX PATHS
     # Input
     parser.add_argument("-i", "--input", required=False, help="Define interaction input file, .parquet or .csv", default="/home/iman/caracara/MD/squeeze_MD/S-01_H08_MASP2_30ns/results/posco/posco_interactions.parquet")
-    parser.add_argument("-s", "--sequence", required=False, help="Define sequence range of ligand/receptor for efficient plotting of barplot. Read from sequence.parquet", default="/home/iman/caracara/MD/squeeze_MD/S-01_H08_MASP2_30ns/MASP2_H08/WT/131/frames/sequence.parquet")
+    #parser.add_argument("-s", "--sequence", required=False, help="Define sequence range of ligand/receptor for efficient plotting of barplot. Read from sequence.parquet", default="/home/iman/caracara/MD/squeeze_MD/S-01_H08_MASP2_30ns/MASP2_H08/WT/131/frames/sequence.parquet")
     # Output
     parser.add_argument("-l", "--ligand_interaction", required=False, help="Define ligand analysis output file/directory, .svg", default="lig_barplot.svg")
     parser.add_argument("-r", "--receptor_interaction", required=False, help="Define receptor analysis output file/directory, .svg", default="rec_barplot.svg")
@@ -28,7 +29,7 @@ def import_sequence_range(seq_parquet:os.path, protein:str):
     
     return (seq_df.resid.min(), seq_df.resid.max())
 
-def interaction_data_aggregation(interaction_partner, interaction_type):
+def interaction_data_aggregation(interaction_partner, interaction_type, df_filtered):
     """"Filter, aggregate and pivot"""
 
     # filter for each interaction type
@@ -42,9 +43,13 @@ def interaction_data_aggregation(interaction_partner, interaction_type):
     else:
         df_interaction = df_filtered
 
+    
+    # TODO Extremely dirty to get access to sequence
+    seq_path = glob(f"**/{mutation}/**/frames/sequence.parquet")
+
     # based on "observed" interaction partner
     try:
-        seq_range = import_sequence_range(args.sequence, interaction_partner[:3])
+        seq_range = import_sequence_range(seq_path[0], interaction_partner[:3])
         seq_range = range(seq_range[0], seq_range[1])
     except Exception:
         raise Exception("Error: Interaction partner not found.")
@@ -82,20 +87,24 @@ def plot_interactions(plot_data, emax):
     # TODO: make vmax dynamic based on max interaction energy
     if interaction_type == "total":
         interaction_color = "grey"
-        interaction_label = 'Total interaction Energy (kcal/mol)'
+        interaction_label = f'Total interaction Energy (kcal/mol) ({mutation})'
     elif interaction_type == "H-bond":
         interaction_color = "dodgerblue"
-        interaction_label = 'H-bond Energy (kcal/mol)'
+        interaction_label = f'H-bond Energy (kcal/mol) ({mutation})'
     elif interaction_type == "lipophilic":
         interaction_color = "darkorange"
-        interaction_label = 'Hydrophobic interaction Energy (kcal/mol)'
+        interaction_label = 'Hydrophobic interaction Energy (kcal/mol) ({mutation})'
     elif interaction_type == "Salt bridge":
         interaction_color = "seagreen"
-        interaction_label = 'Salt Bridge interaction Energy (kcal/mol)'
+        interaction_label = 'Salt Bridge interaction Energy (kcal/mol) ({mutation})'
     else:
         raise Exception("ERROR: Martin introduced a new interaction type")
 
-    seq_range = import_sequence_range(args.sequence, interaction_partner[:3])
+
+    # TODO Extremely dirty to get access to sequence
+    seq_path = glob(f"**/{mutation}/**/frames/sequence.parquet")
+
+    seq_range = import_sequence_range(seq_path[0], interaction_partner[:3])
     plot_range = range(seq_range[0], seq_range[1], 10)
 
     resid = f'{interaction_partner}_resid'
@@ -131,16 +140,26 @@ if __name__ == "__main__":
     # TODO: Perform a water analysis...?
     df_filtered = df[(df['receptor_resname'] != 'HOH') & (df['ligand_resname'] != 'HOH')]
 
+    # Iterate over mutations
+    mutations = df_filtered.mutation.unique()
 
-    # 3. Data visualtisation
-    figure_files = [args.ligand_interaction, args.receptor_interaction]
-    for fig_file, interaction_partner in zip(figure_files, ["ligand", "receptor"]):
-        plt.figure(figsize=(15, 30))
-        for i,interaction_type in enumerate(["total", 'H-bond', 'lipophilic', "Salt bridge"]): # , 'Marked as Salt-Bridge'
-            final, energy_max = interaction_data_aggregation(interaction_partner, interaction_type)
-            plt.subplot(4, 1, i+1)
-            plot_interactions(final, energy_max)
+    for mutation in mutations:
 
-        plt.tight_layout()
-        plt.savefig(fig_file)
-        plt.close()
+        data = df_filtered[df_filtered.mutation == mutation]
+
+        # 3. Data visualisation
+        figure_files = [args.ligand_interaction, args.receptor_interaction]
+        for fig_file, interaction_partner in zip(figure_files, ["ligand", "receptor"]):
+            plt.figure(figsize=(15, 30))
+            for i,interaction_type in enumerate(["total", 'H-bond', 'lipophilic', "Salt bridge"]): # , 'Marked as Salt-Bridge'
+                final, energy_max = interaction_data_aggregation(interaction_partner, interaction_type, data)
+                plt.subplot(4, 1, i+1)
+                plot_interactions(final, energy_max)
+
+            plt.tight_layout()
+            if mutation == 'WT':
+                plt.savefig(fig_file)
+            else:
+                plt.savefig(f'{fig_file[:-4]}_{mutation}.svg')
+
+            plt.close()

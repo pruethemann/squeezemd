@@ -303,13 +303,15 @@ rule PoScoHeatMap:
 # PosCo
 rule PoScoBarplot:
     input:
-        data='results/posco/posco_interactions.parquet'
+        'results/posco/posco_interactions.parquet',  
     output:
         lig_barplot='results/posco/lig_barplot.svg',
         rec_barplot='results/posco/rec_barplot.svg',
     shell:
         """
-        5.5_Posco_Barplot.py --input {input.data} --ligand_interaction {output.lig_barplot} --receptor_interaction {output.rec_barplot}
+        5.5_Posco_Barplot.py --input {input} \
+                             --ligand_interaction {output.lig_barplot} \
+                             --receptor_interaction {output.rec_barplot}
         """
 
 rule interactionFingerprint:
