@@ -35,7 +35,7 @@ def create_interaction_fingerprint(topology_file, trajectory_file, output_file, 
     # Selecting ligand and protein
     # TODO: generalize
     ligand = universe.select_atoms("segid A")
-    protein = universe.select_atoms("segid C")
+    protein = universe.select_atoms("not segid A and protein")
 
     # Initialize interaction fingerprint analysis
     fingerprint = plf.Fingerprint(["Hydrophobic", "HBDonor", "HBAcceptor", "PiStacking", "PiCation", "CationPi", "Anionic", "Cationic"], count=True)
