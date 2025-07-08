@@ -13,12 +13,20 @@ def parse_arguments():
 
     #LINUX PATHS
     # Input
-    parser.add_argument("-i", "--input", required=False, help="Define interaction input file, .parquet or .csv", default="/home/iman/code/squeeze-toy/notebooks/posco_interactions.parquet")
+    parser.add_argument("-i", "--input", required=False, help="Define interaction input file, .parquet or .csv", default="/home/iman/caracara/MD/squeeze_MD/S-01_H08_MASP2_30ns/results/posco/posco_interactions.parquet")
+    parser.add_argument("-s", "--sequence", required=False, help="Define sequence range of ligand/receptor for efficient plotting of barplot. Read from sequence.parquet", default="/home/iman/caracara/MD/squeeze_MD/S-01_H08_MASP2_30ns/MASP2_H08/WT/131/frames/sequence.parquet")
     # Output
-    parser.add_argument("-l", "--ligand_interaction", required=False, help="Define ligand analysis output file/directory, .svg", default="/home/iman/code/squeeze-toy/lig_barplot.svg")
-    parser.add_argument("-r", "--receptor_interaction", required=False, help="Define receptor analysis output file/directory, .svg", default="/home/iman/code/squeeze-toy/rec_barplot.svg")
+    parser.add_argument("-l", "--ligand_interaction", required=False, help="Define ligand analysis output file/directory, .svg", default="lig_barplot.svg")
+    parser.add_argument("-r", "--receptor_interaction", required=False, help="Define receptor analysis output file/directory, .svg", default="rec_barplot.svg")
 
     return parser.parse_args()
+
+def import_sequence_range(seq_parquet:os.path, protein:str):
+
+    seq_df = pd.read_parquet(seq_parquet).reset_index()
+    seq_df = seq_df[(seq_df['protein'] == protein)]
+    
+    return (seq_df.resid.min(), seq_df.resid.max())
 
 def interaction_data_aggregation(interaction_partner, interaction_type):
     """"Filter, aggregate and pivot"""
@@ -35,13 +43,10 @@ def interaction_data_aggregation(interaction_partner, interaction_type):
         df_interaction = df_filtered
 
     # based on "observed" interaction partner
-    if interaction_partner == "ligand":
-        seq_range = range(1, 113)
-        plot_range = range(1, 113, 10)
-    elif interaction_partner == "receptor":
-        seq_range = range(445, 684)
-        plot_range = range(445, 684, 20)
-    else:
+    try:
+        seq_range = import_sequence_range(args.sequence, interaction_partner[:3])
+        seq_range = range(seq_range[0], seq_range[1])
+    except Exception:
         raise Exception("Error: Interaction partner not found.")
     
     resid = f'{interaction_partner}_resid'
@@ -90,16 +95,10 @@ def plot_interactions(plot_data, emax):
     else:
         raise Exception("ERROR: Martin introduced a new interaction type")
 
-    if interaction_partner == "ligand":
-            seq_range = range(1, 113)
-            plot_range = range(1, 113, 10)
-            resid="ligand_resid"
-    elif interaction_partner == "receptor":
-            seq_range = range(445, 684)
-            plot_range = range(445, 684, 20)
-            resid="receptor_resid"
-    else:
-            raise Exception("Error: Interaction partner not found.")
+    seq_range = import_sequence_range(args.sequence, interaction_partner[:3])
+    plot_range = range(seq_range[0], seq_range[1], 10)
+
+    resid = f'{interaction_partner}_resid'
 
     plt.bar(x=plot_data[resid],
             height=plot_data["mean"],
