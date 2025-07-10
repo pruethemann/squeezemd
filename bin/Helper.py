@@ -106,7 +106,7 @@ def is_numeric(character):
         raise ValueError("Input must be a single character.")
     return character.isdigit()
 
-def remap_MDAnalysis(u: mda.Universe, topo):
+def remap_MDAnalysis_V1(u: mda.Universe, topo):
     """
     Remaps the correct residues Ids from the OpenMM topology to
     a MDAnylsis universe.
@@ -136,6 +136,36 @@ def remap_MDAnalysis(u: mda.Universe, topo):
             continue
         resid_sele = u.select_atoms(f"resid {int(res_cont.resid)}")
         resid_sele.residues.resids = int(resid.id)
+
+    return u
+
+import openmm.app as app
+
+def remap_MDAnalysis(u: mda.Universe, topo: app.PDBxFile):
+    """
+    Remaps the correct residue and chain IDs from the OpenMM PDBxFile topology
+    to an MDAnalysis universe.
+
+    :param u: MDAnalysis Universe
+    :param topo: openmm.app.PDBxFile object
+    :return: updated MDAnalysis Universe
+    """
+    chains = list(topo.topology.chains())
+    residues = list(topo.topology.residues())
+
+    if len(u.segments) != len(chains):
+        raise ValueError("Mismatch in number of segments and chains")
+
+    for mda_seg, omm_chain in zip(u.segments, chains):
+        mda_seg.segid = omm_chain.id  # Safe: assigns chainID
+
+    if len(u.residues) != len(residues):
+        raise ValueError("Mismatch in number of residues between MDAnalysis and OpenMM topology")
+
+    for mda_res, omm_res in zip(u.residues, residues):
+        # Optional: Only remap if different
+        mda_res.resid = int(omm_res.id)
+        mda_res.resname = omm_res.name
 
     return u
 

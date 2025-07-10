@@ -105,7 +105,7 @@ def plot_interactions(plot_data, emax):
     seq_path = glob(f"**/{mutation}/**/frames/sequence.parquet")
 
     seq_range = import_sequence_range(seq_path[0], interaction_partner[:3])
-    plot_range = range(seq_range[0], seq_range[1], 10)
+    plot_range = range(seq_range[0], seq_range[1], 2)
 
     resid = f'{interaction_partner}_resid'
 

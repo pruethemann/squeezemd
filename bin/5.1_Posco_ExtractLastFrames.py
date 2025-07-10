@@ -10,6 +10,8 @@ import openmm.app as app
 import pandas as pd
 
 def extract_sequence(ligand, receptor, sequence_file):
+
+    print(ligand)
     # Extract sequence
     seq_ligand = {"resid": ligand.residues.resids,
                   "resname": ligand.residues.resnames}
