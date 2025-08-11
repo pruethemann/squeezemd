@@ -367,7 +367,6 @@ rule InteractionSurface:
         10_InteractionSurface.py --interactions {input.interactions} \
                                  --seed {params.representative_seed} \
                                  --mutation {wildcards.mutation} \
-                                 --frames {input.final_frame} \
                                  --complex {wildcards.complex}
         pymol -cQ {output.pymol_cmd}
         """

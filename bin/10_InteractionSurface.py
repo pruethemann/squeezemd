@@ -92,12 +92,12 @@ def set_residue_interaction_intensity(pdb_path, ligand_resids, receptor_resids, 
     u.add_TopologyAttr('tempfactors')
 
 
-    # Select all ligand resids interacting with receptor
+    # Select all ligand resids interacting with ligand
     for _,row in ligand_resids.iterrows():
         selected_resid = u.select_atoms(f"resid {int(row['ligand_resid'])} and segid A")
         selected_resid.tempfactors = row['Energy (e)']
 
-    # Select all receptor resids interacting with ligand
+    # Select all receptor resids interacting with receptor
     for _,row in receptor_resids.iterrows():
         selected_resid = u.select_atoms(f"resid {int(row['receptor_resid'])} and not segid A")
         selected_resid.tempfactors = row['Energy (e)']
@@ -105,6 +105,48 @@ def set_residue_interaction_intensity(pdb_path, ligand_resids, receptor_resids, 
     # Save pdb of protein only
     protein = u.select_atoms("protein")
     protein.write(interaction_pdb)
+
+def data_aggregation (data):
+    """
+    please provide a pandas dataframe, such as .parquet read by pd.read_parquet
+      """
+
+    # based on "observed" interaction partner
+    try:
+        seq_range = import_sequence_range(seq_path[0], interaction_partner[:3])
+        seq_range = range(seq_range[0], seq_range[1])
+    except Exception:
+        raise Exception("Error: Interaction partner not found.")
+    
+    resid = f'{interaction_partner}_resid'
+
+    # number of unique seeds for manual calculation of mean energy over seeds
+    n_frames = len(df_interaction.frame.unique())
+    n_seeds = len(df_interaction.seed.unique())
+
+    df_interaction = data
+
+    # data wrangling/aggregating for desired values, leaving frames
+    frame_avg = df_interaction.groupby([resid, "seed"])['Energy (e)'].sum().reset_index()
+    frame_avg["Energy (e)"] = frame_avg["Energy (e)"].div(n_frames)
+
+    # data wrangling/aggregating for desired values, leaving seeds
+    seed_avg = frame_avg.groupby([resid])['Energy (e)'].sum().reset_index()
+    seed_avg["Energy (e)"] = seed_avg["Energy (e)"].div(n_seeds)
+    seed_avg.rename(columns={"Energy (e)": "mean"}, inplace=True)
+
+    seed_sd = frame_avg.groupby([resid])['Energy (e)'].std().reset_index()
+    seed_sd.rename(columns={"Energy (e)": "sd"}, inplace=True)
+
+    combined = pd.merge(seed_avg, seed_sd, on=resid, how="outer")
+    
+    all_resid = pd.DataFrame({resid: seq_range})
+    final = pd.merge(combined, all_resid, on=resid, how="left")
+
+    # get maximum binding energy for cbar value limit
+    emax = seed_avg["mean"].min()
+    
+    return final, emax
 
 def parse_arguments():
     """
@@ -117,8 +159,8 @@ def parse_arguments():
     parser.add_argument('--interactions', required=True, help='Path to the interactions CSV file.')
     parser.add_argument('--seed', type=int, required=True, help='Seed number for selecting representative frames.')
     parser.add_argument('--mutation', required=True, help='Mutation identifiers (e.g., WT, Y117E_Y119E_Y121E).')
-    parser.add_argument('--frames', nargs='+', required=False, help='Paths to frame files.')
-    parser.add_argument('--receptors', required=False, help='List of all Receptors (e.g. C1s, MASP2, FXa') # TODO: will be used for the future
+    #parser.add_argument('--frames', nargs='+', required=False, help='Paths to frame files.')
+    #parser.add_argument('--receptors', required=False, help='List of all Receptors (e.g. C1s, MASP2, FXa') # TODO: will be used for the future
     parser.add_argument('--complex', required=True, help='')
     return parser.parse_args()
 
@@ -127,37 +169,55 @@ if __name__ == '__main__':
 
     print(args.seed)
 
-    ENERGY_THRESHOLD = -0.8
+
+
+    # TODO Load aggregated dataframe from 5.5 / 5.4
+
     # Import interaction data
     interactions = pd.read_parquet(args.interactions)
 
-    # TODO Exclude all waters in analysis. TODO perform a separate water analysis
-    interactions = interactions[interactions.ligand_resname != 'HOH']
-    interactions = interactions[interactions.receptor_resname != 'HOH']
+    # TODO perform a separate water analysis
+    n_frames = len(interactions.frame.unique())
+    n_seeds = len(interactions.seed.unique())
+        
+    interactions = interactions[(interactions['receptor_resname'] != 'HOH') & (interactions['ligand_resname'] != 'HOH')]
 
     interactions.set_index(['name', 'mutation'], inplace=True)
     # Sort index to improve performance
     interactions.sort_index(inplace=True)
-    var_names = ['target', 'resid', 'energy']  # Relevant var names
 
     (mutation, complex) = (args.mutation, args.complex)
 
-    pdb = os.path.join(complex, mutation, str(args.seed), 'MD', 'topo_center.pdb')
+    #pdb = os.path.join(complex, mutation, str(args.seed), 'MD', 'topo_center.pdb')
+    pdb = ("/home/iman/caracara/MD/squeeze_MD/S-01-H08_MASP2_50ns/MASP2_H08/WT/131/MD/topo_center.pdb")
 
     interactions_filtered = interactions.loc[(complex, mutation)]
 
     # Extract ligand and receptor interaction data
-    data_ligand = interactions_filtered.groupby(['name', 'mutation', 'ligand_resid']).mean(numeric_only=True).reset_index()
-    data_receptor = interactions_filtered.groupby(['name', 'mutation', 'receptor_resid']).mean(numeric_only=True).reset_index()
+    #data_ligand = interactions_filtered.groupby(['name', 'mutation', 'ligand_resid']).mean(numeric_only=True).reset_index()
+    #data_receptor = interactions_filtered.groupby(['name', 'mutation', 'receptor_resid']).mean(numeric_only=True).reset_index()
 
+    ## data aggregate
+    data_ligand = interactions.groupby(['name', 'mutation', 'ligand_resid'])['Energy (e)'].sum().reset_index()
+    data_ligand["Energy (e)"] = data_ligand["Energy (e)"].div(n_frames * n_seeds)
+
+    print(data_ligand)
+
+
+    data_receptor = interactions.groupby(['name', 'mutation', 'receptor_resid'])['Energy (e)'].sum().reset_index()
+    data_receptor["Energy (e)"] = data_receptor["Energy (e)"].div(n_frames * n_seeds)
+
+
+    
     # Get all receptor/ligand residues with an interaction energy smaller than -2 and join as string
-    ligand_resids = ','.join(map(str, data_ligand[data_ligand['Energy (e)'] < ENERGY_THRESHOLD]['ligand_resid']))
-    receptor_resids = ','.join(map(str, data_receptor[data_receptor['Energy (e)']  < ENERGY_THRESHOLD]['receptor_resid']))
+    # only consider really strong interactions
+    ENERGY_THRESHOLD = -0.8
+    data_ligand = data_ligand[data_ligand['Energy (e)'] < ENERGY_THRESHOLD]#['ligand_resid']
 
-    DEBUG = True
-    if DEBUG:
-        data_ligand.to_csv('data_ligand.csv')
-        data_receptor.to_csv('data_receptor.csv')
+
+    # create a string in pymol
+    ligand_resids = ','.join(map(str, data_ligand))
+    receptor_resids = ','.join(map(str, data_receptor[data_receptor['Energy (e)']  < ENERGY_THRESHOLD]['receptor_resid']))
 
     # Define output paths. TODO Improve
     dir = os.path.join('results', 'interactionSurface')
