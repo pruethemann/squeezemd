@@ -72,7 +72,6 @@ rule molecule:
         expand('{complex}/{mutation}/{seed}/aquaduct/aquaduct.pse',complex=complexes, mutation=mutations, seed=seeds)
 
 
-
 rule PPi:
     input:
         'results/fingerprints/interactions.parquet',
@@ -86,6 +85,7 @@ rule PPi:
         'results/posco/posco_interactions.parquet',
         'results/posco/lig_heatmap.svg',
         'results/posco/lig_barplot.svg',
+        'results/rmsf/rmsf.svg'
         #expand('{complex}/{mutation}/{seed}/aquaduct/aquaduct.pse',complex=complexes, mutation=mutations, seed=seeds)
 
 rule protein:
@@ -234,13 +234,37 @@ rule DescriptiveTrajAnalysis:
         number_frames = config.get('number_frames')
     shell:
         """
-        3_ExplorativeTrajectoryAnalysis.py --topo {input.topo} \
+        3.1_ExplorativeTrajectoryAnalysis.py --topo {input.topo} \
                                                    --traj {input.traj} \
                                                    --stats {input.stats} \
                                                    --rmsf {output.rmsf} \
                                                    --bfactors {output.bfactors} \
                                                    --rmsd {output.rmsd} \
                                                    --fig_stats {output.stats}
+        """
+
+rule calculateRMSF:
+    input:
+        topo = expand('{complex}/{mutation}/{seed}/MD/frame_end.cif',complex=complexes, mutation=mutations, seed=seeds),
+        traj = expand('{complex}/{mutation}/{seed}/MD/traj_center.dcd',  complex=complexes, mutation=mutations, seed=seeds), 
+    output:
+        'results/rmsf/rmsf.parquet'
+    shell:
+        """
+        3.2_Compute_RMSF.py --topo {input.topo} \
+                            --traj {input.traj} \
+                            --output {output}
+        """
+
+rule visualiseRMSF:
+    input:
+        'results/rmsf/rmsf.parquet'
+    output:
+        'results/rmsf/rmsf.svg'
+    shell:
+        """
+        3.3_Visualize_RMSF.py --input {input} \
+                              --output {output}
         """
 
 
@@ -279,7 +303,7 @@ rule posco:
         """
 
 # PosCo
-rule concat:
+rule concatPosco:
     input:
         posco = expand('{complex}/{mutation}/{seed}/po-sco/{i}.txt', i=range(number_frames), complex=complexes, mutation=mutations, seed=seeds),
     output:

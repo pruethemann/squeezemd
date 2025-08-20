@@ -95,6 +95,17 @@ username: __token__
 pw: pyPi token
 ```
 
+Prepare amber pdbs
+~~~~~~~~~~
+
+1. Prepare protein in maestro
+2. pdb4amber -i input.pdb -o input.amber.pdb
+3. 
+
+alter (chain A),chain='B'
+alter (chain B),resi=str(int(resi)+315)
+alter (chain C),resi=str(int(resi)+51)
+
 Sync results / data
 ```
 rsync -avz --include '*/' --include '/pdb/***' --include '/config/***' --exclude '*' peter@gpu:/home/peter/MD/6_BD001-K10-Q9
