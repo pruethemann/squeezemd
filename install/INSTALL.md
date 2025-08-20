@@ -10,6 +10,32 @@ everything. This allows a clean and fast install
 
 ## Linux Conda
 
+1. Install conda
+2. git clone https://github.com/pruethemann/squeezemd.git
+3. Install squeezemd conda environment
+cd install
+> conda env create -f environment.yml  \
+> conda activate squeeze-dev
+
+
+# Concept install
+
+1. Base:
+- Git
+- nvidia-driver
+- conda
+
+2. github repo into a tools folder
+git clone ...
+
+3. Install conda environment
+
+4. Install bins
+- foldX
+- po-sco
+
+5. Upgrade squeezeMD
+pip install --upgrade .
 
 
 
@@ -19,8 +45,8 @@ everything. This allows a clean and fast install
 1. Install micromamba
 > "${SHELL}" <(curl -L micro.mamba.pm/install.sh)
 2. Install the conda environment
-> micromamba create -f environment.yml  \
-> micromamba activate squeeze-dev
+> conda create -f environment.yml  \
+> conda activate squeeze-dev
 3. Install additional binaries (Posco and foldX)
 chmod +x install_bins_linux.sh \
 ./install_bins_linux.sh
