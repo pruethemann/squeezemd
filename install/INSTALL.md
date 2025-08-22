@@ -18,7 +18,7 @@ cd install
 > conda activate squeeze-dev
 
 
-# Concept install
+### Concept install
 
 1. Base:
 - Git

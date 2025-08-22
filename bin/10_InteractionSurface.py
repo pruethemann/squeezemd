@@ -188,9 +188,8 @@ if __name__ == '__main__':
 
     (mutation, complex) = (args.mutation, args.complex)
 
-    #pdb = os.path.join(complex, mutation, str(args.seed), 'MD', 'topo_center.pdb')
-    pdb = ("/home/iman/caracara/MD/squeeze_MD/S-01-H08_MASP2_50ns/MASP2_H08/WT/131/MD/topo_center.pdb")
-
+    pdb = os.path.join(complex, mutation, str(args.seed), 'MD', 'topo_center.pdb')
+    
     interactions_filtered = interactions.loc[(complex, mutation)]
 
     # Extract ligand and receptor interaction data
