@@ -167,10 +167,6 @@ def parse_arguments():
 if __name__ == '__main__':
     args = parse_arguments()
 
-    print(args.seed)
-
-
-
     # TODO Load aggregated dataframe from 5.5 / 5.4
 
     # Import interaction data
@@ -188,9 +184,8 @@ if __name__ == '__main__':
 
     (mutation, complex) = (args.mutation, args.complex)
 
-    #pdb = os.path.join(complex, mutation, str(args.seed), 'MD', 'topo_center.pdb')
-    pdb = ("/home/iman/caracara/MD/squeeze_MD/S-01-H08_MASP2_50ns/MASP2_H08/WT/131/MD/topo_center.pdb")
-
+    pdb = os.path.join(complex, mutation, str(args.seed), 'MD', 'topo_center.pdb')
+    
     interactions_filtered = interactions.loc[(complex, mutation)]
 
     # Extract ligand and receptor interaction data
@@ -201,19 +196,13 @@ if __name__ == '__main__':
     data_ligand = interactions.groupby(['name', 'mutation', 'ligand_resid'])['Energy (e)'].sum().reset_index()
     data_ligand["Energy (e)"] = data_ligand["Energy (e)"].div(n_frames * n_seeds)
 
-    print(data_ligand)
-
-
     data_receptor = interactions.groupby(['name', 'mutation', 'receptor_resid'])['Energy (e)'].sum().reset_index()
     data_receptor["Energy (e)"] = data_receptor["Energy (e)"].div(n_frames * n_seeds)
-
-
     
     # Get all receptor/ligand residues with an interaction energy smaller than -2 and join as string
     # only consider really strong interactions
     ENERGY_THRESHOLD = -0.8
     data_ligand = data_ligand[data_ligand['Energy (e)'] < ENERGY_THRESHOLD]#['ligand_resid']
-
 
     # create a string in pymol
     ligand_resids = ','.join(map(str, data_ligand))
