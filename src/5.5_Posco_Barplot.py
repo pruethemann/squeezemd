@@ -16,6 +16,7 @@ def parse_arguments():
     # Input
     parser.add_argument("-i", "--input", required=False, help="Define interaction input file, .parquet or .csv", default="/home/iman/caracara/MD/squeeze_MD/S-01_H08_MASP2_30ns/results/posco/posco_interactions.parquet")
     #parser.add_argument("-s", "--sequence", required=False, help="Define sequence range of ligand/receptor for efficient plotting of barplot. Read from sequence.parquet", default="/home/iman/caracara/MD/squeeze_MD/S-01_H08_MASP2_30ns/MASP2_H08/WT/131/frames/sequence.parquet")
+    
     # Output
     parser.add_argument("-l", "--ligand_interaction", required=False, help="Define ligand analysis output file/directory, .svg", default="lig_barplot.svg")
     parser.add_argument("-r", "--receptor_interaction", required=False, help="Define receptor analysis output file/directory, .svg", default="rec_barplot.svg")

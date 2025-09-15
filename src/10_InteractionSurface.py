@@ -58,7 +58,7 @@ def create_pml_script(ligand_resids, receptor_resids, pdb, output_file, pymol_sc
     # Check if the script is running in a Conda environment and extract path to pymol_template in env
     if 'CONDA_PREFIX' in os.environ:
         conda_env = os.environ['CONDA_PREFIX']
-        pymol_template = os.path.join(conda_env, 'pymol_template.pml')
+        pymol_template = os.path.join(conda_env, 'bin', 'pymol_template.pml')
     else:
         raise Exception("This script is not running in a Conda environment.")
 

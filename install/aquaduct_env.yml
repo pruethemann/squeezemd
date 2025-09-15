@@ -1,18 +1,7 @@
-# The dev environment installs the in development version of MDAnalysis 2.8
-# https://userguide.mdanalysis.org/2.8.0-dev0/contributing_code.html#create-virtual-environment
-
-
-# Option 1: micromamba (recommanded)
-# micromamba create - f aquaduct_env.yml
-
-# Option 2: Classical mamba
-# conda install - c conda-forge mamba
-# mamba env create - f aquaduct_env.yml
-
-# Option 3: Classical conda install (slow)
+# This conda enviornment allows to run aquaduct in snakemake
+# It pins all the dependencies required
+# conda install
 # conda env create - f aquaduct_env.yml
-
-
 
 name: aquaduct
 

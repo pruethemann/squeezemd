@@ -1,15 +1,7 @@
-# The dev environment installs the in development version of MDAnalysis 2.8
-# https://userguide.mdanalysis.org/2.8.0-dev0/contributing_code.html#create-virtual-environment
+# This environment install everything required to run squeezeMD
+# posco and foldX is installed via the script install_bins_linux.sh
 
-
-# Option 1: micromamba (recommanded)
-# micromamba create -f environment.yml
-
-# Option 2: Classical mamba
-# conda install -c conda-forge mamba
-# mamba env create -f environment.yml
-
-# Option 3: Classical conda install (slow)
+# How to install via conda:
 # conda env create -f environment.yml
 
 name: squeeze
@@ -20,45 +12,23 @@ channels:
 
 dependencies:
   - python
-  - openmm
-  - openmmforcefields
-  - openff-toolkit
-  - snakemake-minimal
-  - prolif              # Interaction fingerprint
-  - pandas
+  - openmm                  # MD engine
+  - openmmforcefields       
+  - openff-toolkit          # small molecule forcefield
+  - snakemake-minimal       # Automatic workflow engine
+  - prolif                  # Interaction fingerprint
+  - pandas                  # Data science
   - pyarrow
-  - mdtraj
-  - pymol-open-source
-  - pygments
-  - plotly
-  - cudatoolkit         # Cudatoolkit 11.8 works with nvidia driver 535
-  - libsqlite==3.45.*
+  - mdtraj                  # For centering protein in water box
+  - pymol-open-source       # pymol for interaction surface
+  - cudatoolkit             # Cudatoolkit 11.8 works with nvidia driver 535. > 13 for newest driver (Sept 25)
+  - seaborn                 # visualisation
+  - openmm-plumed           # For metadynamics
+  - plotly                  # For trajectory analysis (will be depracted soon)
   - pip
   - pip:
-        - json2html
-        - kaleido
-        - tables
-        - squeezemd
-        - Cython>=0.28
-        - biopython>=1.80
-        - networkx>=2.0
-        - GridDataFormats>=0.4.0
-        - mmtf-python>=1.0.0
-        - joblib>=0.12
-        - scipy>=1.5.0
-        - tqdm>=4.43.0
-        - threadpoolctl
-        - packaging
-        - fasteners
-        - netCDF4>=1.0
+        - json2html         # Html report
+        - squeezemd         # The published squeezemd code
         - h5py>=2.10
-        - chemfiles>=0.10
-        - pyedr>=0.7.0
-        - pytng>=0.2.3
-        - gsd>3.0.0
-        - rdkit>=2020.03.1
-        - parmed
-        - seaborn
-        - scikit-learn
-        - tidynamics>=1.0.0
-        #- mda-xdrli
+
+

@@ -231,7 +231,7 @@ def calculate_RMSD(u: mda.Universe, args):
     plt.legend(title='Molecule')
     plt.tight_layout()
 
-    df_melted.to_csv(args.rmsd[-4:] + '.csv')
+    df_melted.to_csv(args.rmsd_raw)
     plt.savefig(args.rmsd)
     plt.close()
 
@@ -248,6 +248,7 @@ def parse_arguments():
     parser.add_argument('--rmsf', required=False, default='results/rmsf.html', help='')
     parser.add_argument('--bfactors', required=False, help='', default='results/bfactors.pdb')
     parser.add_argument('--rmsd', required=False, help='', default='results/rmsd.png')
+    parser.add_argument('--rmsd_raw', required=False, help='', default='results/rmsd.png')
     parser.add_argument('--fig_stats', required=False, help='', default='results/stats.png')
 
     return parser.parse_args()

@@ -1,0 +1,80 @@
+[project]
+name = "squeezeMD"
+version = "0.9.7"
+description = "SqueezeMD is a autmated Molecular dynamics workflow with extensive post-analysis for PPi"
+readme = "README.rst"
+authors = [
+  {name = "Rüthemann Peter", email = "peter.ruethemann@gmail.com"}
+]
+maintainers = [
+  {name = "peter", email = "peter@gmail.com"}
+]
+classifiers = [
+    # TODO
+]
+license = {text = "MIT"}
+dependencies = [
+  "typer"
+]
+requires-python = ">= 3.10"
+
+[project.optional-dependencies]
+test = [
+    "coverage",  # testing
+    "pytest",  # testing
+    "ruff",  # linting
+    "ty", # checking types
+    "ipdb", # debugging
+]
+
+[project.urls]
+bugs = "https://github.com/pruethemann/squeezemd"
+changelog = "https://github.com/pruethemann/ruedi/blob/master/changelog.md"
+homepage = "https://github.com/pruethemann/squeezemd"
+
+[project.scripts]
+ruedi = "ruedi.cli:app"
+
+[tool.ty]
+# All rules are enabled as "error" by default; no need to specify unless overriding.
+# Example override: relax a rule for the entire project (uncomment if needed).
+# rules.TY015 = "warn"  # For invalid-argument-type, warn instead of error.
+
+[tool.ruff]
+line-length = 120
+
+[tool.ruff.lint]
+select = [
+    "E",   # pycodestyle errors
+    "W",   # pycodestyle warnings
+    "F",   # Pyflakes
+    "I",   # isort
+    "B",   # flake8-bugbear
+    "UP",  # pyupgrade
+]
+
+[tool.uv]
+package = true
+
+
+[tool.setuptools]
+include-package-data = true
+
+# This considers all bash scripts as part of the python package
+[tool.setuptools.package-data]
+"squeeze.scripts" = ["src/*.sh", 
+                    "src/*.py",
+                    "src/squeeze",
+                    "config/*.rst",
+                    "src/Snakefile",
+                    "config/TEMPLATE_aquaduct.txt",
+                    "config/pymol_template.pml"]
+
+# This will make it callable
+[tool.setuptools.data-files]
+"bin" = ["src/*.sh", 
+        "src/*.py",
+        "src/squeeze",
+        "src/Snakefile",
+        "config/pymol_template.pml",
+        "config/*.rst"]

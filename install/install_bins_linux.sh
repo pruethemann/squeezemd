@@ -1,8 +1,6 @@
 #!/bin/bash
 
-# Script needs to be executed once to install bins for MAC:
-# - poSco
-# - foldX
+# Script needs to be executed once to install posco and foldX
 
 # Download archive containing all bins
 echo "Download software in current folder"

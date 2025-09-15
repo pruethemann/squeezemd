@@ -1,0 +1,67 @@
+##############################################################
+# squeezeMD Parameter File
+# User-friendly structure with two levels:
+#  1. BASIC PARAMETERS (safe to modify for normal use)
+#  2. ADVANCED PARAMETERS (power-users only)
+##############################################################
+
+##############################
+# BASIC PARAMETERS (User editable)
+##############################
+
+# Number of MD replicate runs for one system (protein complex)
+replicates: 1
+
+# Interval for saving trajectory frames (in ps)
+# Example: 5 ps = 200 frames per ns
+# TIPP: 1 ps for water motion. 5-20 ps for proteins
+recordingInterval: 0.1            
+
+# Number of final frames used in the binding interaction analysis (PoSco)
+# Effective analysis time = number_frames * recordingInterval
+# HINT: 0.5 ns total is a good starting range
+number_frames: 3
+
+# Equilibration phase length
+# Duration = equilibrationSteps * dt
+# Recommended range: 0.1 – 0.5 ns
+equilibrationSteps: 20
+
+# Total simulation length (in ns)
+time: 0.01
+
+# Metadynamics setup (optional)
+# List distances between atom IDs
+# HINT: Set to no value if no metadynamics is performed
+metadynamics:
+
+
+##############################
+# ADVANCED PARAMETERS (Power-users only!)
+##############################
+
+# Integration timestep (fs)
+# Default: 2 fs (valid if HBonds constrained, unconstrained 1 fs)
+dt: 2              
+
+# Thermostat and barostat
+temperature: 310         # Kelvin
+pressure: 1              # atm
+barostatInterval: 25     # integration steps
+
+# Bond constraints and water model
+# Default: HBonds constrained, rigid water
+constraints: HBonds
+rigidWater: True
+
+# Alternative constraint setups (comment/uncomment with care)
+#constraints: None        # No constraints (use dt=0.0005)
+#rigidWater: False
+#constraints: AllBonds    # Full rigid bonds (experimental)
+
+# Non-bonded interaction settings
+nonbondedCutoff: 1.0          # in nm
+ewaldErrorTolerance: 0.0005   # PME tolerance
+
+# Seed to reproduce molecular dynamics simulations
+seed: 23

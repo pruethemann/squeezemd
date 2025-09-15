@@ -25,11 +25,11 @@ except:
     mode = 'PPi'
 
 
-
 # ==================================
 # Random Seed Generation for Replicates
 # ==================================
-np.random.seed(23)  # Ensure reproducibility
+seed = config.get("seed", 23)
+np.random.seed(seed)  # Ensure reproducibility
 seeds = np.random.randint(100, 1000, size=replicates)
 representative_seed = seeds[0] # First seeds is used as representation for surface interaction analysis
 
@@ -146,10 +146,12 @@ rule MD:
         md_settings=ancient('config/params.yml'),
         pdb='{complex}/{mutation}/mutation.pdb',
         sdf=simulations_df.loc[f'{wildcards.complex}_{wildcards.mutation}']['sdf'] if mode=="molecule" else [],
+        
     output:
         topo = '{complex}/{mutation}/{seed}/MD/frame_end.cif',
         traj=temp('{complex}/{mutation}/{seed}/MD/trajectory.h5'),
         stats='{complex}/{mutation}/{seed}/MD/MDStats.csv',
+        metadynamics='{complex}/{mutation}/{seed}/MD/metadynamics/metadynamics.txt',
         params='{complex}/{mutation}/{seed}/MD/params.yml'
     resources:
         gpu=1
@@ -163,7 +165,8 @@ rule MD:
                 --md_settings {input.md_settings} \
                 --params {output.params} \
                 --seed {wildcards.seed} \
-                --stats {output.stats}
+                --stats {output.stats} \
+                --metadynamics {output.metadynamics}
         """
 
 rule centerMDTraj:
@@ -228,6 +231,7 @@ rule DescriptiveTrajAnalysis:
     output:
         rmsf= report('{complex}/{mutation}/{seed}/analysis/RMSF.html',caption="RMSF.rst",category="RMSF",labels={"Complex": "{complex}", "Mutation": "{mutation}"}),
         rmsd= report('{complex}/{mutation}/{seed}/analysis/RMSD.svg',caption="RMSF.rst",category="RMSD",labels={"Complex": "{complex}", "Mutation": "{mutation}"}),
+        rmsd_raw= '{complex}/{mutation}/{seed}/analysis/RMSD.csv',
         bfactors='{complex}/{mutation}/{seed}/analysis/bfactors.pdb',
         stats='{complex}/{mutation}/{seed}/analysis/Stats.svg',
     params:
@@ -240,6 +244,7 @@ rule DescriptiveTrajAnalysis:
                                                    --rmsf {output.rmsf} \
                                                    --bfactors {output.bfactors} \
                                                    --rmsd {output.rmsd} \
+                                                   --rmsd_raw {output.rmsd_raw} \
                                                    --fig_stats {output.stats}
         """
 
@@ -325,6 +330,7 @@ rule PoScoHeatMap:
         """
 
 # PosCo
+# TODO: does not work for mutations are differnt complexes yet!!
 rule PoScoBarplot:
     input:
         'results/posco/posco_interactions.parquet',  

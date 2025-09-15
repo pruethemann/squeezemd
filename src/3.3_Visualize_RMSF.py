@@ -30,4 +30,4 @@ if __name__ == '__main__':
                 errorbar='sd')
     
     plt.savefig(args.output)
-    plt.show()
+    plt.close()

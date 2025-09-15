@@ -1,89 +1,94 @@
 # INSTALL
-***
 
-# Description
+## Description
 
-The *squeezeMD* code can be installed using a conda environment. This installs
-all required modules and the squeezemd code. Additional dependencies can be easly installed
-following this script. I recommand to use mamba or in particular micromamba to install
-everything. This allows a clean and fast install
+The *squeezeMD* workflow can be installed on **Linux (Ubuntu recommended)** using a conda environment.
+This installs all required Python modules, *squeezeMD*, and additional third-party tools via the provided script.
 
-## Linux Conda
+---
 
-1. Install conda
-2. git clone https://github.com/pruethemann/squeezemd.git
-3. Install squeezemd conda environment
-cd install
-> conda env create -f environment.yml  \
-> conda activate squeeze-dev
+## Requirements
 
+1. Install the following system dependencies first, if not already installed:
 
-# Concept install
+```sh
+sudo apt update
+sudo apt install -y git wget
+```
 
-1. Base:
-- Git
-- nvidia-driver
-- conda
+2. Install nvidia drivers [NVIDIA drivers (latest recommended)](https://documentation.ubuntu.com/server/how-to/graphics/install-nvidia-drivers/)
 
-2. github repo into a tools folder
-git clone ...
+---
 
-3. Install conda environment
+## Install Miniconda
 
-4. Install bins
-- foldX
-- po-sco
+*(Skip if conda is already installed)*
+[Official instructions](https://www.anaconda.com/docs/getting-started/miniconda/install#linux-2)
 
-5. Upgrade squeezeMD
+```sh
+mkdir -p ~/miniconda3
+wget https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh -O ~/miniconda3/miniconda.sh
+bash ~/miniconda3/miniconda.sh -b -u -p ~/miniconda3
+rm ~/miniconda3/miniconda.sh
+```
+
+---
+
+## Install squeezeMD and third-party tools
+
+```sh
+# Clone repository
+git clone https://github.com/pruethemann/squeezemd.git
+cd squeezemd
+
+# Create and activate conda environment
+conda env create -f install/environment.yml
+conda activate squeeze
+
+# Install FoldX (v5.1) and PoSCo (v1.24)
+chmod +x install/install_bins_linux.sh
+./install/install_bins_linux.sh
+```
+
+Verify installation:
+
+```sh
+foldx_20251231 --version
+po-sco --version
+```
+
+---
+
+## Upgrade squeezeMD
+
+If a newer development version is available on GitHub. Execute this command in the squeezemd git folder.
+
+```sh
 pip install --upgrade .
+```
 
+---
 
+## Test Installation
 
-## Linux
+```sh
+python3 -m openmm.testInstallation
+```
 
-1. Install package over git TODO
-1. Install micromamba
-> "${SHELL}" <(curl -L micro.mamba.pm/install.sh)
-2. Install the conda environment
-> conda create -f environment.yml  \
-> conda activate squeeze-dev
-3. Install additional binaries (Posco and foldX)
-chmod +x install_bins_linux.sh \
-./install_bins_linux.sh
-4. source .bashrc
-5. Upgrade the current squeezeMD code
-cd squeezemd  \
-python3 setup.py sdist && pip3 install --upgrade . 
-5. Test binaries by executing:
-> po-sco
-> foldx_20251231
+✅ Make sure the run completes successfully on GPU.
 
+---
 
-## Test install
-1. Test Cuda and OpenMM install
-> python3 -m openmm.testInstallation
+## Troubleshooting
 
-You should expect sth like this:
->There are 3 Platforms available:
+* Ensure **cudatoolkit** matches your NVIDIA driver. Pinning cudatoolkit may be required.
+  [CUDA compatibility guide](https://docs.nvidia.com/deploy/cuda-compatibility/minor-version-compatibility.html)
+* Installation currently supports **Linux/Ubuntu only**.
 
->1 Reference - Successfully computed forces
->2 CPU - Successfully computed forces
->3 CUDA - Successfully computed forces
+---
 
-if it fails it's probably a cuda dependency problem:
-Downgrade cuda:
-> mamba install -c conda-forge cudatoolkit=11.4
+⚠️ **Known limitations**
 
-if libtinfo.so.5 is missing
-> sudo apt-get install libtinfo5
-
-2. Run the demo workflow in the folder demo
-> cd demo  \
-> micromamba activate squeeze  \
-> squeeze -j4 -n  \
-> squeeze -j4
-
-Make sure algoriths completes successfully and uses GPU during Molecular dynamics step
-
-
-
+* Only tested on **Ubuntu Linux** (no support for Windows/macOS).
+* Requires a **recent NVIDIA driver**; older drivers may not work.
+* No full end-to-end validation script provided (only binary version checks + OpenMM test).
