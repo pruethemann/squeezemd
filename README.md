@@ -1,13 +1,9 @@
-Here’s your `.rst` converted into a clean **Markdown README**:
-
----
-
 # squeezeMD – A Comprehensive Molecular Dynamics Analysis Workflow
 
 [![PyPI version](https://img.shields.io/pypi/v/squeezemd.svg)](https://pypi.python.org/pypi/squeezemd)
 [![Documentation Status](https://readthedocs.org/projects/squeezemd/badge/?version=latest)](https://squeezemd.readthedocs.io/en/latest/?version=latest)
 
-* Free software: GNU General Public License v3
+* MIT license
 * Documentation: [squeezemd.readthedocs.io](https://squeezemd.readthedocs.io)
 
 ---
@@ -94,8 +90,8 @@ squeeze PPi --resources gpu=1 -j4
 ## Upload to pyPi
 
 ```bash
-python setup.py sdist && pip install --upgrade .
-twine upload --verbose dist/squeezemd-0.1.5.tar.gz
+python -m build && pip install --upgrade .
+twine upload dist/*
 # Username: __token__
 # Password: PyPI token
 ```

@@ -30,5 +30,7 @@ dependencies:
         - json2html         # Html report
         - squeezemd         # The published squeezemd code
         - h5py>=2.10
+        - build             # only DEV: builds tar for pypi
+        - twine             # uploads to pypi
 
 

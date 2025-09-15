@@ -258,10 +258,18 @@ def simulate(args, params, salt_concentration=0.15):
             pass  # Ensure no content is written
 
 
+    # Define properties
+    properties = {
+        "Precision": "mixed",                # options: "single", "mixed", "double" for: Mixed: forces in single, integration in double
+        "DeterministicForces": "true"        # ensures reproducibility
+    }
+
+    # Init the simulation
     simulation = app.Simulation(modeller.topology,
                             system,
                             integrator,
-                            platform
+                            platform,
+                            properties
                             )
 
     # Set coordinates
