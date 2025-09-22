@@ -25,7 +25,6 @@ from openmmforcefields.generators import SystemGenerator
 from openff.toolkit.topology import Molecule
 import mdtraj
 import mdtraj.reporters
-from openmmplumed import PlumedForce
 from Helper import import_yaml, save_yaml
 
 # ---------------------------
@@ -103,17 +102,19 @@ def energy_minimisation(simulation):
     Minimize the system to relieve bad contacts.
     """
     energy_before = simulation.context.getState(getEnergy=True).getPotentialEnergy()
-    simulation.minimizeEnergy(maxIterations=1000)
+    simulation.minimizeEnergy()
     energy_after = simulation.context.getState(getEnergy=True).getPotentialEnergy()
     print('Energy difference during minimization:', energy_before - energy_after)
 
 def create_model_ppi(modeller, salt_concentration, params):
 
     # Old amber 14 forcefield
-    #forcefield = app.ForceField('amber14-all.xml', 'amber14/tip3p.xml')
+    forcefield = app.ForceField('amber14-all.xml', 'amber14/tip3p.xml')
 
     # Amber 19 forcefield
-    forcefield = app.ForceField('amber19-all.xml', 'amber19/tip3pfb.xml', 'amber19/opc.xml')
+    #forcefield = app.ForceField('amber19-all.xml','amber19/tip3pfb.xml')
+
+    # 'amber19/opc.xml'
 
     print('Adding hydrogens...')
     modeller.addHydrogens(forcefield)
@@ -124,7 +125,7 @@ def create_model_ppi(modeller, salt_concentration, params):
                         ionicStrength=salt_concentration * molar,
                         positiveIon='Na+',
                         negativeIon='Cl-',
-                        model='opc',
+                        model='tip3p',
                         neutralize=True,
                         padding=1 * nanometers)
 
@@ -246,6 +247,7 @@ def simulate(args, params, salt_concentration=0.15):
     # MetaDynamics (optional)
     # TODO move
     if params['metadynamics'] is not None:
+        from openmmplumed import PlumedForce
         system = compute_metadynamics(params['metadynamics'], system)
     else:
         with open(args.metadynamics, 'w') as f:
@@ -267,9 +269,9 @@ def simulate(args, params, salt_concentration=0.15):
     simulation.context.setPositions(modeller.positions)
 
     print('STAGE 0: Running energy minimization...')
+    energy_minimisation(simulation)
     if DEBUG:
         debug_traj(simulation, 'minimize.dcd')
-        energy_minimisation(simulation)
         get_force_paramters(system, 0)
         save_cif(simulation, 'minimize.cif')
 

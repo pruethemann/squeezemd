@@ -15,13 +15,12 @@ dependencies:
   - python
   - openmm==8.3.1                  # MD engine
   - openmmforcefields       
-  - openff-toolkit          # small molecule forcefield
   - snakemake-minimal       # Automatic workflow engine
+  - biopython
   - prolif                  # Interaction fingerprint
   - pandas                  # Data science
   - pyarrow
   - mdtraj                  # For centering protein in water box
-  - pymol-open-source       # pymol for interaction surface
   - cuda-toolkit        # Cudatoolkit 11.8 works with nvidia driver 535. > 13 for newest driver (Sept 25)
   - seaborn                 # visualisation
   - plotly                  # For trajectory analysis (will be depracted soon)
@@ -31,5 +30,6 @@ dependencies:
         - squeezemd         # The published squeezemd code
         - h5py
 
-
-
+#        - build             # only DEV: builds tar for pypi
+#        - twine             # uploads to pypi
+#  - openff-toolkit          # small molecule forcefield

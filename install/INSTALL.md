@@ -72,7 +72,7 @@ pip install --upgrade .
 ## Test Installation
 
 ```sh
-python3 -m openmm.testInstallation
+python -m openmm.testInstallation
 ```
 
 ✅ Make sure the run completes successfully on GPU.
