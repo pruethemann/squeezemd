@@ -1,12 +1,6 @@
 #!/usr/bin/env python
 
-"""
-
-"""
-
 import argparse
-import os
-import MDAnalysis as mda
 from Helper import save_file, extract_ligand_sequence
 
 def parse_arguments():
@@ -18,10 +12,7 @@ def parse_arguments():
     return parser.parse_args()
 
 
-
-
 if __name__ == '__main__':
-
     args = parse_arguments()
 
     # Extract ligand sequence and copy for later

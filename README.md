@@ -117,3 +117,8 @@ twine upload dist/*
    alter (chain B), resi=str(int(resi)+315)
    alter (chain C), resi=str(int(resi)+51)
    ```
+
+## Further info:
+
+- Compare with this pipeline: https://github.com/ci-lab-cz/streamd
+- 

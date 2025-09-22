@@ -11,7 +11,7 @@ Terminology:
  Example:
     python3 bin/10_InteractionSurface.py --output output/demo/results/interactionSurface   --interactions output/demo/results/martin/interactions.csv     --seed 695   --mutation WT Y117E_Y119E_Y121E --frames output/demo/C1s_BD001/WT/695/MD/frame_end.cif output/demo/C1s_BD001/WT/842/MD/frame_end.cif output/demo/C1s_BD001/Y117E_Y119E_Y121E/695/MD/frame_end.cif output/demo/C1s_BD001/Y117E_Y119E_Y121E/842/MD/frame_end.cif  --receptors C1s
 
-    # TODO extend to multiple targets
+    # TODO extend to multiple targets!
     #interactions_agg = interactions[['protein', 'target','mutation', 'resid', 'seed', 'chainID', 'energy']].groupby(['target', 'chainID', 'resid']).mean()
     #interactions_agg = interactions[['protein', 'target', 'mutation', 'resid', 'seed', 'energy']].groupby(['target', 'resid']).mean()
 
@@ -35,7 +35,6 @@ import pandas as pd
 import argparse
 import MDAnalysis as mda
 import openmm.app as app
-from Helper import remap_MDAnalysis
 import seaborn as sns
 import matplotlib.pyplot as plt
 import os
@@ -91,7 +90,6 @@ def set_residue_interaction_intensity(pdb_path, ligand_resids, receptor_resids, 
     # probably not necessary
     u.add_TopologyAttr('tempfactors')
 
-
     # Select all ligand resids interacting with ligand
     for _,row in ligand_resids.iterrows():
         selected_resid = u.select_atoms(f"resid {int(row['ligand_resid'])} and segid A")
@@ -106,7 +104,7 @@ def set_residue_interaction_intensity(pdb_path, ligand_resids, receptor_resids, 
     protein = u.select_atoms("protein")
     protein.write(interaction_pdb)
 
-def data_aggregation (data):
+def data_aggregation(data):
     """
     please provide a pandas dataframe, such as .parquet read by pd.read_parquet
       """
@@ -172,10 +170,12 @@ if __name__ == '__main__':
     # Import interaction data
     interactions = pd.read_parquet(args.interactions)
 
-    # TODO perform a separate water analysis
+    
     n_frames = len(interactions.frame.unique())
     n_seeds = len(interactions.seed.unique())
-        
+    
+    # Exclude waters
+    # TODO perform a separate water analysis
     interactions = interactions[(interactions['receptor_resname'] != 'HOH') & (interactions['ligand_resname'] != 'HOH')]
 
     interactions.set_index(['name', 'mutation'], inplace=True)
@@ -202,7 +202,7 @@ if __name__ == '__main__':
     # Get all receptor/ligand residues with an interaction energy smaller than -2 and join as string
     # only consider really strong interactions
     ENERGY_THRESHOLD = -0.8
-    data_ligand = data_ligand[data_ligand['Energy (e)'] < ENERGY_THRESHOLD]#['ligand_resid']
+    data_ligand = data_ligand[data_ligand['Energy (e)'] < ENERGY_THRESHOLD]
 
     # create a string in pymol
     ligand_resids = ','.join(map(str, data_ligand))

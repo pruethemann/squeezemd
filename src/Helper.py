@@ -49,14 +49,22 @@ def import_yaml(yaml_path: os.path):
 
 
 def extract_ligand_sequence(pdb_ligand: os.path):
-    # Import pdb file with MDAnalysis
+
+     # Import pdb file with MDAnalysis
     u = mda.Universe(pdb_ligand)
+
+    # --- Normalize CYX → CYS ---
+    for res in u.residues:
+        if res.resname == "CYX":
+            res.resname = "CYS"
 
     # Extract ligand at chain A
     ligand = u.select_atoms('chainID A')
 
     # Return sequence
-    return str(ligand.residues.sequence().seq)
+    sequence = ligand.residues.sequence().seq
+    
+    return str(sequence)
 
 def save_yaml(d, filepath):
     """

@@ -13,7 +13,7 @@ channels:
 
 dependencies:
   - python
-  - openmm                  # MD engine
+  - openmm==8.3.1                  # MD engine
   - openmmforcefields       
   - openff-toolkit          # small molecule forcefield
   - snakemake-minimal       # Automatic workflow engine
@@ -22,7 +22,7 @@ dependencies:
   - pyarrow
   - mdtraj                  # For centering protein in water box
   - pymol-open-source       # pymol for interaction surface
-  - cuda-toolkit>=12             # Cudatoolkit 11.8 works with nvidia driver 535. > 13 for newest driver (Sept 25)
+  - cuda-toolkit==12.8        # Cudatoolkit 11.8 works with nvidia driver 535. > 13 for newest driver (Sept 25)
   - seaborn                 # visualisation
   - openmm-plumed           # For metadynamics
   - plotly                  # For trajectory analysis (will be depracted soon)

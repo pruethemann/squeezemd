@@ -108,7 +108,12 @@ def energy_minimisation(simulation):
     print('Energy difference during minimization:', energy_before - energy_after)
 
 def create_model_ppi(modeller, salt_concentration, params):
-    forcefield = app.ForceField('amber14-all.xml', 'amber14/tip3p.xml')
+
+    # Old amber 14 forcefield
+    #forcefield = app.ForceField('amber14-all.xml', 'amber14/tip3p.xml')
+
+    # Amber 19 forcefield
+    forcefield = app.ForceField('amber19-all.xml', 'amber19/tip3pfb.xml')
 
     print('Adding hydrogens...')
     modeller.addHydrogens(forcefield)
