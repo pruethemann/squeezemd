@@ -113,7 +113,7 @@ def create_model_ppi(modeller, salt_concentration, params):
     #forcefield = app.ForceField('amber14-all.xml', 'amber14/tip3p.xml')
 
     # Amber 19 forcefield
-    forcefield = app.ForceField('amber19-all.xml', 'amber19/tip3pfb.xml')
+    forcefield = app.ForceField('amber19-all.xml', 'amber19/tip3pfb.xml', 'amber19/opc.xml')
 
     print('Adding hydrogens...')
     modeller.addHydrogens(forcefield)
@@ -124,7 +124,7 @@ def create_model_ppi(modeller, salt_concentration, params):
                         ionicStrength=salt_concentration * molar,
                         positiveIon='Na+',
                         negativeIon='Cl-',
-                        model='tip3p',
+                        model='opc',
                         neutralize=True,
                         padding=1 * nanometers)
 
