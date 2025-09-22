@@ -10,25 +10,20 @@
 ##############################
 
 # Number of MD replicate runs for one system (protein complex)
-replicates: 1
+replicates: 3
 
 # Interval for saving trajectory frames (in ps)
 # Example: 5 ps = 200 frames per ns
 # TIPP: 1 ps for water motion. 5-20 ps for proteins
-recordingInterval: 0.1            
+recordingInterval: 5            
 
 # Number of final frames used in the binding interaction analysis (PoSco)
 # Effective analysis time = number_frames * recordingInterval
 # HINT: 0.5 ns total is a good starting range
-number_frames: 3
-
-# Equilibration phase length
-# Duration = equilibrationSteps * dt
-# Recommended range: 0.1 – 0.5 ns
-equilibrationSteps: 20
+number_frames: 100
 
 # Total simulation length (in ns)
-time: 0.01
+time: 5
 
 # Metadynamics setup (optional)
 # List distances between atom IDs
@@ -65,3 +60,10 @@ ewaldErrorTolerance: 0.0005   # PME tolerance
 
 # Seed to reproduce molecular dynamics simulations
 seed: 23
+
+constraintTolerance: 0.0001 # 1e-5 high accuarcy for energy 1e-4: recommanded for amber
+
+# Equilibration
+NVT_heating:  5000 # 10 ps for each T
+NPT_equilibration: 50000 # 100 ps for 2 steps
+NPT_unrestrained:  100000 # 200 ps

@@ -229,6 +229,8 @@ def debug_traj(simulation, traj_path):
 def simulate(args, params, salt_concentration=0.15):
     set_parameters(params)
 
+    DEBUG = False
+
     # Load initial structure
     protein = app.PDBFile(args.pdb)
     modeller = app.Modeller(protein.topology, protein.positions)
@@ -260,12 +262,11 @@ def simulate(args, params, salt_concentration=0.15):
     simulation.context.setPositions(modeller.positions)
 
     print('STAGE 0: Running energy minimization...')
-    debug_traj(simulation, 'minimize.dcd')
-    energy_minimisation(simulation)
-
-    get_force_paramters(system, 0)
-
-    save_cif(simulation, 'minimize.cif')
+    if DEBUG:
+        debug_traj(simulation, 'minimize.dcd')
+        energy_minimisation(simulation)
+        get_force_paramters(system, 0)
+        save_cif(simulation, 'minimize.cif')
 
     # ---------------------
     # Stage 1: NVT heating with restraints
@@ -277,16 +278,16 @@ def simulate(args, params, salt_concentration=0.15):
     simulation = app.Simulation(modeller.topology, system, integrator, platform, properties)
     simulation.context.setPositions(modeller.positions)
 
-    print(simulation.context.getPlatform().getName())      # e.g. 'CUDA'
-
-    debug_traj(simulation, 'heat.dcd')
+    if DEBUG:
+        debug_traj(simulation, 'heat.dcd')
 
     for T in [100, 150, 200, 250, 300]:  # temperature ramp
         integrator.setTemperature(T*kelvin)
         simulation.step(params['NVT_heating'])  # ~10 ps per increment
-       
-    get_force_paramters(system, 1)
-    save_cif(simulation, "stage_1.cif")
+    
+    if DEBUG:
+        get_force_paramters(system, 1)
+        save_cif(simulation, "stage_1.cif")
 
     # ---------------------
     # Stage 2: NPT equilibration with tapering restraints
@@ -295,7 +296,8 @@ def simulate(args, params, salt_concentration=0.15):
     system.addForce(MonteCarloBarostat(pressure, temperature, barostatInterval))
     simulation.context.reinitialize(preserveState=True)
 
-    debug_traj(simulation, 'npt.dcd')
+    if DEBUG:
+        debug_traj(simulation, 'npt.dcd')
 
     # Reduce protein restrain
     for k in [5.0, 1.0]:
@@ -307,8 +309,9 @@ def simulate(args, params, salt_concentration=0.15):
         restraint_force.updateParametersInContext(simulation.context)
         simulation.step(params['NPT_equilibration'])  # ~100 ps at each stage
 
-    get_force_paramters(system, 2)
-    save_cif(simulation, "stage_2.cif")
+    if DEBUG:
+        get_force_paramters(system, 2)
+        save_cif(simulation, "stage_2.cif")
 
     # ---------------------
     # Stage 3: Unrestrained NPT equilibration
@@ -325,9 +328,9 @@ def simulate(args, params, salt_concentration=0.15):
     simulation.context.reinitialize(preserveState=True)
     simulation.step(params['NPT_unrestrained'])  # 200 ps unrestrained NPT
 
-    get_force_paramters(system, 3)
-
-    save_cif(simulation, "stage_3.cif")
+    if DEBUG:
+        get_force_paramters(system, 3)
+        save_cif(simulation, "stage_3.cif")
 
     # ---------------------
     # Stage 4: Production run

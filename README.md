@@ -100,21 +100,20 @@ twine upload dist/*
 
 ## Prepare AMBER PDBs
 
-*in progress*
 
 1. Prepare protein in Maestro
+   - Follow the Computational pharmacy preparation workflow
 2. Convert with `pdb4amber`:
+   >pdb4amber -i input.pdb -o input.amber.pdb
+3. Amber does change numbering of the residues. This can be fixed with pymol. For example for C1s / Gigastasin
+   Chain A: 1 - 122  -> same
+   Chain B: 438 - 685 -> 123 = + 315
+   Chain C: 422 - 437 -> 371 = +51
 
-   ```bash
-   pdb4amber -i input.pdb -o input.amber.pdb
-   ```
-3. Example PyMOL commands:
+4. Example PyMOL commands:
 
    ```python
    alter (chain A), chain='B'
    alter (chain B), resi=str(int(resi)+315)
    alter (chain C), resi=str(int(resi)+51)
    ```
-
----
-
