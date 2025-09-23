@@ -10,7 +10,7 @@
 ##############################
 
 # Number of MD replicate runs for one system (protein complex)
-replicates: 3
+replicates: 10
 
 # Interval for saving trajectory frames (in ps)
 # Example: 5 ps = 200 frames per ns
@@ -23,7 +23,7 @@ recordingInterval: 5
 number_frames: 100
 
 # Total simulation length (in ns)
-time: 5
+time: 10
 
 # Metadynamics setup (optional)
 # List distances between atom IDs
@@ -37,22 +37,22 @@ metadynamics:
 
 # Integration timestep (fs)
 # Default: 2 fs (valid if HBonds constrained, unconstrained 1 fs)
-dt: 2              
+dt: 2   
+
+# Forcefield settings
+forcefield:
+  protein: amber19-all.xml         # options: amber14-all.xml, amber19-all.xml
+  water:   amber19/tip4pew.xml     # options: amber14/tip3p.xml, amber19/tip3pfb.xml
 
 # Thermostat and barostat
 temperature: 310         # Kelvin
 pressure: 1              # atm
 barostatInterval: 25     # integration steps
 
-# Bond constraints and water model
-# Default: HBonds constrained, rigid water
-constraints: HBonds
-rigidWater: True
 
-# Alternative constraint setups (comment/uncomment with care)
-#constraints: None        # No constraints (use dt=0.0005)
-#rigidWater: False
-#constraints: AllBonds    # Full rigid bonds (experimental)
+constraints:
+  bonds: HBonds        # options: None, HBonds, AllBonds
+  rigidWater: True     # options: True, False
 
 # Non-bonded interaction settings
 nonbondedCutoff: 1.0          # in nm

@@ -83,7 +83,10 @@ def set_parameters(params):
     friction = 1.0 / picoseconds
     pressure = 1.0 * atmospheres
     constraints = {'HBonds': app.HBonds, 'AllBonds': app.AllBonds, 'None': None}
-    constraint = constraints[params['constraints']]
+
+    print("CONSTRINTS")
+    print(params['constraints'])
+    constraint = constraints[params['constraints']['bonds']]
     barostatInterval = 25
 
     # Force field kwargs
@@ -108,24 +111,26 @@ def energy_minimisation(simulation):
 
 def create_model_ppi(modeller, salt_concentration, params):
 
-    # Old amber 14 forcefield
-    forcefield = app.ForceField('amber14-all.xml', 'amber14/tip3p.xml')
+    # Initiate forcefield
+    protein_forcefield = params['forcefield']['protein']
+    water_model = params['forcefield']['water']
 
-    # Amber 19 forcefield
-    #forcefield = app.ForceField('amber19-all.xml','amber19/tip3pfb.xml')
-
-    # 'amber19/opc.xml'
+    print(f'Init the forcefield {protein_forcefield} with the water model {water_model}')
+    forcefield = app.ForceField(protein_forcefield, water_model)
 
     print('Adding hydrogens...')
     modeller.addHydrogens(forcefield)
 
+    # Make sure water model is loaded
+    modeller.addExtraParticles(forcefield)
+
     print('Adding solvent...')
     modeller.addSolvent(forcefield,
+                        model='tip4pew',
                         boxShape='cube',
                         ionicStrength=salt_concentration * molar,
                         positiveIon='Na+',
                         negativeIon='Cl-',
-                        model='tip3p',
                         neutralize=True,
                         padding=1 * nanometers)
 
@@ -134,7 +139,7 @@ def create_model_ppi(modeller, salt_concentration, params):
                                      nonbondedMethod=app.PME,
                                      nonbondedCutoff=nonbondedCutoff,
                                      constraints=constraint,
-                                     rigidWater=params['rigidWater'],
+                                     rigidWater=params['constraints']['rigidWater'],
                                      ewaldErrorTolerance=ewaldErrorTolerance)
     return system
 
@@ -247,6 +252,7 @@ def simulate(args, params, salt_concentration=0.15):
     # MetaDynamics (optional)
     # TODO move
     if params['metadynamics'] is not None:
+        # Only import if required. Currently doesn't work with openmm 8.3.1
         from openmmplumed import PlumedForce
         system = compute_metadynamics(params['metadynamics'], system)
     else:
