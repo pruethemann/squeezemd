@@ -2,7 +2,7 @@
 # posco and foldX is installed via the script install_bins_linux.sh
 
 # How to install via conda:
-# conda env create -f environment.yml
+# conda env create -f environment_full.yml
 
 name: squeeze
 
@@ -22,7 +22,7 @@ dependencies:
   - pyarrow
   - mdtraj                  # For centering protein in water box
   - pymol-open-source       # pymol for interaction surface
-  - cuda-toolkit>=12             # Cudatoolkit 11.8 works with nvidia driver 535. > 13 for newest driver (Sept 25)
+  - cuda-toolkit             # Cudatoolkit 11.8 works with nvidia driver 535. > 13 for newest driver (Sept 25)
   - seaborn                 # visualisation
   - openmm-plumed           # For metadynamics
   - plotly                  # For trajectory analysis (will be depracted soon)
@@ -30,8 +30,6 @@ dependencies:
   - pip:
         - json2html         # Html report
         - squeezemd         # The published squeezemd code
-        - h5py>=2.10
+        - h5py
         - build             # only DEV: builds tar for pypi
         - twine             # uploads to pypi
-
-

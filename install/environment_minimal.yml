@@ -1,8 +1,10 @@
 # This environment install everything required to run squeezeMD
 # posco and foldX is installed via the script install_bins_linux.sh
 
+# this environment does not contain: git/twine/cuda-toolkits/openmm-plumed
+
 # How to install via conda:
-# conda env create -f environment_V2.yml
+# conda env create -f environment_minimal.yml
 
 name: squeeze
 
@@ -13,7 +15,7 @@ channels:
 
 dependencies:
   - python
-  - openmm==8.3.1                  # MD engine
+  - openmm==8.3.1           # MD engine
   - openmmforcefields       
   - snakemake-minimal       # Automatic workflow engine
   - biopython
@@ -21,7 +23,6 @@ dependencies:
   - pandas                  # Data science
   - pyarrow
   - mdtraj                  # For centering protein in water box
-  - cuda-toolkit        # Cudatoolkit 11.8 works with nvidia driver 535. > 13 for newest driver (Sept 25)
   - seaborn                 # visualisation
   - plotly                  # For trajectory analysis (will be depracted soon)
   - pip
@@ -29,7 +30,3 @@ dependencies:
         - json2html         # Html report
         - squeezemd         # The published squeezemd code
         - h5py
-
-#        - build             # only DEV: builds tar for pypi
-#        - twine             # uploads to pypi
-#  - openff-toolkit          # small molecule forcefield
