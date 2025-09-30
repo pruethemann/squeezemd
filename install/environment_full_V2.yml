@@ -2,32 +2,30 @@
 # posco and foldX is installed via the script install_bins_linux.sh
 
 # How to install via conda:
-# conda env create -f environment_full.yml
+# conda env create -f environment_full_V2.yml
 
-name: squeeze
+name: squeeze_full
 
 channels:
   - conda-forge
   - bioconda                # for snakemake
   - nvidia
-  - schrodinger
 
 dependencies:
-  - python
-  - openmm                  # MD engine
+  - python                  # 09-25: Python 13 not supported yet
   - openmmforcefields       
   - openff-toolkit          # small molecule forcefield
   - snakemake-minimal       # Automatic workflow engine
   - prolif                  # Interaction fingerprint
   - pandas                  # Data science
-  - pyarrow
+  - pyarrow                 # Data handling
   - mdtraj                  # For centering protein in water box
   - pymol-open-source       # pymol for interaction surface
-  - cuda-toolkit             # Cudatoolkit 11.8 works with nvidia driver 535. > 13 for newest driver (Sept 25)
+  - cuda-toolkit            # Cudatoolkit. 09-25: Version 12.9 (V 13 is not supported yet by Openmm)
   - seaborn                 # visualisation
-  - openmm-plumed           # For metadynamics
+  - openmm-plumed           # For metadynamics. Does install openmm 8.2 from conda-forge!
   - plotly                  # For trajectory analysis (will be depracted soon)
-  - pymol
+  - pymol-open-source       # Open source version of pymol (conda-forge)
   - pip
   - pip:
         - json2html         # Html report
@@ -35,3 +33,4 @@ dependencies:
         - h5py
         - build             # only DEV: builds tar for pypi
         - twine             # uploads to pypi
+        - openmm-cuda-12
