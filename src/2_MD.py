@@ -289,10 +289,10 @@ def simulate(args, params, salt_concentration=0.15):
     minimized_positions = simulation.context.getState(getPositions=True).getPositions()
     system, restraint_force = add_positional_restraints(system, modeller.topology, minimized_positions, k=10.0)
 
-
     integrator = LangevinMiddleIntegrator(100*kelvin, friction, dt)
     simulation = app.Simulation(modeller.topology, system, integrator, platform, properties)
-    simulation.context.setPositions(modeller.positions)
+    simulation.context.setPositions(minimized_positions)
+
 
     if DEBUG:
         debug_traj(simulation, 'heat.dcd')
