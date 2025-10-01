@@ -299,6 +299,7 @@ def simulate(args, params, salt_concentration=0.15):
 
     for T in [100, 150, 200, 250, 300]:  # temperature ramp
         integrator.setTemperature(T*kelvin)
+        simulation.context.setVelocitiesToTemperature(T*kelvin)
         simulation.step(params['NVT_heating'])  # ~10 ps per increment
     
     if DEBUG:
