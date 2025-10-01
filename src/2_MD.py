@@ -285,7 +285,10 @@ def simulate(args, params, salt_concentration=0.15):
     # Stage 1: NVT heating with restraints
     # ---------------------
     print('STAGE 1: NVT heating with heavy atom restraints...')
-    system, restraint_force = add_positional_restraints(system, modeller.topology, modeller.positions, k=10.0)
+    # Make sure to get the coordinates of the minimised protein
+    minimized_positions = simulation.context.getState(getPositions=True).getPositions()
+    system, restraint_force = add_positional_restraints(system, modeller.topology, minimized_positions, k=10.0)
+
 
     integrator = LangevinMiddleIntegrator(100*kelvin, friction, dt)
     simulation = app.Simulation(modeller.topology, system, integrator, platform, properties)
