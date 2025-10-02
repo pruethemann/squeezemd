@@ -285,26 +285,30 @@ def simulate(args, params, salt_concentration=0.15):
     # Stage 1: NVT heating with restraints
     # ---------------------
     print('STAGE 1: NVT heating with heavy atom restraints...')
-    # Make sure to get the coordinates of the minimised protein
+
+    # get minimized coordinates
     minimized_positions = simulation.context.getState(getPositions=True).getPositions()
     system, restraint_force = add_positional_restraints(system, modeller.topology, minimized_positions, k=10.0)
 
-    integrator = LangevinMiddleIntegrator(100*kelvin, friction, dt)
+    # Initialize with 100 K once
+    T_init = 100
+    integrator = LangevinMiddleIntegrator(T_init*kelvin, friction, dt)
+    integrator.setConstraintTolerance(constraintTolerance)
+    integrator.setRandomNumberSeed(args.seed)
+
     simulation = app.Simulation(modeller.topology, system, integrator, platform, properties)
     simulation.context.setPositions(minimized_positions)
-
+    simulation.context.setVelocitiesToTemperature(T_init*kelvin, args.seed)  # only once
 
     if DEBUG:
         debug_traj(simulation, 'heat.dcd')
 
-    for T in [100, 150, 200, 250, 300]:  # temperature ramp
-        integrator.setTemperature(T*kelvin)
-        simulation.context.setVelocitiesToTemperature(T*kelvin)
+    # Gradually ramp temperature without resetting velocities
+    for T in [150, 200, 250, 300]:  
+        print(f"Heating to {T} K...")
+        # update the integrator’s target T
+        simulation.integrator.setTemperature(T*kelvin)
         simulation.step(params['NVT_heating'])  # ~10 ps per increment
-    
-    if DEBUG:
-        get_force_paramters(system, 1)
-        save_cif(simulation, "stage_1.cif")
 
     # ---------------------
     # Stage 2: NPT equilibration with tapering restraints
