@@ -1,25 +1,20 @@
 #!/usr/bin/env python
 """
-    Module performs Molecular Dynamics using OpenMM
-    - Import of amber prepared pdb structure
-    - Adding water box with 150 mM NaCl
-    - Performs MD
+    Molecular Dynamics Workflow using OpenMM
+    -------------------------------------------------
+    Updated protocol (fixed heating instability):
+    1. Add positional restraints before minimization.
+    2. Energy minimization with heavy atoms restrained.
+    3. Gradual heating under NVT using smooth ramp (50→300 K).
+    4. Switch to NPT, gradually reduce restraints (10→5→1 kcal/mol/Å²).
+    5. Unrestrained NPT equilibration.
+    6. Production run.
 
-NOTES:
-    A seed is set for the integrator and the initial velocities
-
-Updated protocol:
-1. Energy minimization with heavy atoms fixed.
-2. Gradual heating under NVT with strong restraints.
-3. Switch to NPT, gradually reduce restraints (10 → 5 → 1 kcal/mol/Å²).
-4. Unrestrained NPT equilibration.
-5. Production run.
-
-This follows modern AMBER/CHARMM best practices for solvated proteins.
+    Designed for solvated protein(-protein) complexes.
 """
 
 import argparse, os
-from openmm.unit import nanometers, kelvin, femtoseconds, picoseconds, atmospheres, molar, kilojoule_per_mole
+from openmm.unit import *
 from openmm import app, OpenMMException, Platform, LangevinMiddleIntegrator, MonteCarloBarostat, CustomExternalForce
 from openmmforcefields.generators import SystemGenerator
 from openff.toolkit.topology import Molecule
@@ -27,229 +22,116 @@ import mdtraj
 import mdtraj.reporters
 from Helper import import_yaml, save_yaml
 
+
 # ---------------------------
-# Restraint helper
+# Helper functions
 # ---------------------------
+from openmm.unit import kilojoule_per_mole,  nanometer
+
+
 def add_positional_restraints(system, topology, positions, k=10.0):
     """
     Add harmonic restraints to heavy atoms (kcal/mol/Å²).
-    Required for NVT equilibration.
+    Applied to all non-solvent heavy atoms.
     """
-    force = CustomExternalForce("0.5*k*((x-x0)^2 + (y-y0)^2 + (z-z0)^2)")
-    force.addPerParticleParameter("k")
-    force.addPerParticleParameter("x0")
-    force.addPerParticleParameter("y0")
-    force.addPerParticleParameter("z0")
+    restraint = CustomExternalForce('k*periodicdistance(x, y, z, x0, y0, z0)^2')
+    
+    system.addForce(restraint)
+
+    restraint.addGlobalParameter('k', k*kilojoule_per_mole/nanometer**2)
+    restraint.addPerParticleParameter("x0")
+    restraint.addPerParticleParameter("y0")
+    restraint.addPerParticleParameter("z0")
 
     for atom in topology.atoms():
         resname = atom.residue.name
+        # Exclude water and ions from the restraints
         if resname not in ('HOH', 'Na+', 'Cl-') and atom.element.symbol != 'H':
-            pos = positions[atom.index]
-            force.addParticle(atom.index, [k, pos.x, pos.y, pos.z])
+            restraint.addParticle(atom.index, positions[atom.index])
 
-    system.addForce(force)
-    return system, force
+    return system, restraint
 
 
 def define_platform():
     """
-    Detect NVIDIA GPU with CUDA, fallback to CPU if not available.
+    Detect NVIDIA GPU (CUDA) or fallback to CPU.
     """
     try:
         return Platform.getPlatformByName('CUDA')
     except OpenMMException:
-        print("ATTENTION: no CUDA driver or GPU detected. Simulation runs on CPU")
+        print("ATTENTION: No CUDA GPU detected. Running on CPU.")
         return Platform.getPlatformByName('CPU')
 
-def set_parameters(params):
-    global nonbondedCutoff, ewaldErrorTolerance, constraintTolerance, temperature
-    global dt, recordInterval, friction, pressure, constraint, barostatInterval, platform
-    global ff_kwargs
-
-    # Physical parameters
-    nonbondedCutoff = params['nonbondedCutoff'] * nanometers
-    ewaldErrorTolerance = params['ewaldErrorTolerance']
-    constraintTolerance = params['constraintTolerance']
-    temperature = params['temperature'] * kelvin  # physiological temperature
-
-    # Time parameters
-    args.steps = int(params['time'] * 1e6 / params['dt'])
-    args.time = params['time']
-    args.recorded_steps = int(params['time'] * 1000 / params['recordingInterval'])
-    dt = params['dt'] * femtoseconds
-    recordInterval = args.steps * params['recordingInterval'] // (params['time'] * 1000)
-
-    # Constraints
-    friction = 1.0 / picoseconds
-    pressure = 1.0 * atmospheres
-    constraints = {'HBonds': app.HBonds, 'AllBonds': app.AllBonds, 'None': None}
-
-    print("CONSTRINTS")
-    print(params['constraints'])
-    constraint = constraints[params['constraints']['bonds']]
-    barostatInterval = 25
-
-    # Force field kwargs
-    # TODO currently not used. Required for small molecules!
-    ff_kwargs = {
-        'constraints': constraint,
-        'rigidWater': True,    # Allows time step up to 4 fs with HMR
-        'removeCMMotion': False
-    }
-
-    platform = define_platform()
-    save_yaml(params, args.params)
 
 def energy_minimisation(simulation):
-    """
-    Minimize the system to relieve bad contacts.
-    """
-    energy_before = simulation.context.getState(getEnergy=True).getPotentialEnergy()
+    """Run energy minimization and print energy difference."""
+    e_before = simulation.context.getState(getEnergy=True).getPotentialEnergy()
     simulation.minimizeEnergy()
-    energy_after = simulation.context.getState(getEnergy=True).getPotentialEnergy()
-    print('Energy difference during minimization:', energy_before - energy_after)
+    e_after = simulation.context.getState(getEnergy=True).getPotentialEnergy()
+    print('Energy difference (minimization):', e_before - e_after)
 
-def create_model_ppi(modeller, salt_concentration, params):
 
-    # Initiate forcefield
+def create_model(modeller, salt_concentration, params):
+    """
+    Build solvated system with ions.
+    This does only work for protein protein interaction. See legacy MD for small molecules
+    """
     protein_forcefield = params['forcefield']['protein']
     water_model = params['forcefield']['water']
 
-    print(f'Init the forcefield {protein_forcefield} with the water model {water_model}')
-    forcefield = app.ForceField(protein_forcefield, water_model)
+    print(f'Initializing ForceField: {protein_forcefield} + {water_model}')
+    ff = app.ForceField(protein_forcefield, water_model)
+    modeller.addHydrogens(ff)
+    modeller.addExtraParticles(ff)          # Required for tip4p (orbital)
 
-    print('Adding hydrogens...')
-    modeller.addHydrogens(forcefield)
-
-    # Make sure water model is loaded
-    modeller.addExtraParticles(forcefield)
-
-    print('Adding solvent...')
-    modeller.addSolvent(forcefield,
-                        model='tip4pew',
+    # Add solvent
+    modeller.addSolvent(ff,
+                        model=params['forcefield']['watermodel'],                
                         boxShape='cube',
                         ionicStrength=salt_concentration * molar,
                         positiveIon='Na+',
                         negativeIon='Cl-',
                         neutralize=True,
-                        padding=1 * nanometers)
-
-    print('Creating force field system...')
-    system = forcefield.createSystem(modeller.topology,
-                                     nonbondedMethod=app.PME,
-                                     nonbondedCutoff=nonbondedCutoff,
-                                     constraints=constraint,
-                                     rigidWater=params['constraints']['rigidWater'],
-                                     ewaldErrorTolerance=ewaldErrorTolerance)
+                        padding=1.2 * nanometers)
+    
+    # Create the MD system
+    system = ff.createSystem(modeller.topology,
+                             nonbondedMethod=app.PME,
+                             nonbondedCutoff=params['nonbondedCutoff'] * nanometers,
+                             constraints=app.HBonds,
+                             rigidWater=True,
+                             ewaldErrorTolerance=params['ewaldErrorTolerance'])
     return system
 
-
-def save_cif(simulation, cif_path:os.path):
-    # Save final frame
-    state = simulation.context.getState(getPositions=True, enforcePeriodicBox=True)
-    with open(cif_path, mode="w") as file:
-        app.PDBxFile.writeFile(simulation.topology, state.getPositions(), file, keepIds=True)
-
-def compute_metadynamics(metadynamics_params, system):
-    """
-    in progress
-    """
-    # Example: add a distance-based collective variable
-    atomId1 = metadynamics_params[0]['d1'][0]['atomId1'] + 1
-    atomId2 = metadynamics_params[0]['d1'][1]['atomId2'] + 1
-
-    hills_path = os.path.abspath(args.metadynamics)
-    script = f"""
-            d1: DISTANCE ATOMS={atomId1},{atomId2}
-            METAD ARG=d1 SIGMA=0.1 HEIGHT=0.3 PACE=50 FILE={hills_path}
-            PRINT ARG=d1 STRIDE=50 FILE=COLVAR
-            """
-    plumed = PlumedForce(script)
-    plumed.setTemperature(temperature*kelvin)
-    system.addForce(plumed)
-    print("Metadynamics variable added")
-    return system
-
-def get_force_paramters(system, stage):
-    forces = system.getForces()
-    print("STAGE ", stage)
-    for i, f in enumerate(forces):
-        print(f"Force {i}: {f.__class__.__name__}")
-
-    print()
-
-def get_force_paramters_extended(system, stage):
-    import openmm
-    print(f"CHECK for forces STAGE {stage}")
-    forces = system.getForces()
-    for i, force in enumerate(forces):
-        print(f"\nForce {i}: {force.__class__.__name__}")
-
-        # HarmonicBondForce
-        if isinstance(force, openmm.HarmonicBondForce):
-            print(f"  Number of bonds: {force.getNumBonds()}")
-            for j in range(force.getNumBonds()):
-                p1, p2, length, k = force.getBondParameters(j)
-                print(f"    Bond {j}: particles=({p1},{p2}), length={length}, k={k}")
-
-        # HarmonicAngleForce
-        elif isinstance(force, openmm.HarmonicAngleForce):
-            print(f"  Number of angles: {force.getNumAngles()}")
-            for j in range(force.getNumAngles()):
-                p1, p2, p3, angle, k = force.getAngleParameters(j)
-                print(f"    Angle {j}: particles=({p1},{p2},{p3}), angle={angle}, k={k}")
-
-        # PeriodicTorsionForce
-        elif isinstance(force, openmm.PeriodicTorsionForce):
-            print(f"  Number of torsions: {force.getNumTorsions()}")
-            for j in range(force.getNumTorsions()):
-                p1, p2, p3, p4, periodicity, phase, k = force.getTorsionParameters(j)
-                print(f"    Torsion {j}: particles=({p1},{p2},{p3},{p4}), "
-                    f"periodicity={periodicity}, phase={phase}, k={k}")
-
-        # NonbondedForce
-        elif isinstance(force, openmm.NonbondedForce):
-            print(f"  Number of particles: {force.getNumParticles()}")
-            for j in range(min(5, force.getNumParticles())):  # only show first few
-                charge, sigma, epsilon = force.getParticleParameters(j)
-                print(f"    Particle {j}: charge={charge}, sigma={sigma}, epsilon={epsilon}")
-
-        # CustomExternalForce
-        elif isinstance(force, openmm.CustomExternalForce):
-            print(f"  Number of particles: {force.getNumParticles()}")
-            for j in range(force.getNumParticles()):
-                p, params = force.getParticleParameters(j)
-                print(f"    Particle {p}: params={params}")
-
-        # CustomBondForce
-        elif isinstance(force, openmm.CustomBondForce):
-            print(f"  Number of bonds: {force.getNumBonds()}")
-            for j in range(force.getNumBonds()):
-                p1, p2, params = force.getBondParameters(j)
-                print(f"    Bond {j}: particles=({p1},{p2}), params={params}")
-
-        # Catch-all
-        else:
-            print("  Parameters not implemented for this force type.")
+def save_cif(simulation, cif_file: os.path):
+    positions = simulation.context.getState(getPositions=True, enforcePeriodicBox=True).getPositions()
+    with open(cif_file, "w") as f:
+        app.PDBxFile.writeFile(simulation.topology, positions, f, keepIds=True)
 
 def debug_traj(simulation, traj_path):
     from openmm.app import DCDReporter
-    dcd = DCDReporter(traj_path, 200)
+    dcd = DCDReporter(traj_path, 1000)
     simulation.reporters.append(dcd)
 
+# ---------------------------
+# Simulation procedure
+# ---------------------------
+
 def simulate(args, params, salt_concentration=0.15):
-    set_parameters(params)
+    """
+    Set up and start the simulation
+    """
+    # Detect GPU
+    platform = define_platform()
 
-    DEBUG = False
-
-    # Load initial structure
+    # Load structure
     protein = app.PDBFile(args.pdb)
     modeller = app.Modeller(protein.topology, protein.positions)
 
-    # Create solvated protein system
-    system = create_model_ppi(modeller, salt_concentration, params)
+    # Create solvated system
+    system = create_model(modeller, salt_concentration, params)
 
-    # MetaDynamics (optional)
+        # MetaDynamics (optional)
     # TODO move
     if params['metadynamics'] is not None:
         # Only import if required. Currently doesn't work with openmm 8.3.1
@@ -259,136 +141,119 @@ def simulate(args, params, salt_concentration=0.15):
         with open(args.metadynamics, 'w') as f:
             pass  # create dummy file
 
-    # Precision and determinism
-    properties = {
-        "Precision": "mixed",
-        "DeterministicForces": "true"
-    }
+    # Add restraints BEFORE minimization
+    system, restraint_force = add_positional_restraints(system, modeller.topology, modeller.positions, k=10.0)
 
-    # ---------------------
-    # Stage 0: Energy minimization
-    # ---------------------
+    # Integrator setup
+    dt = params['dt'] * femtoseconds
+    temperature = params['temperature'] * kelvin
+    friction = 1.0 / picoseconds
     integrator = LangevinMiddleIntegrator(temperature, friction, dt)
-    integrator.setConstraintTolerance(constraintTolerance)
+    integrator.setConstraintTolerance(params['constraintTolerance'])
     integrator.setRandomNumberSeed(args.seed)
+
+    # Set up the simulation. Add the integrator and the position
+    properties = {"Precision": "mixed", "DeterministicForces": "true"}
     simulation = app.Simulation(modeller.topology, system, integrator, platform, properties)
     simulation.context.setPositions(modeller.positions)
 
-    print('STAGE 0: Running energy minimization...')
+    # ---------------------
+    # Stage 0: Minimization
+    # ---------------------
+    print('\n=== Stage 0: Energy minimization with restraints ===')
+
+    positions = simulation.context.getState(getPositions=True).getPositions()
+    save_cif(simulation, 'before_min.cif')
     energy_minimisation(simulation)
-    if DEBUG:
-        debug_traj(simulation, 'minimize.dcd')
-        get_force_paramters(system, 0)
-        save_cif(simulation, 'minimize.cif')
+    positions = simulation.context.getState(getPositions=True).getPositions()
+    save_cif(simulation, 'after_min.cif')
 
     # ---------------------
-    # Stage 1: NVT heating with restraints
+    # Stage 1: NVT Heating with restrains
     # ---------------------
-    print('STAGE 1: NVT heating with heavy atom restraints...')
+    print('\n=== Stage 1: Smooth NVT heating ===')
+    simulation.context.setVelocitiesToTemperature(50 * kelvin)
 
-    # get minimized coordinates
-    minimized_positions = simulation.context.getState(getPositions=True).getPositions()
-    system, restraint_force = add_positional_restraints(system, modeller.topology, minimized_positions, k=10.0)
+    # TODO remove
+    debug_traj(simulation, 'heating.dcd')
 
-    # Initialize with 100 K once
-    T_init = 100
-    integrator = LangevinMiddleIntegrator(T_init*kelvin, friction, dt)
-    integrator.setConstraintTolerance(constraintTolerance)
-    integrator.setRandomNumberSeed(args.seed)
-
-    simulation = app.Simulation(modeller.topology, system, integrator, platform, properties)
-    simulation.context.setPositions(minimized_positions)
-    simulation.context.setVelocitiesToTemperature(T_init*kelvin, args.seed)  # only once
-
-    if DEBUG:
-        debug_traj(simulation, 'heat.dcd')
-
-    # Gradually ramp temperature without resetting velocities
-    for T in [150, 200, 250, 300]:  
-        print(f"Heating to {T} K...")
-        # update the integrator’s target T
-        simulation.integrator.setTemperature(T*kelvin)
-        simulation.step(params['NVT_heating'])  # ~10 ps per increment
+    # Smooth temperature ramp 50 → 300 K
+    temp_steps = [50, 100, 150, 200, 250, 300, params['temperature']]
+    steps_per_temp = params['NVT_heating']  # e.g. 5000 = 10 ps
+    for T in temp_steps:
+        print(f" → Heating to {T} K ...")
+        simulation.integrator.setTemperature(T * kelvin)
+        simulation.step(steps_per_temp)
 
     # ---------------------
     # Stage 2: NPT equilibration with tapering restraints
     # ---------------------
-    print('STAGE 2: Switching to NPT for density equilibration...')
-    system.addForce(MonteCarloBarostat(pressure, temperature, barostatInterval))
+    print('\n=== Stage 2: NPT equilibration with tapering restraints ===')
+    barostat = MonteCarloBarostat(1.0 * atmospheres, params['temperature'] * kelvin, 25)
+    system.addForce(barostat)
     simulation.context.reinitialize(preserveState=True)
 
-    if DEBUG:
-        debug_traj(simulation, 'npt.dcd')
-
-    # Reduce protein restrain
+    # Define tapering schedule for restraints (kcal/mol/Å²)
     for k in [5.0, 1.0]:
         print(f"Tapering restraints to {k} kcal/mol/Å²")
-        for i in range(restraint_force.getNumParticles()):
-            (particle_index, parameters) = restraint_force.getParticleParameters(i)
-            (_, x0, y0, z0) = parameters
-            restraint_force.setParticleParameters(i, particle_index, [k, x0, y0, z0])
+        # Update global k parameter (not per particle!)
+        restraint_force.setGlobalParameterDefaultValue(0, k * kilojoule_per_mole / nanometer**2)
         restraint_force.updateParametersInContext(simulation.context)
-        simulation.step(params['NPT_equilibration'])  # ~100 ps at each stage
 
-    if DEBUG:
-        get_force_paramters(system, 2)
-        save_cif(simulation, "stage_2.cif")
+        # Run equilibration for each step
+        simulation.step(params['NPT_equilibration'])
 
     # ---------------------
-    # Stage 3: Unrestrained NPT equilibration
+    # Stage 3: Unrestrained NPT at simulation T
     # ---------------------
-    print('STAGE 3: Removing restraints...')
-   
-    # remove the custom force
+    print('\n=== Stage 3: Unrestrained NPT equilibration ===')
+    # remove the CustomForce which restrained the system
     for i, force in enumerate(system.getForces()):
         if force.__class__.__name__ == restraint_force.__class__.__name__:
             system.removeForce(i)
             break
 
-    # system.removeForce(system.getNumForces() - 1)  # only removes barostat assumes restraint is last added
     simulation.context.reinitialize(preserveState=True)
-    simulation.step(params['NPT_unrestrained'])  # 200 ps unrestrained NPT
-
-    if DEBUG:
-        get_force_paramters(system, 3)
-        save_cif(simulation, "stage_3.cif")
+    simulation.step(params['NPT_unrestrained'])
 
     # ---------------------
-    # Stage 4: Production run
+    # Stage 4: Production
     # ---------------------
-    print(f"STAGE 4: Starting production run for {args.time} ns...")
-
+    print(f'\n=== Stage 4: Production run ({params["time"]} ns) ===')
+    recordInterval = int(params['recordingInterval'] * 1000 / params['dt'])
     HDF5Reporter = mdtraj.reporters.HDF5Reporter(args.traj, recordInterval)
     dataReporter = app.StateDataReporter(
-        args.stats, recordInterval, totalSteps=args.steps,progress=True,
-        step=True, time=True, speed=True, elapsedTime=True,
-        remainingTime=True, potentialEnergy=True, kineticEnergy=True,
-        totalEnergy=True, temperature=True, volume=True, density=True,
-        separator='\t'
+        args.stats, recordInterval, step=True, time=True,
+        potentialEnergy=True, kineticEnergy=True, temperature=True,
+        volume=True, density=True, progress=True, remainingTime=True,
+        speed=True, totalSteps=int(params['time'] * 1e6 / params['dt'])
     )
     simulation.reporters.append(HDF5Reporter)
     simulation.reporters.append(dataReporter)
 
-    simulation.currentStep = 0
-    simulation.step(args.steps)
+    simulation.step(int(params['time'] * 1e6 / params['dt']))
 
-    # Save final frame
+    # Save the end file as cif
     save_cif(simulation, args.topo)
+
+
+# ---------------------------
+# Argument parsing
+# ---------------------------
 
 def parse_arguments():
     parser = argparse.ArgumentParser(description='Run Molecular Dynamics simulations.')
-    parser.add_argument('--pdb', default='input/fix1.pdb', help='Path to protein PDB file.')
-    parser.add_argument('--sdf', nargs='?', const='', help='Optional small molecule SDF file.')
-    parser.add_argument('--md_settings', default='input/params.yml', help='MD configuration YAML.')
-    parser.add_argument('--seed', type=int, default=12, help='Random seed for initial velocities.')
-    parser.add_argument('--topo', default="output/top.cif", help='Output CIF of last frame.')
-    parser.add_argument('--traj', default="output/traj.h5", help='Output trajectory file.')
-    parser.add_argument('--stats', default="output/stats.txt", help='Output energy/statistics file.')
-    parser.add_argument('--params', default="output/params.txt", help='Copy of used parameters.')
+    parser.add_argument('--pdb', default='input/fix1.pdb')
+    parser.add_argument('--md_settings', default='input/params.yml')
+    parser.add_argument('--seed', type=int, default=12)
+    parser.add_argument('--topo', default='output/top.cif')
+    parser.add_argument('--traj', default='output/traj.h5')
+    parser.add_argument('--stats', default='output/stats.txt')
     parser.add_argument('--metadynamics', default="output/metadynamics.txt", help='Metadynamics output file.')
     return parser.parse_args()
 
+
 if __name__ == '__main__':
     args = parse_arguments()
-    yaml_params = import_yaml(args.md_settings)
-    simulate(args, yaml_params)
+    params = import_yaml(args.md_settings)
+    simulate(args, params, salt_concentration=params['salt'])

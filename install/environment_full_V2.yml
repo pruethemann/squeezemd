@@ -4,7 +4,7 @@
 # How to install via conda:
 # conda env create -f environment_full_V2.yml
 
-name: squeeze_full
+name: squeeze3
 
 channels:
   - conda-forge
@@ -13,17 +13,15 @@ channels:
 
 dependencies:
   - python                  # 09-25: Python 13 not supported yet
-  - openmmforcefields       
-  - openff-toolkit          # small molecule forcefield
+  - openmmforcefields       #   - openff-toolkit          # small molecule forcefield
   - snakemake-minimal       # Automatic workflow engine
   - prolif                  # Interaction fingerprint
   - pandas                  # Data science
   - pyarrow                 # Data handling
   - mdtraj                  # For centering protein in water box
   - pymol-open-source       # pymol for interaction surface
-  - cuda-toolkit            # Cudatoolkit. 09-25: Version 12.9 (V 13 is not supported yet by Openmm)
+  - cuda-toolkit==12.9            # Cudatoolkit. 09-25: Version 12.9 (V 13 is not supported yet by Openmm)
   - seaborn                 # visualisation
-  - openmm-plumed           # For metadynamics. Does install openmm 8.2 from conda-forge!
   - plotly                  # For trajectory analysis (will be depracted soon)
   - pymol-open-source       # Open source version of pymol (conda-forge)
   - pip

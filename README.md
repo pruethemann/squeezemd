@@ -105,17 +105,24 @@ twine upload dist/*
    - Follow the Computational pharmacy preparation workflow
 2. Convert with `pdb4amber`:
    >pdb4amber -i input.pdb -o input.amber.pdb
-3. Amber does change numbering of the residues. This can be fixed with pymol. For example for C1s / Gigastasin
+3. Amber does change numbering of the residues. This can be fixed with pymol. - C1s / Gigastasin
    Chain A: 1 - 122  -> same
    Chain B: 438 - 685 -> 123 = + 315
    Chain C: 422 - 437 -> 371 = +51
+- Helostasin / MASP2
+   Chain A: 1-92
+   Chain B: 107 -> 445 = + 338
+   Chain C: 93 -> 431 = + 338
 
-4. Example PyMOL commands:
+
+1. Example PyMOL commands:
 
    ```python
-   alter (chain A), chain='B'
    alter (chain B), resi=str(int(resi)+315)
    alter (chain C), resi=str(int(resi)+51)
+
+   alter (chain B), resi=str(int(resi)+338)
+   alter (chain C), resi=str(int(resi)+338)
    ```
 
 ## Further info:

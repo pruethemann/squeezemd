@@ -43,13 +43,17 @@ dt: 2
 forcefield:
   protein: amber19-all.xml         # options: amber14-all.xml, amber19-all.xml
   water:   amber19/tip4pew.xml     # options: amber14/tip3p.xml, amber19/tip3pfb.xml
+  watermodel: tip4pew
+
+# Salt concentration
+salt: 0.15              # M for Na+ and Cl-
 
 # Thermostat and barostat
 temperature: 310         # Kelvin
 pressure: 1              # atm
 barostatInterval: 25     # integration steps
 
-
+# Set MD constraints
 constraints:
   bonds: HBonds        # options: None, HBonds, AllBonds
   rigidWater: True     # options: True, False

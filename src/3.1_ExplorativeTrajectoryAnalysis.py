@@ -13,9 +13,11 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 
 def visualize_MDStats(stats_file, output_graph):
-    data = pd.read_csv(stats_file, sep='\t')
+    data = pd.read_csv(stats_file, sep=',')
 
     data['time (ns)'] = data['Time (ps)'] / 1000
+
+    data['Total Energy (kJ/mole)'] = data['Potential Energy (kJ/mole)'] + data["Kinetic Energy (kJ/mole)"]
 
     # Total Energy
     plt.subplot(2,2,1)
