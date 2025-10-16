@@ -4,25 +4,31 @@ import argparse
 import mdtraj as md
 
 def center_in_chunks(args, chunk_size=20):
+    # TODO: Calculate chunk_size according to number of trajectory frames
 
     # Load the first frame from trajectory for reference and topology saving
     reference = md.load(args.traj, top=args.topo, frame=0)
     alignment_indices = reference.topology.select('backbone')
-    
+    protein_anchor = reference.topology.guess_anchor_molecules()
 
-    # Prepare DCD writer
+    # Prepare DCD writer and center in chunks for better memory efficiency
     with md.formats.DCDTrajectoryFile(args.traj_center, 'w', force_overwrite=True) as dcd_out:
         for chunk in md.iterload(args.traj, top=args.topo, chunk=chunk_size):
-            chunk.make_molecules_whole()
-            chunk.image_molecules(make_whole=False, inplace=True)
+            
+            # 1) ensure molecules are whole first
+            chunk.make_molecules_whole(inplace=True)
+
+            # 2) image with molecules kept whole and anchored to the protein
+            chunk.image_molecules(make_whole=True, 
+                                  anchor_molecules=protein_anchor,
+                                  inplace=True)
            
-            # Superpose the trajectory to the first frame (or another reference frame)
+            # 3) superpose to reference using backbone
             chunk = chunk.superpose(reference, frame=0, atom_indices=alignment_indices)
 
-
             # Convert nm → Å for output
-            xyz_angstrom      = chunk.xyz * 10.0
-            cell_lengths  = chunk.unitcell_lengths * 10.0
+            xyz_angstrom = chunk.xyz * 10.0
+            cell_lengths = chunk.unitcell_lengths * 10.0
 
             # Write chunk manually
             dcd_out.write(

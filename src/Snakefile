@@ -142,9 +142,8 @@ rule MD:
         md_settings=ancient('config/params.yml'),
         pdb='{complex}/{mutation}/mutation.pdb',
         sdf=simulations_df.loc[f'{wildcards.complex}_{wildcards.mutation}']['sdf'] if mode=="molecule" else [],
-        
     output:
-        topo = '{complex}/{mutation}/{seed}/MD/frame_end.cif',
+        topo_cif = '{complex}/{mutation}/{seed}/MD/frame_end.cif',
         traj=temp('{complex}/{mutation}/{seed}/MD/trajectory.h5'),
         stats='{complex}/{mutation}/{seed}/MD/MDStats.csv',
         metadynamics='{complex}/{mutation}/{seed}/MD/metadynamics/metadynamics.txt',
@@ -155,7 +154,7 @@ rule MD:
     shell:
         """
         2_MD.py --pdb {input.pdb} \
-                --topo {output.topo} \
+                --topo_cif {output.topo_cif} \
                 --traj {output.traj} \
                 --md_settings {input.md_settings} \
                 --seed {wildcards.seed} \
@@ -165,7 +164,7 @@ rule MD:
 
 rule centerMDTraj:
     input:
-        topo = '{complex}/{mutation}/{seed}/MD/frame_end.cif',
+        topo = '{complex}/{mutation}/{seed}/MD/frame_end.pdb',
         traj='{complex}/{mutation}/{seed}/MD/trajectory.h5',
     output:
         topo_center = '{complex}/{mutation}/{seed}/MD/topo_center.pdb',

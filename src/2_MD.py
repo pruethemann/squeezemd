@@ -108,10 +108,10 @@ def save_cif(simulation, cif_file: os.path):
     with open(cif_file, "w") as f:
         app.PDBxFile.writeFile(simulation.topology, positions, f, keepIds=True)
 
-def debug_traj(simulation, traj_path):
-    from openmm.app import DCDReporter
-    dcd = DCDReporter(traj_path, 1000)
-    simulation.reporters.append(dcd)
+def save_pdb(simulation, pdb_file:os.path):
+    positions = simulation.context.getState(getPositions=True, enforcePeriodicBox=True).getPositions()
+    with open(pdb_file, "w") as f:
+        app.PDBFile.writeFile(simulation.topology, positions,f, keepIds=True)
 
 # ---------------------------
 # Simulation procedure
@@ -161,21 +161,13 @@ def simulate(args, params, salt_concentration=0.15):
     # Stage 0: Minimization
     # ---------------------
     print('\n=== Stage 0: Energy minimization with restraints ===')
-
-    positions = simulation.context.getState(getPositions=True).getPositions()
-    save_cif(simulation, 'before_min.cif')
     energy_minimisation(simulation)
-    positions = simulation.context.getState(getPositions=True).getPositions()
-    save_cif(simulation, 'after_min.cif')
 
     # ---------------------
     # Stage 1: NVT Heating with restrains
     # ---------------------
     print('\n=== Stage 1: Smooth NVT heating ===')
     simulation.context.setVelocitiesToTemperature(50 * kelvin)
-
-    # TODO remove
-    debug_traj(simulation, 'heating.dcd')
 
     # Smooth temperature ramp 50 → 300 K
     temp_steps = [50, 100, 150, 200, 250, 300, params['temperature']]
@@ -234,7 +226,7 @@ def simulate(args, params, salt_concentration=0.15):
     simulation.step(int(params['time'] * 1e6 / params['dt']))
 
     # Save the end file as cif
-    save_cif(simulation, args.topo)
+    save_cif(simulation, args.topo_cif)
 
 
 # ---------------------------
@@ -246,7 +238,7 @@ def parse_arguments():
     parser.add_argument('--pdb', default='input/fix1.pdb')
     parser.add_argument('--md_settings', default='input/params.yml')
     parser.add_argument('--seed', type=int, default=12)
-    parser.add_argument('--topo', default='output/top.cif')
+    parser.add_argument('--topo_cif', default='output/top.cif')
     parser.add_argument('--traj', default='output/traj.h5')
     parser.add_argument('--stats', default='output/stats.txt')
     parser.add_argument('--metadynamics', default="output/metadynamics.txt", help='Metadynamics output file.')
