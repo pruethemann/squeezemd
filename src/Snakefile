@@ -164,7 +164,7 @@ rule MD:
 
 rule centerMDTraj:
     input:
-        topo = '{complex}/{mutation}/{seed}/MD/frame_end.pdb',
+        topo='{complex}/{mutation}/{seed}/MD/frame_end.cif',
         traj='{complex}/{mutation}/{seed}/MD/trajectory.h5',
     output:
         topo_center = '{complex}/{mutation}/{seed}/MD/topo_center.pdb',
