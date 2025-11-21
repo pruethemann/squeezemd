@@ -46,7 +46,6 @@ if mode == 'molecule':
     simulations_df = pd.merge(ligs, simulations_df,  how="cross")
     simulations_df['sdf'] = 'ligands/' + simulations_df.ligand + ".sdf"
 
-
 simulations_df['complex'] = simulations_df['target'] + '_' + simulations_df['ligand']
 simulations_df['name'] = simulations_df['complex'] + '_' + simulations_df['mutation_all']
 simulations_df.set_index('name', inplace=True)
@@ -67,7 +66,6 @@ rule molecule:
         'results/posco/posco.html',
         expand('{complex}/{mutation}/{seed}/aquaduct/aquaduct.pse',complex=complexes, mutation=mutations, seed=seeds)
 
-
 rule PPi:
     input:
         'results/fingerprints/interactions.parquet',
@@ -81,7 +79,8 @@ rule PPi:
         'results/posco/posco_interactions.parquet',
         'results/posco/lig_heatmap.svg',
         'results/posco/lig_barplot.svg',
-        'results/rmsf/rmsf.svg'
+        'results/rmsf/rmsf.svg',
+        'results/alignment/align.pse'
         #expand('{complex}/{mutation}/{seed}/aquaduct/aquaduct.pse',complex=complexes, mutation=mutations, seed=seeds)
 
 rule protein:
@@ -129,13 +128,11 @@ rule Mutagensis:
         fi
         """
 
-
 def get_sdf_input(wildcards):
     if mode == "molecule":
         return simulations_df.loc[f'{wildcards.complex}_{wildcards.mutation}']['sdf']
     else:
         return None  # Don't require an sdf input
-
 
 rule MD:
     input:
@@ -167,7 +164,7 @@ rule centerMDTraj:
         topo='{complex}/{mutation}/{seed}/MD/frame_end.cif',
         traj='{complex}/{mutation}/{seed}/MD/trajectory.h5',
     output:
-        topo_center = '{complex}/{mutation}/{seed}/MD/topo_center.pdb',
+        topo_center = '{complex}/{mutation}/{seed}/MD/topo_center_{seed}.pdb',
         traj_center='{complex}/{mutation}/{seed}/MD/traj_center.dcd',
     priority:
         3
@@ -179,10 +176,18 @@ rule centerMDTraj:
                             --topo_center {output.topo_center}
         """
 
+rule align:
+    input:
+        expand('{complex}/{mutation}/{seed}/MD/topo_center_{seed}.pdb',complex=complexes, mutation=mutations, seed=seeds),
+    output:
+        'results/alignment/align.pse'
+    shell:
+        "pymol -c 6_Align.py --input {input} --output {output}"
+
 
 rule aquaduct:
     input:
-        topo_center = '{complex}/{mutation}/{seed}/MD/topo_center.pdb',
+        topo_center = '{complex}/{mutation}/{seed}/MD/topo_center_{seed}.pdb',
         traj_center='{complex}/{mutation}/{seed}/MD/traj_center.dcd',
         aquaduct_template='config/TEMPLATE_aquaduct.txt',
     output:
@@ -376,7 +381,7 @@ rule GlobalFingerprintAnalysis:
 
 rule InteractionSurface:
     input:
-        final_frame = f'{{complex}}/{{mutation}}/{representative_seed}/MD/topo_center.pdb',
+        final_frame = f'{{complex}}/{{mutation}}/{representative_seed}/MD/topo_center_{representative_seed}.pdb',
         interactions= 'results/posco/posco_interactions.parquet',
     output:
         bfactor_pdbs = 'results/interactionSurface/{complex}.{mutation}.interaction.pdb',
