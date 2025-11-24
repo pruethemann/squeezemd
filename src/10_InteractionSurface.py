@@ -184,7 +184,7 @@ if __name__ == '__main__':
 
     (mutation, complex) = (args.mutation, args.complex)
 
-    pdb = os.path.join(complex, mutation, str(args.seed), 'MD', 'topo_center.pdb')
+    pdb = os.path.join(complex, mutation, str(args.seed), 'MD', f'topo_center_{args.seed}.pdb')
     
     interactions_filtered = interactions.loc[(complex, mutation)]
 

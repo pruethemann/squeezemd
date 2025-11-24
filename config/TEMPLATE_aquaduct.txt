@@ -1,0 +1,100 @@
+[global]
+top = PREFIXINPUT/MD/topo_center.pdb
+trj = PREFIXINPUT/MD/traj_center.dcd
+twoway = True
+sandwich = False
+waterfall = False
+step_frame = 1
+sps = True
+cache_dir = cache
+cache_mem = False
+
+[traceable_residues]
+execute = runonce
+dump = PREFIXOUT/1_traceable_residues_data.dump
+scope = protein
+scope_convexhull = True
+scope_everyframe = False
+object = (resname HOH) and (sphzone 12.0 (resnum 54 or resnum 55 or resnum 53 or resnum 17 or resnum 18 or resnum 67 or resnum 578 or resnum 626 or resnum 629 or resnum 654 or resnum 628 or resnum 655))
+
+[raw_paths]
+execute = runonce
+dump = PREFIXOUT/2_raw_paths_data.dump
+scope_everyframe = False
+clear_in_object_info = False
+discard_singletons = 1
+discard_empty_paths = True
+
+[separate_paths]
+execute = runonce
+dump = PREFIXOUT/3_separate_paths_data.dump
+discard_empty_paths = True
+sort_by_id = True
+discard_short_paths = 20
+discard_short_object = 2.0
+discard_short_logic = or
+auto_barber = protein
+auto_barber_maxcut = 1.2
+auto_barber_mincut_level = True
+auto_barber_maxcut_level = True
+auto_barber_tovdw = True
+allow_passing_paths = False
+calculate_coo = False
+separate_barber = True
+
+[inlets_clustering]
+execute = runonce
+dump = PREFIXOUT/4_inlets_clustering_data.dump
+recluster_outliers = False
+detect_outliers = False
+singletons_outliers = False
+create_master_paths = True
+separate_master = False
+separate_master_all = True
+exclude_passing_in_clustering = True
+renumber_clusters = False
+inlets_center = cos
+clustering_order = old-school
+
+[clustering]
+name = clustering
+method = barber
+auto_barber = protein
+auto_barber_maxcut = 2.8
+auto_barber_mincut_level = True
+auto_barber_maxcut_level = True
+auto_barber_tovdw = True
+recursive_clustering = clustering
+
+[analysis]
+execute = run
+save = PREFIXOUT/5_analysis_results.txt
+dump_config = True
+calculate_scope_object_size = False
+cluster_area = True
+
+[visualize]
+execute = run
+save = PREFIXOUT/6_visualize_results.py
+all_paths_raw = False
+all_paths_smooth = True
+all_paths_split = True
+all_paths_raw_io = True
+all_paths_smooth_io = True
+simply_smooths = RecursiveVector
+paths_raw = False
+paths_smooth = True
+paths_raw_io = True
+paths_smooth_io = True
+paths_states = True
+ctypes_raw = False
+ctypes_smooth = True
+split_by_type = False
+retain_all_types = False
+inlets_clusters = True
+show_molecule = protein
+show_scope_chull = protein
+show_object_chull = (resname *) and (sphzone 12.0 (resnum 54 or resnum 55 or resnum 53 or resnum 17 or resnum 18 or resnum 67 or resnum 578 or resnum 626 or resnum 629 or resnum 654 or resnum 628 or resnum 655))
+cluster_area = True
+cluster_area_precision = 20
+cluster_area_expand = 2

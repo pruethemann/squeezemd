@@ -1,6 +1,6 @@
 [project]
 name = "squeezemd"
-version = "1.2.0"
+version = "1.2.5"
 description = "SqueezeMD is a autmated Molecular dynamics workflow with extensive post-analysis for PPi"
 readme = "README.rst"
 authors = [
@@ -51,7 +51,7 @@ line-length = 120
 [tool.ruff.lint]
 select = [
     "E",   # pycodestyle errors
-    "W",   # pycodestyle warnings
+    "W",   # pycodestyle warni--input ... --output align.psengs
     "F",   # Pyflakes
     "I",   # isort
     "B",   # flake8-bugbear

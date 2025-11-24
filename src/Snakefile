@@ -176,13 +176,15 @@ rule centerMDTraj:
                             --topo_center {output.topo_center}
         """
 
+
 rule align:
     input:
         expand('{complex}/{mutation}/{seed}/MD/topo_center_{seed}.pdb',complex=complexes, mutation=mutations, seed=seeds),
     output:
         'results/alignment/align.pse'
+    params: os.path.join(os.environ['CONDA_PREFIX'], 'bin', '6_Align.py')
     shell:
-        "pymol -c 6_Align.py --input {input} --output {output}"
+        "pymol -c {params} --input {input} --output {output}"
 
 
 rule aquaduct:
