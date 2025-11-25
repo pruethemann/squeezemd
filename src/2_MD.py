@@ -71,7 +71,7 @@ def energy_minimisation(simulation):
     print('Energy difference (minimization):', e_before - e_after)
 
 
-def create_model(modeller, salt_concentration, params):
+def create_model_smallmolecule(modeller, salt_concentration, params, sdf):
     """
     Build solvated system with ions.
     This does only work for protein protein interaction. See legacy MD for small molecules
@@ -79,13 +79,45 @@ def create_model(modeller, salt_concentration, params):
     protein_forcefield = params['forcefield']['protein']
     water_model = params['forcefield']['water']
 
-    print(f'Initializing ForceField: {protein_forcefield} + {water_model}')
-    ff = app.ForceField(protein_forcefield, water_model)
-    modeller.addHydrogens(ff)
-    modeller.addExtraParticles(ff)          # Required for tip4p (orbital)
+    ligand = Molecule.from_file(sdf)
+    if not ligand.conformers:
+        raise ValueError("Ligand SDF has no 3D conformers – please provide a 3D SDF.")
+    
+    #is this necessary? ligand.assign_partial_charges('gasteiger')   
+
+    ligand_topology = ligand.to_topology().to_openmm()
+    ligand_positions = ligand.conformers[0].to_openmm()
+
+    ff_kwargs = {
+        'constraints':app.HBonds,
+        'rigidWater': True,                     # Allows to increase step size to 4 fs
+        'ewaldErrorTolerance':params['ewaldErrorTolerance']
+    }
+    periodic_forcefield_kwargs = {
+        'nonbondedMethod':app.PME,
+        'nonbondedCutoff':params['nonbondedCutoff'] * nanometers
+    }
+
+    #'removeCMMotion': False
+
+    # 3. Use SystemGenerator to combine force fields
+    generator = SystemGenerator(
+        forcefields=[protein_forcefield, water_model],
+        small_molecule_forcefield='openff-2.0.0',
+        molecules=[ligand],
+        cache=None,
+        forcefield_kwargs=ff_kwargs,
+        periodic_forcefield_kwargs=periodic_forcefield_kwargs
+    )
+
+    # Add ligand to modell
+    modeller.add(ligand_topology, ligand_positions)
+
+    modeller.addHydrogens(generator.forcefield)       # TODO: Check whether His protonation states are changed
+    #modeller.addExtraParticles(forcefield_generated.forcefield)          # Required for tip4p (orbital)
 
     # Add solvent
-    modeller.addSolvent(ff,
+    modeller.addSolvent(generator.forcefield,
                         model=params['forcefield']['watermodel'],                
                         boxShape='cube',
                         ionicStrength=salt_concentration * molar,
@@ -95,7 +127,43 @@ def create_model(modeller, salt_concentration, params):
                         padding=1.2 * nanometers)
     
     # Create the MD system
-    system = ff.createSystem(modeller.topology,
+    # TODO: add constraints before
+    system = generator.create_system(modeller.topology)
+    return system
+
+def create_model_ppi(modeller, salt_concentration, params):
+    """
+    Build solvated system with ions.
+    This does only work for protein protein interaction. See legacy MD for small molecules
+    """
+
+    protein_forcefield = params['forcefield']['protein']
+    water_model = params['forcefield']['water']
+
+    # Include small molecule into simulation
+    if len(args.sdf) > 0:
+        (modeller, forcefield) = create_molecule_system(modeller, protein_forcefield, water_model)
+
+    # Only use the standard OpenMM protein MD
+    else:
+        print(f'Initializing ForceField: {protein_forcefield} + {water_model}')
+        forcefield = app.ForceField(protein_forcefield, water_model)
+
+    modeller.addHydrogens(forcefield)       # TODO: Check whether His protonation states are changed
+    modeller.addExtraParticles(forcefield)          # Required for tip4p (orbital)
+
+    # Add solvent
+    modeller.addSolvent(forcefield,
+                        model=params['forcefield']['watermodel'],                
+                        boxShape='cube',
+                        ionicStrength=salt_concentration * molar,
+                        positiveIon='Na+',
+                        negativeIon='Cl-',
+                        neutralize=True,
+                        padding=1.2 * nanometers)
+    
+    # Create the MD system
+    system = forcefield.createSystem(modeller.topology,
                              nonbondedMethod=app.PME,
                              nonbondedCutoff=params['nonbondedCutoff'] * nanometers,
                              constraints=app.HBonds,
@@ -129,7 +197,10 @@ def simulate(args, params, salt_concentration=0.15):
     modeller = app.Modeller(protein.topology, protein.positions)
 
     # Create solvated system
-    system = create_model(modeller, salt_concentration, params)
+    if len(args.sdf) > 0:
+        system = create_model_smallmolecule(modeller, salt_concentration, params, args.sdf)
+    else:
+        system = create_model_ppi(modeller, salt_concentration, params)
 
         # MetaDynamics (optional)
     # TODO move
@@ -242,6 +313,7 @@ def parse_arguments():
     parser.add_argument('--traj', default='output/traj.h5')
     parser.add_argument('--stats', default='output/stats.txt')
     parser.add_argument('--metadynamics', default="output/metadynamics.txt", help='Metadynamics output file.')
+    parser.add_argument('--sdf', help='Small molecule sdf file')
     return parser.parse_args()
 
 

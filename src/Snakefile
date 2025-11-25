@@ -22,6 +22,7 @@ replicates = config.get("replicates", 1)  # Default to 1 if not set
 try:
     mode = [arg for arg in sys.argv[1:] if not arg.startswith("-")][1]
 except:
+    # default mode
     mode = 'PPi'
 
 
@@ -56,16 +57,7 @@ print(simulations_df)
 complexes = simulations_df.complex.unique()
 mutations = simulations_df.mutation_all.unique()
 
-rule molecule:
-    input:
-        'results/metaReport.html',
-        expand('{complex}/{mutation}/{seed}/frames/lig_{i}.pdb', i=range(number_frames), complex=complexes, mutation=mutations, seed=seeds),
-        expand('{complex}/{mutation}/{seed}/frames/rec_{i}.pdb', i=range(number_frames), complex=complexes, mutation=mutations, seed=seeds),
-        expand('{complex}/{mutation}/{seed}/po-sco/{i}.txt', i=range(number_frames), complex=complexes, mutation=mutations, seed=seeds),
-        'results/posco/posco_interactions.parquet',
-        'results/posco/posco.html',
-        expand('{complex}/{mutation}/{seed}/aquaduct/aquaduct.pse',complex=complexes, mutation=mutations, seed=seeds)
-
+# Run a protein-protein interaction analysis
 rule PPi:
     input:
         'results/fingerprints/interactions.parquet',
@@ -83,6 +75,23 @@ rule PPi:
         'results/alignment/align.pse'
         #expand('{complex}/{mutation}/{seed}/aquaduct/aquaduct.pse',complex=complexes, mutation=mutations, seed=seeds)
 
+
+# run a small molecule protein interaction analysis
+rule molecule:
+    input:
+        'results/metaReport.html',
+        expand('{complex}/{mutation}/{seed}/frames/lig_{i}.pdb', i=range(number_frames), complex=complexes, mutation=mutations, seed=seeds),
+        expand('{complex}/{mutation}/{seed}/frames/rec_{i}.pdb', i=range(number_frames), complex=complexes, mutation=mutations, seed=seeds),
+        expand('{complex}/{mutation}/{seed}/po-sco/{i}.txt', i=range(number_frames), complex=complexes, mutation=mutations, seed=seeds),
+        'results/posco/posco_interactions.parquet',
+        'results/alignment/align.pse'
+        #expand('{complex}/{mutation}/{seed}/aquaduct/aquaduct.pse',complex=complexes, mutation=mutations, seed=seeds)
+
+# TODO
+# Init aquaduct again
+
+
+# Run a apo protein only
 rule protein:
     input:
         expand('{complex}/{mutation}/{seed}/MD/traj_center.dcd', complex=complexes, mutation=mutations, seed=seeds),
@@ -130,15 +139,18 @@ rule Mutagensis:
 
 def get_sdf_input(wildcards):
     if mode == "molecule":
-        return simulations_df.loc[f'{wildcards.complex}_{wildcards.mutation}']['sdf']
+        # one SDF path as a string
+        return simulations_df.loc[f"{wildcards.complex}_{wildcards.mutation}", "sdf"]
     else:
-        return None  # Don't require an sdf input
+        # no SDF required in protein / PPi mode
+        return []
+
 
 rule MD:
-    input:
+    input:   
         md_settings=ancient('config/params.yml'),
         pdb='{complex}/{mutation}/mutation.pdb',
-        sdf=simulations_df.loc[f'{wildcards.complex}_{wildcards.mutation}']['sdf'] if mode=="molecule" else [],
+        sdf=get_sdf_input
     output:
         topo_cif = '{complex}/{mutation}/{seed}/MD/frame_end.cif',
         traj=temp('{complex}/{mutation}/{seed}/MD/trajectory.h5'),
@@ -156,6 +168,7 @@ rule MD:
                 --md_settings {input.md_settings} \
                 --seed {wildcards.seed} \
                 --stats {output.stats} \
+                --sdf {input.sdf} \
                 --metadynamics {output.metadynamics}
         """
 

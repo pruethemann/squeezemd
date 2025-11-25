@@ -27,9 +27,10 @@ def align_structures(input_structures, output, cutoff=3.0):
         protein_sel = f"({obj} and polymer.protein)"
         surface_water = f"({obj} and resn HOH within {cutoff} of {protein_sel})"
         surface_ions = f"({obj} and (resn NA+ or resn CL-) within {cutoff} of {protein_sel})"
+        ligand = f"({obj} and chain X)"
 
         # Remove all atoms in this object not part of the protein, surface water, or nearby ions
-        cmd.remove(f"{obj} and not ({protein_sel} or {surface_water} or {surface_ions})")
+        cmd.remove(f"{obj} and not ({protein_sel} or {surface_water} or {surface_ions} or {ligand})")
 
     # Adjust van der Waals radius for sodium for visualization
     cmd.alter("elem Na", "vdw=0.7")
@@ -39,8 +40,6 @@ def align_structures(input_structures, output, cutoff=3.0):
     cmd.color("aquamarine", "chain A")
     cmd.color("lightblue", "chain B")
 
-    print(objects)
-    
     # Align all structures to the first
     reference = objects[0]
 

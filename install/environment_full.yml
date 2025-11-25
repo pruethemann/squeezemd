@@ -13,7 +13,8 @@ channels:
 
 dependencies:
   - python                  # 09-25: Python 13 not supported yet
-  - openmmforcefields       #   - openff-toolkit          # small molecule forcefield
+  - openmmforcefields       #   
+  - openff-toolkit>=0.18          # small molecule forcefield
   - snakemake-minimal       # Automatic workflow engine
   - prolif                  # Interaction fingerprint
   - pandas                  # Data science
