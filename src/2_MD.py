@@ -140,14 +140,8 @@ def create_model_ppi(modeller, salt_concentration, params):
     protein_forcefield = params['forcefield']['protein']
     water_model = params['forcefield']['water']
 
-    # Include small molecule into simulation
-    if len(args.sdf) > 0:
-        (modeller, forcefield) = create_molecule_system(modeller, protein_forcefield, water_model)
-
-    # Only use the standard OpenMM protein MD
-    else:
-        print(f'Initializing ForceField: {protein_forcefield} + {water_model}')
-        forcefield = app.ForceField(protein_forcefield, water_model)
+    print(f'Initializing ForceField: {protein_forcefield} + {water_model}')
+    forcefield = app.ForceField(protein_forcefield, water_model)
 
     modeller.addHydrogens(forcefield)       # TODO: Check whether His protonation states are changed
     modeller.addExtraParticles(forcefield)          # Required for tip4p (orbital)
@@ -197,12 +191,13 @@ def simulate(args, params, salt_concentration=0.15):
     modeller = app.Modeller(protein.topology, protein.positions)
 
     # Create solvated system
-    if len(args.sdf) > 0:
-        system = create_model_smallmolecule(modeller, salt_concentration, params, args.sdf)
-    else:
+    if args.sdf == "-1":
         system = create_model_ppi(modeller, salt_concentration, params)
+    else:
+        system = create_model_smallmolecule(modeller, salt_concentration, params, args.sdf)
+        
 
-        # MetaDynamics (optional)
+    # MetaDynamics (optional)
     # TODO move
     if params['metadynamics'] is not None:
         # Only import if required. Currently doesn't work with openmm 8.3.1
@@ -313,7 +308,7 @@ def parse_arguments():
     parser.add_argument('--traj', default='output/traj.h5')
     parser.add_argument('--stats', default='output/stats.txt')
     parser.add_argument('--metadynamics', default="output/metadynamics.txt", help='Metadynamics output file.')
-    parser.add_argument('--sdf', help='Small molecule sdf file')
+    parser.add_argument('--sdf', required=False,help='Small molecule sdf file', default='0')
     return parser.parse_args()
 
 

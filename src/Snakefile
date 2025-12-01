@@ -137,25 +137,25 @@ rule Mutagensis:
         fi
         """
 
-def get_sdf_input(wildcards):
+def get_sdf_param(wildcards):
     if mode == "molecule":
         # one SDF path as a string
         return simulations_df.loc[f"{wildcards.complex}_{wildcards.mutation}", "sdf"]
     else:
         # no SDF required in protein / PPi mode
-        return []
-
+        return "-1"
 
 rule MD:
     input:   
         md_settings=ancient('config/params.yml'),
         pdb='{complex}/{mutation}/mutation.pdb',
-        sdf=get_sdf_input
     output:
         topo_cif = '{complex}/{mutation}/{seed}/MD/frame_end.cif',
         traj=temp('{complex}/{mutation}/{seed}/MD/trajectory.h5'),
         stats='{complex}/{mutation}/{seed}/MD/MDStats.csv',
         metadynamics='{complex}/{mutation}/{seed}/MD/metadynamics/metadynamics.txt',
+    params:
+        get_sdf_param
     resources:
         gpu=1
     priority:
@@ -168,9 +168,10 @@ rule MD:
                 --md_settings {input.md_settings} \
                 --seed {wildcards.seed} \
                 --stats {output.stats} \
-                --sdf {input.sdf} \
-                --metadynamics {output.metadynamics}
+                --metadynamics {output.metadynamics} \
+                --sdf {params}
         """
+ 
 
 rule centerMDTraj:
     input:
@@ -198,7 +199,6 @@ rule align:
     params: os.path.join(os.environ['CONDA_PREFIX'], 'bin', '6_Align.py')
     shell:
         "pymol -c {params} --input {input} --output {output}"
-
 
 rule aquaduct:
     input:
