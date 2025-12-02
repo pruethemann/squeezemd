@@ -18,8 +18,13 @@ def align_structures(input_structures, output, cutoff=3.0):
     
     # Load all structures
     for struct_file in input_structures:
+        "C1s_Gigastasin/WT/842/MD/topo_center_842.pdb"
+
+        mutation = struct_file.split("/")[-4]
+
         # Import every final structure
         obj = os.path.basename(struct_file)[:-3]
+        obj = obj + "_" + mutation
         cmd.load(struct_file, obj) 
         objects.append(obj)    
 
