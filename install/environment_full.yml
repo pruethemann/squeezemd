@@ -13,6 +13,8 @@ channels:
 
 dependencies:
   - python                  # 09-25: Python 13 not supported yet
+  - openmm>=8.4
+  - openmm-plumed
   - openmmforcefields       #   
   - openff-toolkit>=0.18          # small molecule forcefield
   - snakemake-minimal       # Automatic workflow engine
@@ -20,8 +22,7 @@ dependencies:
   - pandas                  # Data science
   - pyarrow                 # Data handling
   - mdtraj                  # For centering protein in water box
-  - pymol-open-source       # pymol for interaction surface
-  - cuda-toolkit==12.9            # Cudatoolkit. 09-25: Version 12.9 (V 13 is not supported yet by Openmm)
+  - cuda-toolkit==12.9      # Cudatoolkit. 09-25: Version 12.9 (V 13 is not supported yet by Openmm)
   - seaborn                 # visualisation
   - plotly                  # For trajectory analysis (will be depracted soon)
   - pymol-open-source       # Open source version of pymol (conda-forge)
@@ -32,4 +33,3 @@ dependencies:
         - h5py
         - build             # only DEV: builds tar for pypi
         - twine             # uploads to pypi
-        - openmm-cuda-12

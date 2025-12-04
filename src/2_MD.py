@@ -20,7 +20,8 @@ from openmmforcefields.generators import SystemGenerator
 from openff.toolkit.topology import Molecule
 import mdtraj
 import mdtraj.reporters
-from Helper import import_yaml, save_yaml
+from Helper import import_yaml
+from openmmplumed import PlumedForce
 
 
 # ---------------------------
@@ -144,7 +145,7 @@ def create_model_ppi(modeller, salt_concentration, params):
     forcefield = app.ForceField(protein_forcefield, water_model)
 
     modeller.addHydrogens(forcefield)       # TODO: Check whether His protonation states are changed
-    modeller.addExtraParticles(forcefield)          # Required for tip4p (orbital)
+    modeller.addExtraParticles(forcefield)  # Required for tip4p (orbital)
 
     # Add solvent
     modeller.addSolvent(forcefield,
@@ -175,6 +176,58 @@ def save_pdb(simulation, pdb_file:os.path):
     with open(pdb_file, "w") as f:
         app.PDBFile.writeFile(simulation.topology, positions,f, keepIds=True)
 
+def add_metadynamics_forces_centerofmass(metadynamics_params, T:int, system):
+
+    # Example: add a distance-based collective variable
+    lig_grp = metadynamics_params[0]['COM'][0]['lig_grp']
+    rec_grp = metadynamics_params[0]['COM'][1]['rec_grp']
+
+    hills_path = os.path.abspath(args.metadynamics_hills)
+    colvar_path = os.path.abspath(args.metadynamics_colvar)
+
+    script = f"""
+            # Define two groups (receptor and ligand)
+            WHOLEMOLECULES ENTITY0={lig_grp} ENTITY1={rec_grp}
+
+            # Define COMs of the two partners (virtual atoms)
+            lig: COM ATOMS={lig_grp}
+            rec: COM ATOMS={rec_grp}
+
+            # Distance between the two COMs (in nm)
+            d1: DISTANCE ATOMS=lig,rec
+
+            METAD ARG=d1 SIGMA=0.5 HEIGHT=0.3 PACE=100 FILE={hills_path}
+            PRINT ARG=d1 STRIDE=100 FILE={colvar_path}
+            """
+    plumed = PlumedForce(script)
+    plumed.setTemperature(T*kelvin)
+    system.addForce(plumed)
+    print("Metadynamics variable added")
+    return system
+
+
+def add_metadynamics_forces_singledistance(metadynamics_params, T:int, system):
+    """
+    in progress
+    """
+    # Example: add a distance-based collective variable
+    atomId1 = metadynamics_params[0]['d1'][0]['atomId1'] + 1
+    atomId2 = metadynamics_params[0]['d1'][1]['atomId2'] + 1
+
+    hills_path = os.path.abspath(args.metadynamics_hills)
+    colvar_path = os.path.abspath(args.metadynamics_colvar)
+
+    script = f"""
+            d1: DISTANCE ATOMS={atomId1},{atomId2}
+            METAD ARG=d1 SIGMA=0.1 HEIGHT=0.3 PACE=50 FILE={hills_path}
+            PRINT ARG=d1 STRIDE=50 FILE={colvar_path}
+            """
+    plumed = PlumedForce(script)
+    plumed.setTemperature(T*kelvin)
+    system.addForce(plumed)
+    print("Metadynamics variable added")
+    return system
+
 # ---------------------------
 # Simulation procedure
 # ---------------------------
@@ -190,23 +243,12 @@ def simulate(args, params, salt_concentration=0.15):
     protein = app.PDBFile(args.pdb)
     modeller = app.Modeller(protein.topology, protein.positions)
 
-    # Create solvated system
-    if args.sdf == "-1":
+    # Create solvated system depending on whether ligand is small molecule or protein
+    if args.sdf == "-1": # ligand is protein
         system = create_model_ppi(modeller, salt_concentration, params)
-    else:
+    else: # ligand is small molecule
         system = create_model_smallmolecule(modeller, salt_concentration, params, args.sdf)
         
-
-    # MetaDynamics (optional)
-    # TODO move
-    if params['metadynamics'] is not None:
-        # Only import if required. Currently doesn't work with openmm 8.3.1
-        from openmmplumed import PlumedForce
-        system = compute_metadynamics(params['metadynamics'], system)
-    else:
-        with open(args.metadynamics, 'w') as f:
-            pass  # create dummy file
-
     # Add restraints BEFORE minimization
     system, restraint_force = add_positional_restraints(system, modeller.topology, modeller.positions, k=10.0)
 
@@ -275,9 +317,20 @@ def simulate(args, params, salt_concentration=0.15):
     simulation.step(params['NPT_unrestrained'])
 
     # ---------------------
-    # Stage 4: Production
+    # Stage 4: Metadynamics (optional)
     # ---------------------
-    print(f'\n=== Stage 4: Production run ({params["time"]} ns) ===')
+
+    if params['metadynamics'] is not None:
+        print(f'\n=== Stage 4: Initiate Metadynamics')
+        simulation.system = add_metadynamics_forces_centerofmass(params['metadynamics'], params['temperature'], simulation.system)
+        simulation.context.reinitialize(preserveState=True)  # keep positions/velocities
+    else:
+        with open(args.metadynamics, 'w') as f: pass  # create dummy file
+
+    # ---------------------
+    # Stage 5: Production
+    # ---------------------
+    print(f'\n=== Stage 5: Production run ({params["time"]} ns) ===')
     recordInterval = int(params['recordingInterval'] * 1000 / params['dt'])
     HDF5Reporter = mdtraj.reporters.HDF5Reporter(args.traj, recordInterval)
     dataReporter = app.StateDataReporter(
@@ -307,7 +360,8 @@ def parse_arguments():
     parser.add_argument('--topo_cif', default='output/top.cif')
     parser.add_argument('--traj', default='output/traj.h5')
     parser.add_argument('--stats', default='output/stats.txt')
-    parser.add_argument('--metadynamics', default="output/metadynamics.txt", help='Metadynamics output file.')
+    parser.add_argument('--metadynamics_hills', default="output/metadynamics.txt", help='Metadynamics output file.')
+    parser.add_argument('--metadynamics_colvar', default="output/metadynamics.txt", help='Metadynamics output file.')
     parser.add_argument('--sdf', required=False,help='Small molecule sdf file', default='0')
     return parser.parse_args()
 

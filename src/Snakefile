@@ -60,6 +60,11 @@ mutations = simulations_df.mutation_all.unique()
 # Run a protein-protein interaction analysis
 rule PPi:
     input:
+        expand('{complex}/{mutation}/{seed}/metadynamics/fes.dat',complex=complexes, mutation=mutations, seed=seeds),
+        expand('{complex}/{mutation}/{seed}/metadynamics/freeenergy.png',complex=complexes, mutation=mutations, seed=seeds),
+
+rule Protein_legacy:
+    input:
         'results/fingerprints/interactions.parquet',
         'results/metaReport.html',
         expand('results/interactionSurface/{complex}.{mutation}.interaction.pdb', complex=complexes, mutation=mutations),
@@ -72,9 +77,10 @@ rule PPi:
         'results/posco/lig_heatmap.svg',
         'results/posco/lig_barplot.svg',
         'results/rmsf/rmsf.svg',
-        'results/alignment/align.pse'
-        #expand('{complex}/{mutation}/{seed}/aquaduct/aquaduct.pse',complex=complexes, mutation=mutations, seed=seeds)
-
+        'results/alignment/align.pse',
+        expand('{complex}/{mutation}/{seed}/MD/metadynamics/fes.dat',complex=complexes, mutation=mutations, seed=seeds),
+        expand('{complex}/{mutation}/{seed}/MD/metadynamics/freeenergy.png',complex=complexes, mutation=mutations, seed=seeds),
+ 
 
 # run a small molecule protein interaction analysis
 rule molecule:
@@ -153,7 +159,8 @@ rule MD:
         topo_cif = '{complex}/{mutation}/{seed}/MD/frame_end.cif',
         traj=temp('{complex}/{mutation}/{seed}/MD/trajectory.h5'),
         stats='{complex}/{mutation}/{seed}/MD/MDStats.csv',
-        metadynamics='{complex}/{mutation}/{seed}/MD/metadynamics/metadynamics.txt',
+        metadynamics_hill='{complex}/{mutation}/{seed}/metadynamics/metadynamics_hill.txt',
+        metadynamics_colvar='{complex}/{mutation}/{seed}/metadynamics/Colvar.dat',
     params:
         get_sdf_param
     resources:
@@ -168,10 +175,34 @@ rule MD:
                 --md_settings {input.md_settings} \
                 --seed {wildcards.seed} \
                 --stats {output.stats} \
-                --metadynamics {output.metadynamics} \
+                --metadynamics_hill {output.metadynamics_hill} \
+                --metadynamics_colvar {output.metadynamics_colvar} \
                 --sdf {params}
         """
- 
+
+rule metadynamics:
+    input:   
+        '{complex}/{mutation}/{seed}/metadynamics/metadynamics_hill.txt'
+    output:
+        '{complex}/{mutation}/{seed}/metadynamics/fes.dat'
+    shell:
+        """
+        plumed sum_hills --hills {input} --outfile {output}
+        """
+
+
+rule metadynamics_ana:
+    input:
+        fes='{complex}/{mutation}/{seed}/metadynamics/fes.dat',
+        colvar='{complex}/{mutation}/{seed}/metadynamics/Colvar.dat',
+    output:
+        freeenergy='{complex}/{mutation}/{seed}/metadynamics/freeenergy.png',
+        colvar_fig='{complex}/{mutation}/{seed}/metadynamics/colvar.png',
+    shell:
+        """
+        14.1_Metadynamics_Colvar_ana.py --colvar {input.colvar} --colvar_fig {output.colvar_fig} &&
+        14.2_Metadynamics_Hills_ana.py --fes {input.fes} --freeenergy {output.freeenergy}
+        """
 
 rule centerMDTraj:
     input:
