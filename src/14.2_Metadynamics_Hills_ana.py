@@ -64,7 +64,7 @@ def main():
     args = parse_args()
 
     # Read FES
-    df = pd.read_csv(args.fes, delim_whitespace=True, comment="#", header=None, names=['d1', 'F' ,'der_d1'])
+    df = pd.read_csv(args.fes, sep='\s+', comment="#", header=None, names=['d1', 'F' ,'der_d1'])
 
     sns.lineplot(data=df,
                  x='d1',

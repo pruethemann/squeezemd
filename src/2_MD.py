@@ -353,8 +353,9 @@ def simulate(args, params, salt_concentration=0.15):
     # Stage 4: Metadynamics (optional)
     # ---------------------
 
-    ########## delete
+    ########## delete todo: figoure out why atom id change. do it with Biopandas
     mutation = args.topo_cif.split('/')[-4]
+    ####
 
     if params['metadynamics'] is not None:
         print(f'\n=== Stage 4: Initiate Metadynamics')

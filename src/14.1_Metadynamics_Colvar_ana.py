@@ -31,7 +31,7 @@ def parse_arguments():
 def main():
     args = parse_arguments()
 
-    df = pd.read_csv(args.colvar, delim_whitespace=True, comment="#",
+    df = pd.read_csv(args.colvar, sep='\s+', comment="#",
                      names=["time", "d1"])
     
     print("Loaded COLVAR with columns:", df.columns.tolist())
