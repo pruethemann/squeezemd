@@ -176,7 +176,7 @@ def save_pdb(simulation, pdb_file:os.path):
     with open(pdb_file, "w") as f:
         app.PDBFile.writeFile(simulation.topology, positions,f, keepIds=True)
 
-def add_metadynamics_forces_centerofmass(metadynamics_params, T:int, system):
+def add_metadynamics_forces_centerofmass(metadynamics_params, T:int, system, mutation):
 
     # Example: add a distance-based collective variable
     lig_grp = metadynamics_params[0]['COM'][0]['lig_grp']
@@ -185,7 +185,40 @@ def add_metadynamics_forces_centerofmass(metadynamics_params, T:int, system):
     hills_path = os.path.abspath(args.metadynamics_hills)
     colvar_path = os.path.abspath(args.metadynamics_colvar)
 
-    script = f"""
+    if mutation == 'WT':
+            print("MUTATION:",mutation)
+            script = f"""
+            # Define two groups (receptor and ligand)
+            WHOLEMOLECULES ENTITY0=1-1882 ENTITY1=1883-5947
+
+            # Define COMs of the two partners (virtual atoms)
+            lig: COM ATOMS=1-1882
+            rec: COM ATOMS=1883-5947
+
+            # Distance between the two COMs (in nm)
+            d1: DISTANCE ATOMS=lig,rec
+
+            METAD ARG=d1 SIGMA=0.5 HEIGHT=0.3 PACE=100 FILE={hills_path}
+            PRINT ARG=d1 STRIDE=100 FILE={colvar_path}
+            """
+    else:
+            print("MUTATION:",mutation)
+            script = f"""
+            # Define two groups (receptor and ligand)
+            WHOLEMOLECULES ENTITY0=1-1873 ENTITY1=1874-5938
+
+            # Define COMs of the two partners (virtual atoms)
+            lig: COM ATOMS=1-1873
+            rec: COM ATOMS=1874-5938
+
+            # Distance between the two COMs (in nm)
+            d1: DISTANCE ATOMS=lig,rec
+
+            METAD ARG=d1 SIGMA=0.5 HEIGHT=0.3 PACE=100 FILE={hills_path}
+            PRINT ARG=d1 STRIDE=100 FILE={colvar_path}
+            """
+
+    script_general = f"""
             # Define two groups (receptor and ligand)
             WHOLEMOLECULES ENTITY0={lig_grp} ENTITY1={rec_grp}
 
@@ -320,9 +353,12 @@ def simulate(args, params, salt_concentration=0.15):
     # Stage 4: Metadynamics (optional)
     # ---------------------
 
+    ########## delete
+    mutation = args.topo_cif.split('/')[-4]
+
     if params['metadynamics'] is not None:
         print(f'\n=== Stage 4: Initiate Metadynamics')
-        simulation.system = add_metadynamics_forces_centerofmass(params['metadynamics'], params['temperature'], simulation.system)
+        simulation.system = add_metadynamics_forces_centerofmass(params['metadynamics'], params['temperature'], simulation.system, mutation)
         simulation.context.reinitialize(preserveState=True)  # keep positions/velocities
     else:
         with open(args.metadynamics, 'w') as f: pass  # create dummy file
