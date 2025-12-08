@@ -62,6 +62,8 @@ rule PPi:
     input:
         expand('{complex}/{mutation}/{seed}/metadynamics/fes.dat',complex=complexes, mutation=mutations, seed=seeds),
         expand('{complex}/{mutation}/{seed}/metadynamics/freeenergy.png',complex=complexes, mutation=mutations, seed=seeds),
+        expand('{complex}/{mutation}/{seed}/po-sco/{i}.txt', i=range(number_frames), complex=complexes, mutation=mutations, seed=seeds),
+
 
 rule Protein_legacy:
     input:
