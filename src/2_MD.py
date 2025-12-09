@@ -182,6 +182,15 @@ def add_metadynamics_forces_centerofmass(metadynamics_params, T:int, system, mut
     lig_grp = metadynamics_params[0]['COM'][0]['lig_grp']
     rec_grp = metadynamics_params[0]['COM'][1]['rec_grp']
 
+    # Metadynamics params
+    sigma = metadynamics_params[1]['params'][0]['SIGMA']
+    height = metadynamics_params[1]['params'][1]['HEIGHT']
+    pace = metadynamics_params[1]['params'][2]['PACE']
+    stride = metadynamics_params[1]['params'][3]['STRIDE']
+
+    print("METAdynamics params")
+    print(sigma, height,pace,stride)
+
     hills_path = os.path.abspath(args.metadynamics_hills)
     colvar_path = os.path.abspath(args.metadynamics_colvar)
 
@@ -198,8 +207,8 @@ def add_metadynamics_forces_centerofmass(metadynamics_params, T:int, system, mut
             # Distance between the two COMs (in nm)
             d1: DISTANCE ATOMS=lig,rec
 
-            METAD ARG=d1 SIGMA=0.5 HEIGHT=0.3 PACE=100 FILE={hills_path}
-            PRINT ARG=d1 STRIDE=100 FILE={colvar_path}
+            METAD ARG=d1 SIGMA={sigma} HEIGHT={height} PACE={pace} FILE={hills_path}
+            PRINT ARG=d1 STRIDE={stride} FILE={colvar_path}
             """
     else:
             print("MUTATION:",mutation)
@@ -214,8 +223,8 @@ def add_metadynamics_forces_centerofmass(metadynamics_params, T:int, system, mut
             # Distance between the two COMs (in nm)
             d1: DISTANCE ATOMS=lig,rec
 
-            METAD ARG=d1 SIGMA=0.5 HEIGHT=0.3 PACE=100 FILE={hills_path}
-            PRINT ARG=d1 STRIDE=100 FILE={colvar_path}
+            METAD ARG=d1 SIGMA={sigma} HEIGHT={height} PACE={pace} FILE={hills_path}
+            PRINT ARG=d1 STRIDE={stride} FILE={colvar_path}
             """
 
     script_general = f"""
@@ -229,9 +238,10 @@ def add_metadynamics_forces_centerofmass(metadynamics_params, T:int, system, mut
             # Distance between the two COMs (in nm)
             d1: DISTANCE ATOMS=lig,rec
 
-            METAD ARG=d1 SIGMA=0.5 HEIGHT=0.3 PACE=100 FILE={hills_path}
-            PRINT ARG=d1 STRIDE=100 FILE={colvar_path}
+            METAD ARG=d1 SIGMA={sigma} HEIGHT={height} PACE={pace} FILE={hills_path}
+            PRINT ARG=d1 STRIDE={stride} FILE={colvar_path}
             """
+    
     plumed = PlumedForce(script)
     plumed.setTemperature(T*kelvin)
     system.addForce(plumed)
@@ -355,7 +365,7 @@ def simulate(args, params, salt_concentration=0.15):
 
     ########## delete todo: figoure out why atom id change. do it with Biopandas
     mutation = args.topo_cif.split('/')[-4]
-    ####
+    ####delim_whitespace=True
 
     if params['metadynamics'] is not None:
         print(f'\n=== Stage 4: Initiate Metadynamics')
