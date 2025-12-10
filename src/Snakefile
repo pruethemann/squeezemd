@@ -144,6 +144,7 @@ rule MD:
         md_settings=ancient('config/params.yml'),
         pdb='{complex}/{mutation}/mutation.pdb',
     output:
+        equilibrated = '{complex}/{mutation}/{seed}/MD/equilibrated.pdb',
         topo_cif = '{complex}/{mutation}/{seed}/MD/frame_end.cif',
         traj=temp('{complex}/{mutation}/{seed}/MD/trajectory.h5'),
         stats='{complex}/{mutation}/{seed}/MD/MDStats.csv',
@@ -158,6 +159,7 @@ rule MD:
     shell:
         """
         2_MD.py --pdb {input.pdb} \
+                --equilibrated {output.equilibrated} \
                 --topo_cif {output.topo_cif} \
                 --traj {output.traj} \
                 --md_settings {input.md_settings} \

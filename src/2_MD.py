@@ -20,9 +20,10 @@ from openmmforcefields.generators import SystemGenerator
 from openff.toolkit.topology import Molecule
 import mdtraj
 import mdtraj.reporters
-from Helper import import_yaml
 from openmmplumed import PlumedForce
-
+import MDAnalysis as mda
+import numpy as np
+from Helper import import_yaml
 
 # ---------------------------
 # Helper functions
@@ -176,64 +177,123 @@ def save_pdb(simulation, pdb_file:os.path):
     with open(pdb_file, "w") as f:
         app.PDBFile.writeFile(simulation.topology, positions,f, keepIds=True)
 
-def add_metadynamics_forces_centerofmass(metadynamics_params, T:int, system, mutation):
+def extract_atom_indices(pdf_file: os.path, cutoff = 5.0):
 
-    # Example: add a distance-based collective variable
-    lig_grp = metadynamics_params[0]['COM'][0]['lig_grp']
-    rec_grp = metadynamics_params[0]['COM'][1]['rec_grp']
+    u = mda.Universe(pdf_file)
 
+    # get all heavy atoms of lig and rec
+    lig_heavy = u.select_atoms("chainID A and not name H*")
+    rec_heavy = u.select_atoms("(chainID B or chainID C) and not name H*")
+
+    # get all heavy atoms of lig and rec
+    lig = u.select_atoms("chainID A")
+    rec = u.select_atoms("chainID B or chainID C")
+
+    # Compute distance matrix between all atoms of the two chains
+    dist = mda.lib.distances.distance_array(lig_heavy.positions, rec_heavy.positions)
+
+    # Boolean masks of interface atoms
+    lig_interface_mask = np.any(dist < cutoff, axis=1)
+    rec_interface_mask = np.any(dist < cutoff, axis=0)
+
+    # Interface atoms selections
+    lig_interface = lig_heavy[lig_interface_mask]
+    rec_interface = rec_heavy[rec_interface_mask]
+
+    # Print in PLUMED-friendly format. Add +1 because plumed starts at atom id 1 and not 0
+    lig_plumed = ",".join(map(str, lig.indices + 1))
+    rec_plumed = ",".join(map(str, rec.indices + 1))
+    lig_interface_plumed = ",".join(map(str, lig_interface.indices + 1))
+    rec_interface_plumed = ",".join(map(str, rec_interface.indices + 1))
+
+    atom_indices = {'lig_index': lig_plumed,
+                    'rec_index': rec_plumed,
+                    'lig_interface_index':lig_interface_plumed,
+                    'rec_interface_index':rec_interface_plumed,
+                    'lig_min':lig.indices.min() + 1,
+                    'lig_max':lig.indices.max() + 1,
+                    'rec_min':rec.indices.min() + 1,
+                    'rec_max':rec.indices.max() + 1,
+    }
+
+    return atom_indices
+
+
+def add_metadynamics_contacts(metadynamics_params, T:int, system, mutation):
     # Metadynamics params
     sigma = metadynamics_params[1]['params'][0]['SIGMA']
     height = metadynamics_params[1]['params'][1]['HEIGHT']
     pace = metadynamics_params[1]['params'][2]['PACE']
     stride = metadynamics_params[1]['params'][3]['STRIDE']
 
-    print("METAdynamics params")
-    print(sigma, height,pace,stride)
-
+    # Get absolute paths for outputs
     hills_path = os.path.abspath(args.metadynamics_hills)
     colvar_path = os.path.abspath(args.metadynamics_colvar)
 
-    if mutation == 'WT':
-            print("MUTATION:",mutation)
-            script = f"""
-            # Define two groups (receptor and ligand)
-            WHOLEMOLECULES ENTITY0=1-1882 ENTITY1=1883-5947
+    # get relevant atom indexes
+    id = extract_atom_indices(args.equilibrated)
 
-            # Define COMs of the two partners (virtual atoms)
-            lig: COM ATOMS=1-1882
-            rec: COM ATOMS=1883-5947
+    script = f"""
+            # get residue and chainID information
+            MOLINFO STRUCTURE={args.equilibrated}
 
-            # Distance between the two COMs (in nm)
-            d1: DISTANCE ATOMS=lig,rec
+            # Define two groups (ligand:Entity0 and receptor:Entity1)
+            WHOLEMOLECULES ENTITY0={id['lig_min']}-{id['lig_max']} ENTITY1={id['rec_min']}-{id['rec_max']}
 
-            METAD ARG=d1 SIGMA={sigma} HEIGHT={height} PACE={pace} FILE={hills_path}
-            PRINT ARG=d1 STRIDE={stride} FILE={colvar_path}
-            """
-    else:
-            print("MUTATION:",mutation)
-            script = f"""
-            # Define two groups (receptor and ligand)
-            WHOLEMOLECULES ENTITY0=1-1873 ENTITY1=1874-5938
+            # Group heavy atoms for contact
+            grp_lig: GROUP ATOMS={id['lig_min']}-{id['lig_max']}
+            grp_rec: GROUP ATOMS={id['rec_min']}-{id['rec_max']}
 
-            # Define COMs of the two partners (virtual atoms)
-            lig: COM ATOMS=1-1873
-            rec: COM ATOMS=1874-5938
+            # Define center of mass of the two partners
+            lig: COM ATOMS=grp_lig
+            rec: COM ATOMS=grp_rec
 
             # Distance between the two COMs (in nm)
-            d1: DISTANCE ATOMS=lig,rec
+
+            d1: DISTANCE {id['rec_index']}ATOMS=lig,rec
 
             METAD ARG=d1 SIGMA={sigma} HEIGHT={height} PACE={pace} FILE={hills_path}
             PRINT ARG=d1 STRIDE={stride} FILE={colvar_path}
             """
 
-    script_general = f"""
-            # Define two groups (receptor and ligand)
-            WHOLEMOLECULES ENTITY0={lig_grp} ENTITY1={rec_grp}
+    plumed = PlumedForce(script)
+    plumed.setTemperature(T*kelvin)
+    system.addForce(plumed)
+    print("Metadynamics variable added")
+    return system
 
-            # Define COMs of the two partners (virtual atoms)
-            lig: COM ATOMS={lig_grp}
-            rec: COM ATOMS={rec_grp}
+
+def add_metadynamics_forces_centerofmass(metadynamics_params, T:int, system, mutation):
+    # Metadynamics params
+    sigma = metadynamics_params[1]['params'][0]['SIGMA']
+    height = metadynamics_params[1]['params'][1]['HEIGHT']
+    pace = metadynamics_params[1]['params'][2]['PACE']
+    stride = metadynamics_params[1]['params'][3]['STRIDE']
+
+    # Get absolute paths for outputs
+    hills_path = os.path.abspath(args.metadynamics_hills)
+    colvar_path = os.path.abspath(args.metadynamics_colvar)
+
+    # get relevant atom indexes
+    id = extract_atom_indices(args.equilibrated)
+
+    print(id)
+
+    print("MUTATION:",mutation)
+    script = f"""
+            # get residue and chainID information
+            MOLINFO STRUCTURE={args.equilibrated}
+
+            # Define two groups (ligand:Entity0 and receptor:Entity1)
+            WHOLEMOLECULES ENTITY0={id['lig_min']}-{id['lig_max']} ENTITY1={id['rec_min']}-{id['rec_max']}
+
+            # Group heavy atoms for contact
+            grp_lig: GROUP ATOMS={id['lig_min']}-{id['lig_max']}
+            grp_rec: GROUP ATOMS={id['rec_min']}-{id['rec_max']}
+
+            # Define center of mass of the two partners
+            lig: COM ATOMS=grp_lig
+            rec: COM ATOMS=grp_rec
 
             # Distance between the two COMs (in nm)
             d1: DISTANCE ATOMS=lig,rec
@@ -242,6 +302,8 @@ def add_metadynamics_forces_centerofmass(metadynamics_params, T:int, system, mut
             PRINT ARG=d1 STRIDE={stride} FILE={colvar_path}
             """
     
+    print(script)
+
     plumed = PlumedForce(script)
     plumed.setTemperature(T*kelvin)
     system.addForce(plumed)
@@ -359,6 +421,9 @@ def simulate(args, params, salt_concentration=0.15):
     simulation.context.reinitialize(preserveState=True)
     simulation.step(params['NPT_unrestrained'])
 
+    # Save equilibrated pdb
+    save_pdb(simulation, args.equilibrated)
+
     # ---------------------
     # Stage 4: Metadynamics (optional)
     # ---------------------
@@ -404,6 +469,7 @@ def parse_arguments():
     parser.add_argument('--pdb', default='input/fix1.pdb')
     parser.add_argument('--md_settings', default='input/params.yml')
     parser.add_argument('--seed', type=int, default=12)
+    parser.add_argument('--equilibrated', default='output/equilibrated.pdb')
     parser.add_argument('--topo_cif', default='output/top.cif')
     parser.add_argument('--traj', default='output/traj.h5')
     parser.add_argument('--stats', default='output/stats.txt')
