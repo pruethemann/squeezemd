@@ -1,120 +1,97 @@
 import sys
 import numpy as np
 import pandas as pd
+import yaml
 from os import path
+from Helper import save_yaml
 
 # ======================
 # Configuration Handling
 # ======================
 
-# Define paths to key files and directories
-simulation_data = path.join('config', 'simulations.csv')
-configfile: path.join('config', 'params.yml')       # Configuration file for Snakemake
+# Import the simulation and Molecular dynamics parameters
+configfile: path.join('config', 'sim_config.yml') 
+with open(path.join('config', 'md_config.yml')) as f:
+    config_md = yaml.safe_load(f)
+# merge both configs together
+config.update(config_md)
 
-# Retrieve essential parameters from the config
-number_frames = config.get("number_frames", 100)  # Default to 100 if not set
-replicates = config.get("replicates", 1)  # Default to 1 if not set
-
-# Extract the mode: 
-# a) PPi
-# b) protein
-# c) small Molecule
-try:
-    mode = [arg for arg in sys.argv[1:] if not arg.startswith("-")][1]
-except:
-    # default mode
-    mode = 'PPi'
-
+COMPLEXES = list(config.get("complexes").keys())
+mutations = config['mutations']
+n_frames = config['simulation']['number_frames']
 
 # ==================================
 # Random Seed Generation for Replicates
 # ==================================
 seed = config.get("seed", 23)
 np.random.seed(seed)  # Ensure reproducibility
-seeds = np.random.randint(100, 1000, size=replicates)
+seeds = np.random.randint(100, 1000, size=config['simulation']['replicates'])
 representative_seed = seeds[0] # First seeds is used as representation for surface interaction analysis
-
-# ==================================
-# Simulation Data Preprocessing
-# ==================================
-# Load simulation conditions and preprocess data
-
-simulations_df = pd.read_csv(simulation_data)
-
-# Handle small molecule input data
-if mode == 'molecule':
-    ligs = pd.read_csv(path.join('config', 'ligands.csv'))
-    simulations_df = pd.merge(ligs, simulations_df,  how="cross")
-    simulations_df['sdf'] = 'ligands/' + simulations_df.ligand + ".sdf"
-
-simulations_df['complex'] = simulations_df['target'] + '_' + simulations_df['ligand']
-simulations_df['name'] = simulations_df['complex'] + '_' + simulations_df['mutation_all']
-simulations_df.set_index('name', inplace=True)
-
-print(simulations_df)
-
-# Define global variables for easy access
-complexes = simulations_df.complex.unique()
-mutations = simulations_df.mutation_all.unique()
 
 # Run a protein-protein interaction analysis
 rule PPi:
     input:
-        expand('{complex}/{mutation}/{seed}/metadynamics/fes.dat',complex=complexes, mutation=mutations, seed=seeds),
-        expand('{complex}/{mutation}/{seed}/metadynamics/freeenergy.png',complex=complexes, mutation=mutations, seed=seeds),
         'results/alignment/align.pse',
         'results/metaReport.html',
-        expand('{complex}/{mutation}/{seed}/fingerprint/fingerprint.parquet',complex=complexes,mutation=mutations,seed=seeds),
+        expand('{complex}/{mutation}/{seed}/fingerprint/fingerprint.parquet',complex=COMPLEXES,mutation=mutations,seed=seeds),
         'results/posco/lig_heatmap.svg',
         'results/posco/lig_barplot.svg',
         'results/rmsf/rmsf.svg',
-        expand('results/interactionSurface/{complex}.{mutation}.interaction.pdb', complex=complexes, mutation=mutations),
+        expand('results/interactionSurface/{complex}.{mutation}.interaction.pdb', complex=COMPLEXES, mutation=mutations),
+
+rule PPi_metadynamics:
+    input:
+        expand('{complex}/{mutation}/{seed}/metadynamics/fes.dat',complex=COMPLEXES, mutation=mutations, seed=seeds),
+        expand('{complex}/{mutation}/{seed}/metadynamics/freeenergy.png',complex=COMPLEXES, mutation=mutations, seed=seeds),
+        'results/alignment/align.pse',
+        'results/metaReport.html',
+        expand('{complex}/{mutation}/{seed}/fingerprint/fingerprint.parquet',complex=COMPLEXES,mutation=mutations,seed=seeds),
+        'results/posco/lig_heatmap.svg',
+        'results/posco/lig_barplot.svg',
+        'results/rmsf/rmsf.svg',
+        expand('results/interactionSurface/{complex}.{mutation}.interaction.pdb', complex=COMPLEXES, mutation=mutations),
+
 
 # run a small molecule protein interaction analysis
 rule molecule:
     input:
         'results/metaReport.html',
-        expand('{complex}/{mutation}/{seed}/frames/lig_{i}.pdb', i=range(number_frames), complex=complexes, mutation=mutations, seed=seeds),
-        expand('{complex}/{mutation}/{seed}/frames/rec_{i}.pdb', i=range(number_frames), complex=complexes, mutation=mutations, seed=seeds),
-        expand('{complex}/{mutation}/{seed}/po-sco/{i}.txt', i=range(number_frames), complex=complexes, mutation=mutations, seed=seeds),
+        expand('{complex}/{mutation}/{seed}/frames/lig_{i}.pdb', i=range(n_frames), complex=COMPLEXES, mutation=mutations, seed=seeds),
+        expand('{complex}/{mutation}/{seed}/frames/rec_{i}.pdb', i=range(n_frames), complex=COMPLEXES, mutation=mutations, seed=seeds),
+        expand('{complex}/{mutation}/{seed}/po-sco/{i}.txt', i=range(n_frames), complex=COMPLEXES, mutation=mutations, seed=seeds),
         'results/posco/posco_interactions.parquet',
         'results/alignment/align.pse'
-        #expand('{complex}/{mutation}/{seed}/aquaduct/aquaduct.pse',complex=complexes, mutation=mutations, seed=seeds)
-
-# TODO
-# Init aquaduct again
-
+        #expand('{complex}/{mutation}/{seed}/aquaduct/aquaduct.pse',complex=COMPLEXES, mutation=mutations, seed=seeds)
 
 # Run a apo protein only
 rule protein:
     input:
-        expand('{complex}/{mutation}/{seed}/MD/traj_center.dcd', complex=complexes, mutation=mutations, seed=seeds),
-        expand('{complex}/{mutation}/{seed}/analysis/RMSF.html', complex=complexes, mutation=mutations, seed=seeds),
-        expand('{complex}/{mutation}/{seed}/aquaduct/aquaduct.pse',complex=complexes, mutation=mutations, seed=seeds)
-
+        expand('{complex}/{mutation}/{seed}/MD/traj_center.dcd', complex=COMPLEXES, mutation=mutations, seed=seeds),
+        expand('{complex}/{mutation}/{seed}/analysis/RMSF.html', complex=COMPLEXES, mutation=mutations, seed=seeds),
+        expand('{complex}/{mutation}/{seed}/aquaduct/aquaduct.pse',complex=COMPLEXES, mutation=mutations, seed=seeds)
 
 rule metaReport:
     input:
-        params='config/params.yml',
-        sims='config/simulations.csv'
+        md_config='config/md_config.yml',
+        sim_config='config/sim_config.yml'
     output:
-        report('results/metaReport.html',caption="RMSF.rst",category="Meta"),
+        report('results/metaReport.html',caption="RMSF.rst",category="Meta")
     shell:
         """
-        metaReport.py  --param {input.params}  \
-                       --sims {input.sims}  \
-                       --output {output}  \
+        metaReport.py  --param {input.md_config} \
+                       --sims {input.sim_config} \
+                       --output {output}
         """
 
 rule Mutagensis:
     input:
-        'config/params.yml',
-        'config/simulations.csv'
+        'config/md_config.yml',
+        'config/sim_config.yml'
     output:
         '{complex}/{mutation}/mutation.pdb'
     params:
         out_dir=directory('{complex}/{mutation}'),
-        pdb= lambda wildcards: simulations_df.loc[f'{wildcards.complex}_{wildcards.mutation}']['input'],
+        pdb= lambda wildcards: config['complexes'][wildcards.complex]['pdb'],
         foldX='foldx_20251231'              # Needs to be updated every year
     log:
         '{complex}/{mutation}/mutation.log'
@@ -131,17 +108,55 @@ rule Mutagensis:
         fi
         """
 
-def get_sdf_param(wildcards):
-    if mode == "molecule":
-        # one SDF path as a string
-        return simulations_df.loc[f"{wildcards.complex}_{wildcards.mutation}", "sdf"]
-    else:
-        # no SDF required in protein / PPi mode
-        return "-1"
-
-rule MD:
+rule MD_PPi:
     input:   
-        md_settings=ancient('config/params.yml'),
+        md_settings=ancient('config/md_config.yml'),
+        pdb='{complex}/{mutation}/mutation.pdb',
+    output:
+        equilibrated = '{complex}/{mutation}/{seed}/MD/equilibrated.pdb',
+        topo_cif = '{complex}/{mutation}/{seed}/MD/frame_end.cif',
+        traj=temp('{complex}/{mutation}/{seed}/MD/trajectory.h5'),
+        stats='{complex}/{mutation}/{seed}/MD/MDStats.csv'
+    resources: gpu=1
+    priority: 3
+    shell:
+        """
+        2_MD.py --pdb {input.pdb} \
+                --equilibrated {output.equilibrated} \
+                --topo_cif {output.topo_cif} \
+                --traj {output.traj} \
+                --md_settings {input.md_settings} \
+                --seed {wildcards.seed} \
+                --stats {output.stats}
+        """
+
+rule MD_molecule:
+    input:   
+        md_settings=ancient('config/md_config.yml'),
+        pdb='{complex}/{mutation}/mutation.pdb',
+    output:
+        equilibrated = '{complex}/{mutation}/{seed}/MD/equilibrated.pdb',
+        topo_cif = '{complex}/{mutation}/{seed}/MD/frame_end.cif',
+        traj=temp('{complex}/{mutation}/{seed}/MD/trajectory.h5'),
+        stats='{complex}/{mutation}/{seed}/MD/MDStats.csv',
+        #sdf=lambda wildcards: config['complexes'][wildcards.complex]['pdb'], # This will terribly fail
+    resources: gpu=1
+    priority: 3
+    shell:
+        """
+        2_MD.py --pdb {input.pdb} \
+                --equilibrated {output.equilibrated} \
+                --topo_cif {output.topo_cif} \
+                --traj {output.traj} \
+                --md_settings {input.md_settings} \
+                --seed {wildcards.seed} \
+                --stats {output.stats} \
+                --sdf {output.sdf}
+        """
+
+rule MD_metadynamics:
+    input:   
+        md_settings=ancient('config/md_config.yml'),
         pdb='{complex}/{mutation}/mutation.pdb',
     output:
         equilibrated = '{complex}/{mutation}/{seed}/MD/equilibrated.pdb',
@@ -149,13 +164,9 @@ rule MD:
         traj=temp('{complex}/{mutation}/{seed}/MD/trajectory.h5'),
         stats='{complex}/{mutation}/{seed}/MD/MDStats.csv',
         metadynamics_hill='{complex}/{mutation}/{seed}/metadynamics/metadynamics_hill.txt',
-        metadynamics_colvar='{complex}/{mutation}/{seed}/metadynamics/Colvar.dat',
-    params:
-        get_sdf_param
-    resources:
-        gpu=1
-    priority:
-        3
+        metadynamics_colvar='{complex}/{mutation}/{seed}/metadynamics/Colvar.dat'
+    resources: gpu=1
+    priority: 3
     shell:
         """
         2_MD.py --pdb {input.pdb} \
@@ -166,9 +177,11 @@ rule MD:
                 --seed {wildcards.seed} \
                 --stats {output.stats} \
                 --metadynamics_hill {output.metadynamics_hill} \
-                --metadynamics_colvar {output.metadynamics_colvar} \
-                --sdf {params}
+                --metadynamics_colvar {output.metadynamics_colvar}
         """
+
+ruleorder: MD_PPi > MD_molecule > MD_metadynamics
+
 
 rule metadynamics:
     input:   
@@ -179,7 +192,6 @@ rule metadynamics:
         """
         plumed sum_hills --hills {input} --outfile {output}
         """
-
 
 rule metadynamics_ana:
     input:
@@ -211,10 +223,9 @@ rule centerMDTraj:
                             --topo_center {output.topo_center}
         """
 
-
 rule align:
     input:
-        expand('{complex}/{mutation}/{seed}/MD/topo_center_{seed}.pdb',complex=complexes, mutation=mutations, seed=seeds),
+        expand('{complex}/{mutation}/{seed}/MD/topo_center_{seed}.pdb',complex=COMPLEXES, mutation=mutations, seed=seeds),
     output:
         'results/alignment/align.pse'
     params: os.path.join(os.environ['CONDA_PREFIX'], 'bin', '6_Align.py')
@@ -269,7 +280,7 @@ rule DescriptiveTrajAnalysis:
         bfactors='{complex}/{mutation}/{seed}/analysis/bfactors.pdb',
         stats='{complex}/{mutation}/{seed}/analysis/Stats.svg',
     params:
-        number_frames = config.get('number_frames')
+        number_frames = n_frames
     shell:
         """
         3.1_ExplorativeTrajectoryAnalysis.py --topo {input.topo} \
@@ -284,8 +295,8 @@ rule DescriptiveTrajAnalysis:
 
 rule calculateRMSF:
     input:
-        topo = expand('{complex}/{mutation}/{seed}/MD/frame_end.cif',complex=complexes, mutation=mutations, seed=seeds),
-        traj = expand('{complex}/{mutation}/{seed}/MD/traj_center.dcd',  complex=complexes, mutation=mutations, seed=seeds), 
+        topo = expand('{complex}/{mutation}/{seed}/MD/frame_end.cif',complex=COMPLEXES, mutation=mutations, seed=seeds),
+        traj = expand('{complex}/{mutation}/{seed}/MD/traj_center.dcd',  complex=COMPLEXES, mutation=mutations, seed=seeds), 
     output:
         'results/rmsf/rmsf.parquet'
     shell:
@@ -326,9 +337,6 @@ rule ExtractithFrameFromTrajectory:
                                         --rec_frame {output.rec_frame} \
                                         --sequence {params.sequence}
         """
-
-
-# PosCo
 rule posco:
     input:
         lig_frames='{complex}/{mutation}/{seed}/frames/lig_{i}.pdb',
@@ -344,7 +352,7 @@ rule posco:
 # PosCo
 rule concatPosco:
     input:
-        posco = expand('{complex}/{mutation}/{seed}/po-sco/{i}.txt', i=range(number_frames), complex=complexes, mutation=mutations, seed=seeds),
+        posco = expand('{complex}/{mutation}/{seed}/po-sco/{i}.txt', i=range(n_frames), complex=COMPLEXES, mutation=mutations, seed=seeds),
     output:
         'results/posco/posco_interactions.parquet'
     shell:
@@ -364,7 +372,7 @@ rule PoScoHeatMap:
         """
 
 # PosCo
-# TODO: does not work for mutations are differnt complexes yet!!
+# TODO: does not work for mutations of differnt complexes yet!!
 rule PoScoBarplot:
     input:
         'results/posco/posco_interactions.parquet',  
@@ -385,7 +393,7 @@ rule interactionFingerprint:
     output:
         report('{complex}/{mutation}/{seed}/fingerprint/fingerprint.parquet', labels=({"Name": "Interaction Analysis Prolif", "Type": "List"}),caption="RMSF.rst",category="Interaction Fingerprint")
     params:
-        number_frames = config.get('number_frames'),
+        number_frames = n_frames
     threads: 4
     shell:
         """
@@ -401,12 +409,12 @@ rule interactionFingerprint:
 
 rule GlobalFingerprintAnalysis:
     input:
-        fingerprints=expand('{complex}/{mutation}/{seed}/fingerprint/fingerprint.parquet', complex=complexes, mutation=mutations, seed=seeds),
+        fingerprints=expand('{complex}/{mutation}/{seed}/fingerprint/fingerprint.parquet', complex=COMPLEXES, mutation=mutations, seed=seeds),
     output:
         interactions = report('results/fingerprints/interactions.parquet',labels=({"Name": "Interaction Analysis Prolif", "Type": "List"}),caption="RMSF.rst",category="Interaction Fingerprint"),
         figure = report('results/fingerprints/fingerprints.html',labels=({"Name": "Interaction Analysis Prolif", "Type": "Plot"}),caption="RMSF.rst",category="Interaction Fingerprint"),
     params:
-        n_frames = config.get('number_frames')
+        n_frames = n_frames
     shell:
         """
         8_GlobalFinterprintAnalysis.py  --fingerprints {input.fingerprints} \

@@ -1,166 +1,338 @@
 #!/usr/bin/env python
 
-import os
 import argparse
-import pathlib as path
-import pandas as pd
+from pathlib import Path
+
 import numpy as np
+import pandas as pd
 from matplotlib import pyplot as plt
-import seaborn as sns
-from glob import glob
 
-def parse_arguments():
-    parser = argparse.ArgumentParser()
+from squeezemd import io
 
-    #LINUX PATHS
-    # Input
-    parser.add_argument("-i", "--input", required=False, help="Define interaction input file, .parquet or .csv", default="/home/iman/caracara/MD/squeeze_MD/S-01_H08_MASP2_30ns/results/posco/posco_interactions.parquet")
-    #parser.add_argument("-s", "--sequence", required=False, help="Define sequence range of ligand/receptor for efficient plotting of barplot. Read from sequence.parquet", default="/home/iman/caracara/MD/squeeze_MD/S-01_H08_MASP2_30ns/MASP2_H08/WT/131/frames/sequence.parquet")
-    
-    # Output
-    parser.add_argument("-l", "--ligand_interaction", required=False, help="Define ligand analysis output file/directory, .svg", default="lig_barplot.svg")
-    parser.add_argument("-r", "--receptor_interaction", required=False, help="Define receptor analysis output file/directory, .svg", default="rec_barplot.svg")
 
+INTERACTION_TYPES = ["total", "H-bond", "lipophilic", "salt-bridge"]
+
+
+# ----------------------------------------------------------------------
+# CLI
+# ----------------------------------------------------------------------
+
+def parse_arguments() -> argparse.Namespace:
+    parser = argparse.ArgumentParser(
+        description="Per-residue interaction barplots (mean ± SD) "
+                    "for ligand and receptor using the squeezeMD unified tables."
+    )
+    parser.add_argument(
+        "--complex",
+        required=True,
+        help="Name of the complex (must match 'complex' column in tables).",
+    )
+    parser.add_argument(
+        "--condition",
+        default=None,
+        help="Optional condition filter (e.g. 'NPT_300K', 'WT_meta'), "
+             "must match 'condition' in runs table if provided.",
+    )
+    parser.add_argument(
+        "--output-dir",
+        default="figures/posco_barplots",
+        help="Directory to store output SVGs.",
+    )
+    parser.add_argument(
+        "--dpi",
+        type=int,
+        default=300,
+        help="Figure DPI.",
+    )
     return parser.parse_args()
 
-def import_sequence_range(seq_parquet:os.path, protein:str):
 
-    seq_df = pd.read_parquet(seq_parquet).reset_index()
-    seq_df = seq_df[(seq_df['protein'] == protein)]
-    
-    return (seq_df.resid.min(), seq_df.resid.max())
+# ----------------------------------------------------------------------
+# Data helpers
+# ----------------------------------------------------------------------
 
-def interaction_data_aggregation(interaction_partner, interaction_type, df_filtered):
-    """"Filter, aggregate and pivot"""
+def get_runs(complex_name: str, condition: str | None) -> pd.DataFrame:
+    filters = {"complex": complex_name}
+    runs = io.load_runs(filters)
 
-    # filter for each interaction type
-    if interaction_type == "H-bond":
-        df_interaction = df_filtered[(df_filtered['Interaction Type'] == interaction_type) &
-                                     (df_filtered['Marked as Salt-Bridge'] == 0)]
-    elif interaction_type == "lipophilic":
-        df_interaction = df_filtered[(df_filtered['Interaction Type'] == interaction_type)]
-    elif interaction_type == "Salt bridge":
-        df_interaction = df_filtered[(df_filtered['Marked as Salt-Bridge'] == 1)]
-    else:
-        df_interaction = df_filtered
+    if condition is not None:
+        runs = runs[runs["condition"] == condition]
 
-    
-    # TODO Extremely dirty to get access to sequence
-    seq_path = glob(f"**/{mutation}/**/frames/sequence.parquet")
-
-    # based on "observed" interaction partner
-    try:
-        seq_range = import_sequence_range(seq_path[0], interaction_partner[:3])
-        seq_range = range(seq_range[0], seq_range[1])
-    except Exception:
-        raise Exception("Error: Interaction partner not found.")
-    
-    resid = f'{interaction_partner}_resid'
-
-    # number of unique seeds for manual calculation of mean energy over seeds
-    n_frames = len(df_interaction.frame.unique())
-    n_seeds = len(df_interaction.seed.unique())
-
-    # data wrangling/aggregating for desired values, leaving frames
-    frame_avg = df_interaction.groupby([resid, "seed"])['Energy (e)'].sum().reset_index()
-    frame_avg["Energy (e)"] = frame_avg["Energy (e)"].div(n_frames)
-
-    # data wrangling/aggregating for desired values, leaving seeds
-    seed_avg = frame_avg.groupby([resid])['Energy (e)'].sum().reset_index()
-    seed_avg["Energy (e)"] = seed_avg["Energy (e)"].div(n_seeds)
-    seed_avg.rename(columns={"Energy (e)": "mean"}, inplace=True)
-
-    seed_sd = frame_avg.groupby([resid])['Energy (e)'].std().reset_index()
-    seed_sd.rename(columns={"Energy (e)": "sd"}, inplace=True)
-
-    combined = pd.merge(seed_avg, seed_sd, on=resid, how="outer")
-    
-    all_resid = pd.DataFrame({resid: seq_range})
-    final = pd.merge(combined, all_resid, on=resid, how="left")
-
-    # get maximum binding energy for cbar value limit
-    emax = seed_avg["mean"].min()
-    
-    return final, emax
-
-def plot_interactions(plot_data, emax):
-    # plotting params based on interaction type
-    # TODO: make vmax dynamic based on max interaction energy
-    if interaction_type == "total":
-        interaction_color = "grey"
-        interaction_label = f'Total interaction Energy (kcal/mol) ({mutation})'
-    elif interaction_type == "H-bond":
-        interaction_color = "dodgerblue"
-        interaction_label = f'H-bond Energy (kcal/mol) ({mutation})'
-    elif interaction_type == "lipophilic":
-        interaction_color = "darkorange"
-        interaction_label = 'Hydrophobic interaction Energy (kcal/mol) ({mutation})'
-    elif interaction_type == "Salt bridge":
-        interaction_color = "seagreen"
-        interaction_label = 'Salt Bridge interaction Energy (kcal/mol) ({mutation})'
-    else:
-        raise Exception("ERROR: Martin introduced a new interaction type")
+    if runs.empty:
+        raise ValueError(f"No runs found for complex='{complex_name}' "
+                         f"and condition='{condition}'.")
+    return runs
 
 
-    # TODO Extremely dirty to get access to sequence
-    seq_path = glob(f"**/{mutation}/**/frames/sequence.parquet")
+def load_residue_interactions_for_runs(runs: pd.DataFrame) -> pd.DataFrame:
+    """
+    Load residue_interactions only for the desired runs.
+    """
+    run_ids = runs["run_id"].unique().tolist()
+    ri = io.load_residue_interactions({"run_id": run_ids})
+    # Optional safety: keep only 'energy' metrics
+    ri = ri[ri["metric"] == "energy"]
+    return ri
 
-    seq_range = import_sequence_range(seq_path[0], interaction_partner[:3])
-    plot_range = range(seq_range[0], seq_range[1], 2)
 
-    resid = f'{interaction_partner}_resid'
+def load_residues_for_runs(runs: pd.DataFrame) -> pd.DataFrame:
+    """
+    Load residues table and collapse across runs so we get a single
+    sequence definition per (complex, mutation, partner, resid).
+    """
+    run_ids = runs["run_id"].unique().tolist()
+    res = io.load_residues({"run_id": run_ids})
 
-    plt.bar(x=plot_data[resid],
-            height=plot_data["mean"],
-            yerr=plot_data["sd"],
-            color=interaction_color,
+    # If residues are identical for all seeds of a mutation, this collapse is safe
+    # Group by fields that define "a residue" and take the first row.
+    res = (
+        res.groupby(
+            [
+                "run_id",
+                "partner",
+                "chain_id",
+                "resid",
+                "resname",
+                "protein_label",
+                "sequence_index",
+            ],
+            as_index=False,
+        )
+        .first()
+    )
+
+    # We will later filter by mutation by joining via run_id
+    return res
+
+
+def aggregate_interactions(
+    ri: pd.DataFrame,
+    runs: pd.DataFrame,
+    partner: str,
+    interaction_type: str,
+) -> pd.DataFrame:
+    """
+    Aggregate interactions for one partner and one interaction_type.
+
+    Returns a DataFrame with columns:
+        complex, mutation, partner, chain_id, resid, resname,
+        mean, sd
+    """
+
+    # 1) Filter to partner + interaction_type
+    df = ri[
+        (ri["partner"] == partner)
+        & (ri["interaction_type"] == interaction_type)
+        & (ri["metric"] == "energy")
+    ].copy()
+    if df.empty:
+        raise ValueError(
+            f"No residue_interactions rows for partner='{partner}', "
+            f"interaction_type='{interaction_type}'."
+        )
+
+    # 2) Map run_id -> mutation from runs table
+    df = df.merge(
+        runs[["run_id", "complex", "mutation"]],
+        on="run_id",
+        how="left",
+        validate="many_to_one",
+    )
+
+    # 3) First average over frames per run
+    per_run = (
+        df.groupby(
+            [
+                "complex",
+                "mutation",
+                "run_id",
+                "partner",
+                "chain_id",
+                "resid",
+                "resname",
+            ],
+            as_index=False,
+        )["value"]
+        .mean()
+        .rename(columns={"value": "mean_per_run"})
+    )
+
+    # 4) Then average over runs (seeds) per mutation
+    per_residue = (
+        per_run.groupby(
+            [
+                "complex",
+                "mutation",
+                "partner",
+                "chain_id",
+                "resid",
+                "resname",
+            ],
+            as_index=False,
+        )["mean_per_run"]
+        .agg(["mean", "std"])
+        .reset_index()
+    )
+
+    per_residue = per_residue.rename(
+        columns={"mean": "mean", "std": "sd"}
+    )
+
+    return per_residue
+
+
+def merge_with_sequence(
+    per_residue: pd.DataFrame,
+    residues: pd.DataFrame,
+    runs: pd.DataFrame,
+    partner: str,
+    mutation: str,
+) -> pd.DataFrame:
+    """
+    For a given mutation and partner, merge aggregated per-residue energies
+    with the residue metadata (sequence_index etc.), and fill missing residues
+    with 0 mean (no interaction) and 0 SD.
+    """
+    # Subset residues to runs with this mutation & partner
+    mut_run_ids = runs.loc[runs["mutation"] == mutation, "run_id"].unique()
+    res_sub = residues[
+        (residues["run_id"].isin(mut_run_ids))
+        & (residues["partner"] == partner)
+    ].copy()
+
+    # Collapse across run_id for that mutation: we just want one row per residue
+    res_sub = (
+        res_sub.groupby(
+            ["partner", "chain_id", "resid", "resname", "protein_label", "sequence_index"],
+            as_index=False,
+        )
+        .first()
+    )
+
+    # Merge energies
+    merged = res_sub.merge(
+        per_residue[
+            [
+                "complex",
+                "mutation",
+                "partner",
+                "chain_id",
+                "resid",
+                "resname",
+                "mean",
+                "sd",
+            ]
+        ],
+        on=["partner", "chain_id", "resid", "resname"],
+        how="left",
+    )
+
+    # For residues with no data, set 0 and 0
+    merged["mean"] = merged["mean"].fillna(0.0)
+    merged["sd"] = merged["sd"].fillna(0.0)
+
+    # Sort by sequence_index for plotting
+    merged = merged.sort_values("sequence_index").reset_index(drop=True)
+    return merged
+
+
+# ----------------------------------------------------------------------
+# Plotting
+# ----------------------------------------------------------------------
+
+def plot_partner_for_mutation(
+    complex_name: str,
+    mutation: str,
+    partner: str,
+    per_type_data: dict[str, pd.DataFrame],
+    out_path: Path,
+    dpi: int,
+) -> None:
+    """
+    per_type_data: mapping interaction_type -> merged dataframe (with sequence_index, mean, sd)
+    """
+    out_path.parent.mkdir(parents=True, exist_ok=True)
+
+    fig, axes = plt.subplots(
+        nrows=len(INTERACTION_TYPES), ncols=1, figsize=(15, 3 * len(INTERACTION_TYPES)), sharex=True
+    )
+
+    if len(INTERACTION_TYPES) == 1:
+        axes = [axes]
+
+    for ax, interaction_type in zip(axes, INTERACTION_TYPES):
+        df = per_type_data[interaction_type]
+        x = df["sequence_index"]
+        y = df["mean"]
+        yerr = df["sd"]
+
+        ax.bar(x, y, yerr=yerr)
+        ax.set_ylabel(f"{interaction_type} energy\n(kcal/mol)")
+        ax.axhline(0.0, color="black", linewidth=0.8)
+        ax.set_xlim(x.min() - 1, x.max() + 1)
+
+    axes[-1].set_xlabel("Residue index (sequence_index)")
+
+    fig.suptitle(
+        f"{complex_name} – {mutation} – {partner}",
+        fontsize=14,
+    )
+    fig.tight_layout(rect=[0, 0.02, 1, 0.95])
+
+    fig.savefig(out_path, dpi=dpi)
+    plt.close(fig)
+
+
+# ----------------------------------------------------------------------
+# Main
+# ----------------------------------------------------------------------
+
+def main() -> None:
+    args = parse_arguments()
+
+    complex_name = args.complex
+    condition = args.condition
+    out_dir = Path(args.output_dir)
+
+    runs = get_runs(complex_name, condition)
+    ri = load_residue_interactions_for_runs(runs)
+    residues = load_residues_for_runs(runs)
+
+    mutations = sorted(runs["mutation"].unique())
+
+    for mutation in mutations:
+        for partner in ["ligand", "receptor"]:
+            per_type_data: dict[str, pd.DataFrame] = {}
+
+            for interaction_type in INTERACTION_TYPES:
+                per_residue = aggregate_interactions(
+                    ri=ri,
+                    runs=runs,
+                    partner=partner,
+                    interaction_type=interaction_type,
+                )
+                merged = merge_with_sequence(
+                    per_residue=per_residue,
+                    residues=residues,
+                    runs=runs,
+                    partner=partner,
+                    mutation=mutation,
+                )
+                per_type_data[interaction_type] = merged
+
+            out_path = (
+                out_dir
+                / f"{complex_name}__{mutation}__{partner}_residue_interactions.svg"
             )
-    
-    plt.title(interaction_label)
-    #plt.xlabel(plot_data["ligand_resid"])
-    plt.xticks(plot_range, fontsize=10)
-    
-    plt.ylabel('Mean Interaction Energy (kcal/mol)')
-    #plt.yticks(np.linspace(0, emax-1, 10), fontsize=10)
-    plt.axhline(y=0, color="black", linewidth=0.8)
-    #plt.ylim(interaction_min, 0)
+            plot_partner_for_mutation(
+                complex_name=complex_name,
+                mutation=mutation,
+                partner=partner,
+                per_type_data=per_type_data,
+                out_path=out_path,
+                dpi=args.dpi,
+            )
 
 
 if __name__ == "__main__":
-    # Get all arguments
-    args = parse_arguments()
-
-    # 1. Data import
-    try:
-        df = pd.read_parquet(args.input)
-        print("File successfully read as .parquet")
-    except Exception as parquet_error:
-        raise ValueError("Failed to read file")
-    
-    # 2. Data cleaning 
-    # TODO: Perform a water analysis...?
-    df_filtered = df[(df['receptor_resname'] != 'HOH') & (df['ligand_resname'] != 'HOH')]
-
-    # Iterate over mutations
-    mutations = df_filtered.mutation.unique()
-
-    for mutation in mutations:
-
-        data = df_filtered[df_filtered.mutation == mutation]
-
-        # 3. Data visualisation
-        figure_files = [args.ligand_interaction, args.receptor_interaction]
-        for fig_file, interaction_partner in zip(figure_files, ["ligand", "receptor"]):
-            plt.figure(figsize=(15, 30))
-            for i,interaction_type in enumerate(["total", 'H-bond', 'lipophilic', "Salt bridge"]): # , 'Marked as Salt-Bridge'
-                final, energy_max = interaction_data_aggregation(interaction_partner, interaction_type, data)
-                plt.subplot(4, 1, i+1)
-                plot_interactions(final, energy_max)
-
-            plt.tight_layout()
-            if mutation == 'WT':
-                plt.savefig(fig_file)
-            else:
-                plt.savefig(f'{fig_file[:-4]}_{mutation}.svg')
-
-            plt.close()
+    main()

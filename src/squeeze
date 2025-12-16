@@ -3,8 +3,6 @@
 # SqueezeMD specific wrapper around snakemake. Allows to execute squeezeMD in every folder
 # without defining the location of the squeezeMD Snakefile required for the pipeline
 
-echo "Squeeze MD is working"
-
 # Check whether the package requires an upgrade
 if [ "$1" == "upgrade" ]; then
     # Execute the bash script "upgrade_package.sh" to install the current python package

@@ -24,10 +24,6 @@ from openmmplumed import PlumedForce
 import MDAnalysis as mda
 import numpy as np
 from Helper import import_yaml
-
-# ---------------------------
-# Helper functions
-# ---------------------------
 from openmm.unit import kilojoule_per_mole,  nanometer
 
 
@@ -78,8 +74,8 @@ def create_model_smallmolecule(modeller, salt_concentration, params, sdf):
     Build solvated system with ions.
     This does only work for protein protein interaction. See legacy MD for small molecules
     """
-    protein_forcefield = params['forcefield']['protein']
-    water_model = params['forcefield']['water']
+    protein_forcefield = params['simulation']['forcefield']['protein']
+    water_model = params['simulation']['forcefield']['water']
 
     ligand = Molecule.from_file(sdf)
     if not ligand.conformers:
@@ -120,9 +116,9 @@ def create_model_smallmolecule(modeller, salt_concentration, params, sdf):
 
     # Add solvent
     modeller.addSolvent(generator.forcefield,
-                        model=params['forcefield']['watermodel'],                
+                        model=params['simulation']['forcefield']['watermodel'],                
                         boxShape='cube',
-                        ionicStrength=salt_concentration * molar,
+                        ionicStrength=salt_concentration,
                         positiveIon='Na+',
                         negativeIon='Cl-',
                         neutralize=True,
@@ -139,8 +135,8 @@ def create_model_ppi(modeller, salt_concentration, params):
     This does only work for protein protein interaction. See legacy MD for small molecules
     """
 
-    protein_forcefield = params['forcefield']['protein']
-    water_model = params['forcefield']['water']
+    protein_forcefield = params['simulation']['forcefield']['protein']
+    water_model = params['simulation']['forcefield']['water']
 
     print(f'Initializing ForceField: {protein_forcefield} + {water_model}')
     forcefield = app.ForceField(protein_forcefield, water_model)
@@ -150,9 +146,9 @@ def create_model_ppi(modeller, salt_concentration, params):
 
     # Add solvent
     modeller.addSolvent(forcefield,
-                        model=params['forcefield']['watermodel'],                
+                        model=params['simulation']['forcefield']['watermodel'],                
                         boxShape='cube',
-                        ionicStrength=salt_concentration * molar,
+                        ionicStrength=salt_concentration,
                         positiveIon='Na+',
                         negativeIon='Cl-',
                         neutralize=True,
@@ -161,10 +157,10 @@ def create_model_ppi(modeller, salt_concentration, params):
     # Create the MD system
     system = forcefield.createSystem(modeller.topology,
                              nonbondedMethod=app.PME,
-                             nonbondedCutoff=params['nonbondedCutoff'] * nanometers,
+                             nonbondedCutoff=params['simulation']['constraints']['cutoff_nm'] * nanometers,
                              constraints=app.HBonds,
-                             rigidWater=True,
-                             ewaldErrorTolerance=params['ewaldErrorTolerance'])
+                             rigidWater=params['simulation']['constraints']['rigid_water'],
+                             ewaldErrorTolerance=params['simulation']['constraints']['ewald_error_tolerance'])
     return system
 
 def save_cif(simulation, cif_file: os.path):
@@ -218,13 +214,12 @@ def extract_atom_indices(pdf_file: os.path, cutoff = 5.0):
 
     return atom_indices
 
-
-def add_metadynamics_contacts(metadynamics_params, T:int, system, mutation):
+def add_metadynamics_forces_centerofmass(params, system):
     # Metadynamics params
-    sigma = metadynamics_params[1]['params'][0]['SIGMA']
-    height = metadynamics_params[1]['params'][1]['HEIGHT']
-    pace = metadynamics_params[1]['params'][2]['PACE']
-    stride = metadynamics_params[1]['params'][3]['STRIDE']
+    sigma = params['simulation']['metadynamics']['SIGMA']
+    height = params['simulation']['metadynamics']['HEIGHT']
+    pace = params['simulation']['metadynamics']['PACE']
+    stride = params['simulation']['metadynamics']['STRIDE']
 
     # Get absolute paths for outputs
     hills_path = os.path.abspath(args.metadynamics_hills)
@@ -233,53 +228,6 @@ def add_metadynamics_contacts(metadynamics_params, T:int, system, mutation):
     # get relevant atom indexes
     id = extract_atom_indices(args.equilibrated)
 
-    script = f"""
-            # get residue and chainID information
-            MOLINFO STRUCTURE={args.equilibrated}
-
-            # Define two groups (ligand:Entity0 and receptor:Entity1)
-            WHOLEMOLECULES ENTITY0={id['lig_min']}-{id['lig_max']} ENTITY1={id['rec_min']}-{id['rec_max']}
-
-            # Group heavy atoms for contact
-            grp_lig: GROUP ATOMS={id['lig_min']}-{id['lig_max']}
-            grp_rec: GROUP ATOMS={id['rec_min']}-{id['rec_max']}
-
-            # Define center of mass of the two partners
-            lig: COM ATOMS=grp_lig
-            rec: COM ATOMS=grp_rec
-
-            # Distance between the two COMs (in nm)
-
-            d1: DISTANCE {id['rec_index']}ATOMS=lig,rec
-
-            METAD ARG=d1 SIGMA={sigma} HEIGHT={height} PACE={pace} FILE={hills_path}
-            PRINT ARG=d1 STRIDE={stride} FILE={colvar_path}
-            """
-
-    plumed = PlumedForce(script)
-    plumed.setTemperature(T*kelvin)
-    system.addForce(plumed)
-    print("Metadynamics variable added")
-    return system
-
-
-def add_metadynamics_forces_centerofmass(metadynamics_params, T:int, system, mutation):
-    # Metadynamics params
-    sigma = metadynamics_params[1]['params'][0]['SIGMA']
-    height = metadynamics_params[1]['params'][1]['HEIGHT']
-    pace = metadynamics_params[1]['params'][2]['PACE']
-    stride = metadynamics_params[1]['params'][3]['STRIDE']
-
-    # Get absolute paths for outputs
-    hills_path = os.path.abspath(args.metadynamics_hills)
-    colvar_path = os.path.abspath(args.metadynamics_colvar)
-
-    # get relevant atom indexes
-    id = extract_atom_indices(args.equilibrated)
-
-    print(id)
-
-    print("MUTATION:",mutation)
     script = f"""
             # get residue and chainID information
             MOLINFO STRUCTURE={args.equilibrated}
@@ -337,7 +285,7 @@ def add_metadynamics_forces_singledistance(metadynamics_params, T:int, system):
 # Simulation procedure
 # ---------------------------
 
-def simulate(args, params, salt_concentration=0.15):
+def simulate(args, params):
     """
     Set up and start the simulation
     """
@@ -348,8 +296,10 @@ def simulate(args, params, salt_concentration=0.15):
     protein = app.PDBFile(args.pdb)
     modeller = app.Modeller(protein.topology, protein.positions)
 
+    salt_concentration = params['simulation']['system']['salt_molar'] * molar
+
     # Create solvated system depending on whether ligand is small molecule or protein
-    if args.sdf == "-1": # ligand is protein
+    if args.sdf is None: # ligand is protein
         system = create_model_ppi(modeller, salt_concentration, params)
     else: # ligand is small molecule
         system = create_model_smallmolecule(modeller, salt_concentration, params, args.sdf)
@@ -358,11 +308,12 @@ def simulate(args, params, salt_concentration=0.15):
     system, restraint_force = add_positional_restraints(system, modeller.topology, modeller.positions, k=10.0)
 
     # Integrator setup
-    dt = params['dt'] * femtoseconds
-    temperature = params['temperature'] * kelvin
-    friction = 1.0 / picoseconds
-    integrator = LangevinMiddleIntegrator(temperature, friction, dt)
-    integrator.setConstraintTolerance(params['constraintTolerance'])
+    dt_fs = params['simulation']['constraints']['dt_fs']
+    temperature = params['simulation']['system']['temperature_K'] * kelvin
+    friction = params['simulation']['constraints']['friction_ps'] / picoseconds
+    
+    integrator = LangevinMiddleIntegrator(temperature, friction, dt_fs * femtoseconds)
+    integrator.setConstraintTolerance(params['simulation']['constraints']['constraint_tolerance'])
     integrator.setRandomNumberSeed(args.seed)
 
     # Set up the simulation. Add the integrator and the position
@@ -383,8 +334,8 @@ def simulate(args, params, salt_concentration=0.15):
     simulation.context.setVelocitiesToTemperature(50 * kelvin)
 
     # Smooth temperature ramp 50 → 300 K
-    temp_steps = [50, 100, 150, 200, 250, 300, params['temperature']]
-    steps_per_temp = params['NVT_heating']  # e.g. 5000 = 10 ps
+    temp_steps = [50, 100, 150, 200, 250, 300, params['simulation']['system']['temperature_K']]
+    steps_per_temp = params['simulation']['equilibration']['NVT_heating']  # e.g. 5000 = 10 ps
     for T in temp_steps:
         print(f" → Heating to {T} K ...")
         simulation.integrator.setTemperature(T * kelvin)
@@ -394,7 +345,11 @@ def simulate(args, params, salt_concentration=0.15):
     # Stage 2: NPT equilibration with tapering restraints
     # ---------------------
     print('\n=== Stage 2: NPT equilibration with tapering restraints ===')
-    barostat = MonteCarloBarostat(1.0 * atmospheres, params['temperature'] * kelvin, 25)
+    
+    pressure = params['simulation']['system']['pressure_atm'] * atmospheres
+    barostat_interval_steps = params['simulation']['system']['barostat_interval_steps']
+
+    barostat = MonteCarloBarostat(pressure, temperature, barostat_interval_steps)
     system.addForce(barostat)
     simulation.context.reinitialize(preserveState=True)
 
@@ -406,7 +361,7 @@ def simulate(args, params, salt_concentration=0.15):
         restraint_force.updateParametersInContext(simulation.context)
 
         # Run equilibration for each step
-        simulation.step(params['NPT_equilibration'])
+        simulation.step(params['simulation']['equilibration']['NPT_equilibration'])
 
     # ---------------------
     # Stage 3: Unrestrained NPT at simulation T
@@ -419,7 +374,7 @@ def simulate(args, params, salt_concentration=0.15):
             break
 
     simulation.context.reinitialize(preserveState=True)
-    simulation.step(params['NPT_unrestrained'])
+    simulation.step(params['simulation']['equilibration']['NPT_unrestrained'])
 
     # Save equilibrated pdb
     save_pdb(simulation, args.equilibrated)
@@ -428,33 +383,29 @@ def simulate(args, params, salt_concentration=0.15):
     # Stage 4: Metadynamics (optional)
     # ---------------------
 
-    ########## delete todo: figoure out why atom id change. do it with Biopandas
-    mutation = args.topo_cif.split('/')[-4]
-    ####delim_whitespace=True
-
-    if params['metadynamics'] is not None:
+    if params['simulation']['metadynamics']['enabled']:
         print(f'\n=== Stage 4: Initiate Metadynamics')
-        simulation.system = add_metadynamics_forces_centerofmass(params['metadynamics'], params['temperature'], simulation.system, mutation)
+        simulation.system = add_metadynamics_forces_centerofmass(params, simulation.system)
         simulation.context.reinitialize(preserveState=True)  # keep positions/velocities
-    else:
-        with open(args.metadynamics, 'w') as f: pass  # create dummy file
 
     # ---------------------
     # Stage 5: Production
     # ---------------------
-    print(f'\n=== Stage 5: Production run ({params["time"]} ns) ===')
-    recordInterval = int(params['recordingInterval'] * 1000 / params['dt'])
+    print(f'\n=== Stage 5: Production run ({params['simulation']['time_ns']} ns) ===')
+    recordInterval = int(params['simulation']['recording_interval_ps'] * 1000 / params['simulation']['time_ns'])
+    total_steps=params['simulation']['time_ns'] * 1e6 / dt_fs
+    
     HDF5Reporter = mdtraj.reporters.HDF5Reporter(args.traj, recordInterval)
     dataReporter = app.StateDataReporter(
         args.stats, recordInterval, step=True, time=True,
         potentialEnergy=True, kineticEnergy=True, temperature=True,
         volume=True, density=True, progress=True, remainingTime=True,
-        speed=True, totalSteps=int(params['time'] * 1e6 / params['dt'])
-    )
+        speed=True, totalSteps=total_steps)
+    
     simulation.reporters.append(HDF5Reporter)
     simulation.reporters.append(dataReporter)
 
-    simulation.step(int(params['time'] * 1e6 / params['dt']))
+    simulation.step(total_steps)
 
     # Save the end file as cif
     save_cif(simulation, args.topo_cif)
@@ -466,20 +417,23 @@ def simulate(args, params, salt_concentration=0.15):
 
 def parse_arguments():
     parser = argparse.ArgumentParser(description='Run Molecular Dynamics simulations.')
+    # Input
     parser.add_argument('--pdb', default='input/fix1.pdb')
     parser.add_argument('--md_settings', default='input/params.yml')
     parser.add_argument('--seed', type=int, default=12)
-    parser.add_argument('--equilibrated', default='output/equilibrated.pdb')
-    parser.add_argument('--topo_cif', default='output/top.cif')
-    parser.add_argument('--traj', default='output/traj.h5')
-    parser.add_argument('--stats', default='output/stats.txt')
-    parser.add_argument('--metadynamics_hills', default="output/metadynamics.txt", help='Metadynamics output file.')
-    parser.add_argument('--metadynamics_colvar', default="output/metadynamics.txt", help='Metadynamics output file.')
-    parser.add_argument('--sdf', required=False,help='Small molecule sdf file', default='0')
+
+    # Output
+    parser.add_argument('--equilibrated', default='output/equilibrated.pdb', help="Equilibrated system in water box")
+    parser.add_argument('--topo_cif', default='output/top.cif', help="Last uncentered frame of MD")
+    parser.add_argument('--traj', default='output/traj.h5', help="h5md trajectory")
+    parser.add_argument('--stats', default='output/stats.txt', help="Molecular dynamics statistics and progress")
+    parser.add_argument('--metadynamics_hills', default="output/metadynamics_hills.txt", help='Metadynamics hill output file.')
+    parser.add_argument('--metadynamics_colvar', default="output/metadynamics_colvar.txt", help='Metadynamics output file.')
+    parser.add_argument('--sdf', required=False,help='Small molecule sdf file')
     return parser.parse_args()
 
 
 if __name__ == '__main__':
     args = parse_arguments()
     params = import_yaml(args.md_settings)
-    simulate(args, params, salt_concentration=params['salt'])
+    simulate(args, params)
