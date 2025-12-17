@@ -2,8 +2,6 @@ mutations:
       - WT
       - R65E
 
-mode: PPi         # options: PPi, molecule, protein
-
 complexes:
   C1s_Gigastasin:
     receptor: C1s

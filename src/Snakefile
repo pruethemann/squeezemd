@@ -33,6 +33,8 @@ try:
 except:
     mode = 'PPi'
 
+# TODO: Check whether metadynamics settings are enabled.
+
 # Run a protein-protein interaction analysis
 rule PPi:
     input:
@@ -111,9 +113,9 @@ rule Mutagensis:
         then    # No mutagenisis
             cp {params.pdb} {output}
         else    # Mutate
-            1_mutation.py --mutation {wildcards.mutation} --ligand {params.pdb} --output {wildcards.complex}/{wildcards.mutation}/mutant_file.txt
+            1_mutation.py --mutation {wildcards.mutation} --ligand {params.pdb} --output {wildcards.mode}/{wildcards.complex}/{wildcards.mutation}/mutant_file.txt
             cp {params.pdb} {params.out_dir}/WT.pdb
-            {params.foldX} --command=BuildModel --pdb-dir="{params.out_dir}" --pdb=WT.pdb --mutant-file={wildcards.complex}/{wildcards.mutation}/mutant_file.txt --output-dir="{params.out_dir}" --rotabaseLocation ~/tools/foldx/rotabase.txt > {log} || true
+            {params.foldX} --command=BuildModel --pdb-dir="{params.out_dir}" --pdb=WT.pdb --mutant-file={wildcards.mode}/{wildcards.complex}/{wildcards.mutation}/mutant_file.txt --output-dir="{params.out_dir}" --rotabaseLocation ~/tools/foldx/rotabase.txt > {log} || true
             mv {params.out_dir}/WT_1.pdb {output}
         fi
         """
@@ -128,6 +130,7 @@ rule MD_PPi:
         traj=temp('PPi/{complex}/{mutation}/{seed}/MD/trajectory.h5'),
         stats='PPi/{complex}/{mutation}/{seed}/MD/MDStats.csv'
     resources: gpu=1
+    conda: 'install/MD_env.yml'
     priority: 3
     shell:
         """
@@ -164,7 +167,7 @@ rule MD_molecule:
                 --sdf {output.sdf}
         """
 
-rule MD_meta:
+rule MD_metadynamics:
     input:   
         md_settings=ancient('config/md_config.yml'),
         pdb='metadynamics/{complex}/{mutation}/mutation.pdb',

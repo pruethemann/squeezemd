@@ -32,14 +32,8 @@ simulation:
     friction_ps: 1.0
 
   metadynamics: 
-        enabled: False
-        CV:
-          COM
-        params:
-          SIGMA: 0.2    # 0.1-0.5 nm. The width of each Gaussian hill deposited in the free-energy landscape.
-          HEIGHT: 0.03  # 0.1–1.0 kJ/mol. The amplitude (energy) of each Gaussian hill
-          PACE: 1000     # 100-2000. Frequency of applying hill
-          STRIDE: 50    # How often values of your collective variables are written to the COLVAR file.
-
-
-
+        CV: COM
+        SIGMA: 0.2    # 0.1-0.5 nm. The width of each Gaussian hill deposited in the free-energy landscape.
+        HEIGHT: 0.03  # 0.1–1.0 kJ/mol. The amplitude (energy) of each Gaussian hill
+        PACE: 1000     # 100-2000. Frequency of applying hill
+        STRIDE: 50    # How often values of your collective variables are written to the COLVAR file.

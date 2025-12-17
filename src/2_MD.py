@@ -383,7 +383,7 @@ def simulate(args, params):
     # Stage 4: Metadynamics (optional)
     # ---------------------
 
-    if params['simulation']['metadynamics']['enabled']:
+    if args.metadynamics_hills is not None:
         print(f'\n=== Stage 4: Initiate Metadynamics')
         simulation.system = add_metadynamics_forces_centerofmass(params, simulation.system)
         simulation.context.reinitialize(preserveState=True)  # keep positions/velocities
@@ -427,7 +427,7 @@ def parse_arguments():
     parser.add_argument('--topo_cif', default='output/top.cif', help="Last uncentered frame of MD")
     parser.add_argument('--traj', default='output/traj.h5', help="h5md trajectory")
     parser.add_argument('--stats', default='output/stats.txt', help="Molecular dynamics statistics and progress")
-    parser.add_argument('--metadynamics_hills', default="output/metadynamics_hills.txt", help='Metadynamics hill output file.')
+    parser.add_argument('--metadynamics_hills', help='Metadynamics hill output file.')
     parser.add_argument('--metadynamics_colvar', default="output/metadynamics_colvar.txt", help='Metadynamics output file.')
     parser.add_argument('--sdf', required=False,help='Small molecule sdf file')
     return parser.parse_args()
