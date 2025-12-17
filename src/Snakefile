@@ -41,7 +41,6 @@ rule PPi:
         'results/alignment/align.pse',
         'results/metaReport.html',
         expand('{mode}/{complex}/{mutation}/{seed}/fingerprint/fingerprint.parquet',complex=COMPLEXES,mutation=mutations,seed=seeds,mode=mode),
-        expand('{mode}/{complex}/{mutation}/{seed}/MD/trajectory.h5',complex=COMPLEXES,mutation=mutations,seed=seeds, mode=mode),
         'results/posco/lig_heatmap.svg',
         'results/posco/lig_barplot.svg',
         'results/rmsf/rmsf.svg',
@@ -51,7 +50,6 @@ rule metadynamics:
     input:
         expand('metadynamics/{complex}/{mutation}/{seed}/metadynamics/fes.dat',complex=COMPLEXES, mutation=mutations, seed=seeds),
         expand('metadynamics/{complex}/{mutation}/{seed}/metadynamics/freeenergy.png',complex=COMPLEXES, mutation=mutations, seed=seeds),
-        expand('metadynamics/{complex}/{mutation}/{seed}/MD/trajectory.h5',complex=COMPLEXES,mutation=mutations,seed=seeds),
         'results/alignment/align.pse',
         'results/metaReport.html',
         expand('metadynamics/{complex}/{mutation}/{seed}/fingerprint/fingerprint.parquet',complex=COMPLEXES,mutation=mutations,seed=seeds),
@@ -60,18 +58,15 @@ rule metadynamics:
         'results/rmsf/rmsf.svg',
         expand('results/interactionSurface/{complex}.{mutation}.interaction.pdb', complex=COMPLEXES, mutation=mutations),
 
-
-# run a small molecule protein interaction analysis
 rule molecule:
     input:
         'results/metaReport.html',
-        expand('{complex}/{mutation}/{seed}/frames/lig_{i}.pdb', i=range(n_frames), complex=COMPLEXES, mutation=mutations, seed=seeds),
-        expand('{complex}/{mutation}/{seed}/frames/rec_{i}.pdb', i=range(n_frames), complex=COMPLEXES, mutation=mutations, seed=seeds),
-        expand('{complex}/{mutation}/{seed}/po-sco/{i}.txt', i=range(n_frames), complex=COMPLEXES, mutation=mutations, seed=seeds),
-        expand('{complex}/{mutation}/{seed}/MD_molecule/trajectory.h5',complex=COMPLEXES,mutation=mutations,seed=seeds),
-        'results/posco/posco_interactions.parquet',
-        'results/alignment/align.pse'
-        #expand('{complex}/{mutation}/{seed}/aquaduct/aquaduct.pse',complex=COMPLEXES, mutation=mutations, seed=seeds)
+        expand('molecule/{complex}/{mutation}/{seed}/frames/lig_{i}.pdb', i=range(n_frames), complex=COMPLEXES, mutation=mutations, seed=seeds),
+        expand('molecule/{complex}/{mutation}/{seed}/frames/rec_{i}.pdb', i=range(n_frames), complex=COMPLEXES, mutation=mutations, seed=seeds),
+        expand('molecule/{complex}/{mutation}/{seed}/po-sco/{i}.txt', i=range(n_frames), complex=COMPLEXES, mutation=mutations, seed=seeds),
+        #'results/posco/posco_interactions.parquet',
+        #'results/alignment/align.pse'
+        #expand('molecule/{complex}/{mutation}/{seed}/aquaduct/aquaduct.pse',complex=COMPLEXES, mutation=mutations, seed=seeds)
 
 # Run a apo protein only
 rule protein:
@@ -79,8 +74,6 @@ rule protein:
         expand('{complex}/{mutation}/{seed}/MD/traj_center.dcd', complex=COMPLEXES, mutation=mutations, seed=seeds),
         expand('{complex}/{mutation}/{seed}/analysis/RMSF.html', complex=COMPLEXES, mutation=mutations, seed=seeds),
         expand('{complex}/{mutation}/{seed}/aquaduct/aquaduct.pse',complex=COMPLEXES, mutation=mutations, seed=seeds)
-
-
 
 rule metaReport:
     input:
@@ -130,7 +123,6 @@ rule MD_PPi:
         traj=temp('PPi/{complex}/{mutation}/{seed}/MD/trajectory.h5'),
         stats='PPi/{complex}/{mutation}/{seed}/MD/MDStats.csv'
     resources: gpu=1
-    conda: 'install/MD_env.yml'
     priority: 3
     shell:
         """
@@ -147,12 +139,12 @@ rule MD_molecule:
     input:   
         md_settings=ancient('config/md_config.yml'),
         pdb='molecule/{complex}/{mutation}/mutation.pdb',
+        sdf=lambda wc: config["complexes"][wc.complex]["sdf"]
     output:
         equilibrated='molecule/{complex}/{mutation}/{seed}/MD/equilibrated.pdb',
         topo_cif='molecule/{complex}/{mutation}/{seed}/MD/frame_end.cif',
         traj=temp('molecule/{complex}/{mutation}/{seed}/MD/trajectory.h5'),
         stats='molecule/{complex}/{mutation}/{seed}/MD/MDStats.csv',
-        #sdf=lambda wildcards: config['complexes'][wildcards.complex]['pdb'], # This will terribly fail
     resources: gpu=1
     priority: 3
     shell:
@@ -164,7 +156,7 @@ rule MD_molecule:
                 --md_settings {input.md_settings} \
                 --seed {wildcards.seed} \
                 --stats {output.stats} \
-                --sdf {output.sdf}
+                --sdf {input.sdf}
         """
 
 rule MD_metadynamics:

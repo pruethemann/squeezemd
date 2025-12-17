@@ -73,7 +73,8 @@ include-package-data = true
                     "config/*.rst",
                     "src/Snakefile",
                     "config/TEMPLATE_aquaduct.txt",
-                    "config/pymol_template.pml"]
+                    "config/pymol_template.pml",
+                    "install/MD_env.yml"]
 
 # This will make it callable
 [tool.setuptools.data-files]

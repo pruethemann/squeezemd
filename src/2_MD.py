@@ -20,12 +20,9 @@ from openmmforcefields.generators import SystemGenerator
 from openff.toolkit.topology import Molecule
 import mdtraj
 import mdtraj.reporters
-from openmmplumed import PlumedForce
-import MDAnalysis as mda
-import numpy as np
 from Helper import import_yaml
 from openmm.unit import kilojoule_per_mole,  nanometer
-
+from metadynamics import add_metadynamics_forces_centerofmass
 
 def add_positional_restraints(system, topology, positions, k=10.0):
     """
@@ -46,6 +43,7 @@ def add_positional_restraints(system, topology, positions, k=10.0):
         # Exclude water and ions from the restraints
         if resname not in ('HOH', 'Na+', 'Cl-') and atom.element.symbol != 'H':
             restraint.addParticle(atom.index, positions[atom.index])
+            #system.setParticleMass(atom.index, 0*dalton)
 
     return system, restraint
 
@@ -78,8 +76,6 @@ def create_model_smallmolecule(modeller, salt_concentration, params, sdf):
     water_model = params['simulation']['forcefield']['water']
 
     ligand = Molecule.from_file(sdf)
-    if not ligand.conformers:
-        raise ValueError("Ligand SDF has no 3D conformers – please provide a 3D SDF.")
     
     #is this necessary? ligand.assign_partial_charges('gasteiger')   
 
@@ -88,15 +84,13 @@ def create_model_smallmolecule(modeller, salt_concentration, params, sdf):
 
     ff_kwargs = {
         'constraints':app.HBonds,
-        'rigidWater': True,                     # Allows to increase step size to 4 fs
-        'ewaldErrorTolerance':params['ewaldErrorTolerance']
+        'rigidWater': True,# TODO standardize with yaml
+        'ewaldErrorTolerance':params['simulation']['constraints']['ewald_error_tolerance']
     }
     periodic_forcefield_kwargs = {
         'nonbondedMethod':app.PME,
-        'nonbondedCutoff':params['nonbondedCutoff'] * nanometers
+        'nonbondedCutoff':params['simulation']['constraints']['cutoff_nm'] * nanometers
     }
-
-    #'removeCMMotion': False
 
     # 3. Use SystemGenerator to combine force fields
     generator = SystemGenerator(
@@ -125,7 +119,6 @@ def create_model_smallmolecule(modeller, salt_concentration, params, sdf):
                         padding=1.2 * nanometers)
     
     # Create the MD system
-    # TODO: add constraints before
     system = generator.create_system(modeller.topology)
     return system
 
@@ -173,114 +166,6 @@ def save_pdb(simulation, pdb_file:os.path):
     with open(pdb_file, "w") as f:
         app.PDBFile.writeFile(simulation.topology, positions,f, keepIds=True)
 
-def extract_atom_indices(pdf_file: os.path, cutoff = 5.0):
-
-    u = mda.Universe(pdf_file)
-
-    # get all heavy atoms of lig and rec
-    lig_heavy = u.select_atoms("chainID A and not name H*")
-    rec_heavy = u.select_atoms("(chainID B or chainID C) and not name H*")
-
-    # get all heavy atoms of lig and rec
-    lig = u.select_atoms("chainID A")
-    rec = u.select_atoms("chainID B or chainID C")
-
-    # Compute distance matrix between all atoms of the two chains
-    dist = mda.lib.distances.distance_array(lig_heavy.positions, rec_heavy.positions)
-
-    # Boolean masks of interface atoms
-    lig_interface_mask = np.any(dist < cutoff, axis=1)
-    rec_interface_mask = np.any(dist < cutoff, axis=0)
-
-    # Interface atoms selections
-    lig_interface = lig_heavy[lig_interface_mask]
-    rec_interface = rec_heavy[rec_interface_mask]
-
-    # Print in PLUMED-friendly format. Add +1 because plumed starts at atom id 1 and not 0
-    lig_plumed = ",".join(map(str, lig.indices + 1))
-    rec_plumed = ",".join(map(str, rec.indices + 1))
-    lig_interface_plumed = ",".join(map(str, lig_interface.indices + 1))
-    rec_interface_plumed = ",".join(map(str, rec_interface.indices + 1))
-
-    atom_indices = {'lig_index': lig_plumed,
-                    'rec_index': rec_plumed,
-                    'lig_interface_index':lig_interface_plumed,
-                    'rec_interface_index':rec_interface_plumed,
-                    'lig_min':lig.indices.min() + 1,
-                    'lig_max':lig.indices.max() + 1,
-                    'rec_min':rec.indices.min() + 1,
-                    'rec_max':rec.indices.max() + 1,
-    }
-
-    return atom_indices
-
-def add_metadynamics_forces_centerofmass(params, system):
-    # Metadynamics params
-    sigma = params['simulation']['metadynamics']['SIGMA']
-    height = params['simulation']['metadynamics']['HEIGHT']
-    pace = params['simulation']['metadynamics']['PACE']
-    stride = params['simulation']['metadynamics']['STRIDE']
-
-    # Get absolute paths for outputs
-    hills_path = os.path.abspath(args.metadynamics_hills)
-    colvar_path = os.path.abspath(args.metadynamics_colvar)
-
-    # get relevant atom indexes
-    id = extract_atom_indices(args.equilibrated)
-
-    script = f"""
-            # get residue and chainID information
-            MOLINFO STRUCTURE={args.equilibrated}
-
-            # Define two groups (ligand:Entity0 and receptor:Entity1)
-            WHOLEMOLECULES ENTITY0={id['lig_min']}-{id['lig_max']} ENTITY1={id['rec_min']}-{id['rec_max']}
-
-            # Group heavy atoms for contact
-            grp_lig: GROUP ATOMS={id['lig_min']}-{id['lig_max']}
-            grp_rec: GROUP ATOMS={id['rec_min']}-{id['rec_max']}
-
-            # Define center of mass of the two partners
-            lig: COM ATOMS=grp_lig
-            rec: COM ATOMS=grp_rec
-
-            # Distance between the two COMs (in nm)
-            d1: DISTANCE ATOMS=lig,rec
-
-            METAD ARG=d1 SIGMA={sigma} HEIGHT={height} PACE={pace} FILE={hills_path}
-            PRINT ARG=d1 STRIDE={stride} FILE={colvar_path}
-            """
-    
-    print(script)
-
-    plumed = PlumedForce(script)
-    plumed.setTemperature(T*kelvin)
-    system.addForce(plumed)
-    print("Metadynamics variable added")
-    return system
-
-
-def add_metadynamics_forces_singledistance(metadynamics_params, T:int, system):
-    """
-    in progress
-    """
-    # Example: add a distance-based collective variable
-    atomId1 = metadynamics_params[0]['d1'][0]['atomId1'] + 1
-    atomId2 = metadynamics_params[0]['d1'][1]['atomId2'] + 1
-
-    hills_path = os.path.abspath(args.metadynamics_hills)
-    colvar_path = os.path.abspath(args.metadynamics_colvar)
-
-    script = f"""
-            d1: DISTANCE ATOMS={atomId1},{atomId2}
-            METAD ARG=d1 SIGMA=0.1 HEIGHT=0.3 PACE=50 FILE={hills_path}
-            PRINT ARG=d1 STRIDE=50 FILE={colvar_path}
-            """
-    plumed = PlumedForce(script)
-    plumed.setTemperature(T*kelvin)
-    system.addForce(plumed)
-    print("Metadynamics variable added")
-    return system
-
 # ---------------------------
 # Simulation procedure
 # ---------------------------
@@ -305,7 +190,8 @@ def simulate(args, params):
         system = create_model_smallmolecule(modeller, salt_concentration, params, args.sdf)
         
     # Add restraints BEFORE minimization
-    system, restraint_force = add_positional_restraints(system, modeller.topology, modeller.positions, k=10.0)
+    k = params['simulation']['equilibration']['protein_k']
+    system, restraint_force = add_positional_restraints(system, modeller.topology, modeller.positions, k=k)
 
     # Integrator setup
     dt_fs = params['simulation']['constraints']['dt_fs']
@@ -354,11 +240,18 @@ def simulate(args, params):
     simulation.context.reinitialize(preserveState=True)
 
     # Define tapering schedule for restraints (kcal/mol/Å²)
-    for k in [5.0, 1.0]:
+    protein_k = params['simulation']['constraints']['protein_k']
+    if protein_k > 0:
+        tampering_k = [protein_k/2, protein_k]
+    else:
+        tampering_k = [k/2, k/10]
+    
+
+    for k in tampering_k:
         print(f"Tapering restraints to {k} kcal/mol/Å²")
         # Update global k parameter (not per particle!)
-        restraint_force.setGlobalParameterDefaultValue(0, k * kilojoule_per_mole / nanometer**2)
-        restraint_force.updateParametersInContext(simulation.context)
+        simulation.context.setParameter('k', k * kilojoule_per_mole / nanometer**2)
+        print("k in context:", simulation.context.getParameter('k'))
 
         # Run equilibration for each step
         simulation.step(params['simulation']['equilibration']['NPT_equilibration'])
@@ -368,10 +261,17 @@ def simulate(args, params):
     # ---------------------
     print('\n=== Stage 3: Unrestrained NPT equilibration ===')
     # remove the CustomForce which restrained the system
-    for i, force in enumerate(system.getForces()):
-        if force.__class__.__name__ == restraint_force.__class__.__name__:
-            system.removeForce(i)
-            break
+    if protein_k == 0: # only performe for normal unconstrined MD
+        for i, force in enumerate(system.getForces()):
+            if force.__class__.__name__ == restraint_force.__class__.__name__:
+                system.removeForce(i)
+                break
+
+    print("FORCE")
+    print(system.getForces())
+
+    print(    )
+    print(restraint_force)
 
     simulation.context.reinitialize(preserveState=True)
     simulation.step(params['simulation']['equilibration']['NPT_unrestrained'])
@@ -385,7 +285,7 @@ def simulate(args, params):
 
     if args.metadynamics_hills is not None:
         print(f'\n=== Stage 4: Initiate Metadynamics')
-        simulation.system = add_metadynamics_forces_centerofmass(params, simulation.system)
+        simulation.system = add_metadynamics_forces_centerofmass(params, simulation.system, args)
         simulation.context.reinitialize(preserveState=True)  # keep positions/velocities
 
     # ---------------------
