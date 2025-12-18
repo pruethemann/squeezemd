@@ -132,7 +132,8 @@ rule MD_PPi:
                 --traj {output.traj} \
                 --md_settings {input.md_settings} \
                 --seed {wildcards.seed} \
-                --stats {output.stats}
+                --stats {output.stats} \
+                --mode PPi
         """
 
 rule MD_molecule:
@@ -156,7 +157,8 @@ rule MD_molecule:
                 --md_settings {input.md_settings} \
                 --seed {wildcards.seed} \
                 --stats {output.stats} \
-                --sdf {input.sdf}
+                --sdf {input.sdf} \
+                --mode molecule
         """
 
 rule MD_metadynamics:
@@ -182,7 +184,8 @@ rule MD_metadynamics:
                 --seed {wildcards.seed} \
                 --stats {output.stats} \
                 --metadynamics_hill {output.metadynamics_hill} \
-                --metadynamics_colvar {output.metadynamics_colvar}
+                --metadynamics_colvar {output.metadynamics_colvar} \
+                --mode metadynamics
         """
 
 rule compute_metadynamics:

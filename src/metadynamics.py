@@ -110,3 +110,124 @@ def extract_atom_indices(pdf_file: os.path, cutoff = 5.0):
     }
 
     return atom_indices
+
+
+from typing import Optional
+from openmm import (
+    Context, System,
+    NonbondedForce, CustomNonbondedForce, CustomBondForce,
+    CustomExternalForce, CustomAngleForce, CustomTorsionForce,
+    HarmonicBondForce, HarmonicAngleForce, PeriodicTorsionForce,
+    CMMotionRemover, MonteCarloBarostat
+)
+
+
+def save_active_forces(
+    system: System,
+    context: Optional[Context] = None,
+    logfile: str = "log.txt",
+    max_examples: int = 3
+) -> None:
+    """
+    Save all active OpenMM forces and parameters to a log file.
+
+    - If `context` is provided, active global parameter values are printed.
+    - Otherwise, default parameter values are printed.
+    """
+
+    def _ctx_value(name: str):
+        if context is None:
+            return None
+        try:
+            return context.getParameter(name)
+        except Exception:
+            return None
+
+    with open(logfile, "w") as f:
+        def write(msg=""):
+            f.write(msg + "\n")
+
+        n_forces = system.getNumForces()
+        write(f"=== OpenMM Forces in System: {n_forces} ===")
+
+        for i in range(n_forces):
+            force = system.getForce(i)
+            cname = force.__class__.__name__
+            try:
+                fg = force.getForceGroup()
+            except Exception:
+                fg = "n/a"
+
+            write(f"\n[{i:02d}] {cname} (forceGroup={fg})")
+
+            # ---------- Global parameters (Custom* forces) ----------
+            if hasattr(force, "getNumGlobalParameters"):
+                ng = force.getNumGlobalParameters()
+                if ng > 0:
+                    write(f"  Global parameters ({ng}):")
+                    for gi in range(ng):
+                        name = force.getGlobalParameterName(gi)
+                        default = None
+                        if hasattr(force, "getGlobalParameterDefaultValue"):
+                            default = force.getGlobalParameterDefaultValue(gi)
+                        active = _ctx_value(name)
+                        if active is None:
+                            write(f"    - {name}: default={default}")
+                        else:
+                            write(f"    - {name}: active={active} (default={default})")
+
+            # ---------- Force-specific details ----------
+            if isinstance(force, NonbondedForce):
+                write(f"  Nonbonded method: {force.getNonbondedMethod()}")
+                write(f"  Cutoff: {force.getCutoffDistance()}")
+                write(f"  Ewald error tol: {force.getEwaldErrorTolerance()}")
+                write(f"  Dispersion correction: {force.getUseDispersionCorrection()}")
+                write(f"  Num particles: {force.getNumParticles()}")
+
+                for p in range(min(max_examples, force.getNumParticles())):
+                    q, sig, eps = force.getParticleParameters(p)
+                    write(f"    particle[{p}] q={q} sigma={sig} epsilon={eps}")
+
+            elif isinstance(force, CustomExternalForce):
+                write(f"  Energy: {force.getEnergyFunction()}")
+                write(f"  Per-particle parameters: "
+                      f"{[force.getPerParticleParameterName(j) for j in range(force.getNumPerParticleParameters())]}")
+                write(f"  Restrained particles: {force.getNumParticles()}")
+
+                for p in range(min(max_examples, force.getNumParticles())):
+                    idx, params = force.getParticleParameters(p)
+                    write(f"    particle[{p}] atomIndex={idx} params={params}")
+
+            elif isinstance(force, CustomNonbondedForce):
+                write(f"  Energy: {force.getEnergyFunction()}")
+                write(f"  Num particles: {force.getNumParticles()}")
+
+            elif isinstance(force, HarmonicBondForce):
+                write(f"  Num bonds: {force.getNumBonds()}")
+                for b in range(min(max_examples, force.getNumBonds())):
+                    a1, a2, length, k = force.getBondParameters(b)
+                    write(f"    bond[{b}] ({a1},{a2}) length={length} k={k}")
+
+            elif isinstance(force, HarmonicAngleForce):
+                write(f"  Num angles: {force.getNumAngles()}")
+
+            elif isinstance(force, PeriodicTorsionForce):
+                write(f"  Num torsions: {force.getNumTorsions()}")
+
+            elif isinstance(force, MonteCarloBarostat):
+                write(f"  Pressure: {force.getDefaultPressure()}")
+                write(f"  Temperature: {force.getDefaultTemperature()}")
+                write(f"  Frequency: {force.getFrequency()} steps")
+
+            elif isinstance(force, CMMotionRemover):
+                write(f"  Frequency: {force.getFrequency()} steps")
+
+            else:
+                # Fallback
+                if hasattr(force, "getEnergyFunction"):
+                    try:
+                        write(f"  Energy: {force.getEnergyFunction()}")
+                    except Exception:
+                        pass
+
+        write("\n=== End force listing ===")

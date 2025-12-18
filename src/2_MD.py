@@ -22,9 +22,9 @@ import mdtraj
 import mdtraj.reporters
 from Helper import import_yaml
 from openmm.unit import kilojoule_per_mole,  nanometer
-from metadynamics import add_metadynamics_forces_centerofmass
+from metadynamics import add_metadynamics_forces_centerofmass, save_active_forces
 
-def add_positional_restraints(system, topology, positions, k=10.0):
+def add_positional_restraints(system, topology, positions, k=10.0, flexible_resids={}):
     """
     Add harmonic restraints to heavy atoms (kcal/mol/Å²).
     Applied to all non-solvent heavy atoms.
@@ -38,13 +38,36 @@ def add_positional_restraints(system, topology, positions, k=10.0):
     restraint.addPerParticleParameter("y0")
     restraint.addPerParticleParameter("z0")
 
-    for atom in topology.atoms():
-        resname = atom.residue.name
-        # Exclude water and ions from the restraints
-        if resname not in ('HOH', 'Na+', 'Cl-') and atom.element.symbol != 'H':
-            restraint.addParticle(atom.index, positions[atom.index])
-            #system.setParticleMass(atom.index, 0*dalton)
+    # TODO: Restrain UNK during equilibration
+    unrestrained_residues = ('HOH', 'Na+', 'Cl-', 'Na', 'Cl', 'UNK')
 
+    print("RESIDUES")
+    print(flexible_resids)
+
+    restrain_count = 0
+
+    for atom in topology.atoms():
+        res = atom.residue      # information about residue
+        resname = res.name      # Either amino acid name or ion name or ligand name
+        resid = int(res.id)          # PDB residue number (string!)
+        resindex = res.index    # 0-based OpenMM index (int)
+
+        # Exclude water and ions and ligand from the restraints
+        if resname in unrestrained_residues or atom.element.symbol != 'H':
+            continue
+
+        # Exclude flexible amino acids from restraining
+        if resid in flexible_resids:
+            print(resid, flexible_resids[resid])
+            continue
+
+        restrain_count += 1
+
+        # Restrain the rest
+        #print(f"Residue {resname} {resid} (index {resindex}), "f"Atom {atom.name}, element {atom.element.symbol}, "f"atom index {atom.index}")
+        restraint.addParticle(atom.index, positions[atom.index])
+
+    print("RESTRAINED atoms", restrain_count)
     return system, restraint
 
 
@@ -62,6 +85,7 @@ def define_platform():
 def energy_minimisation(simulation):
     """Run energy minimization and print energy difference."""
     e_before = simulation.context.getState(getEnergy=True).getPotentialEnergy()
+    # TODO remove steps
     simulation.minimizeEnergy()
     e_after = simulation.context.getState(getEnergy=True).getPotentialEnergy()
     print('Energy difference (minimization):', e_before - e_after)
@@ -95,7 +119,7 @@ def create_model_smallmolecule(modeller, salt_concentration, params, sdf):
     # 3. Use SystemGenerator to combine force fields
     generator = SystemGenerator(
         forcefields=[protein_forcefield, water_model],
-        small_molecule_forcefield='openff-2.0.0',
+        small_molecule_forcefield="openff-2.2.0",           # TODO: make sure to update to 3.0 if released soon
         molecules=[ligand],
         cache=None,
         forcefield_kwargs=ff_kwargs,
@@ -184,12 +208,17 @@ def simulate(args, params):
     salt_concentration = params['simulation']['system']['salt_molar'] * molar
 
     # Create solvated system depending on whether ligand is small molecule or protein
-    if args.sdf is None: # ligand is protein
-        system = create_model_ppi(modeller, salt_concentration, params)
-    else: # ligand is small molecule
+    if args.mode == 'molecule':
         system = create_model_smallmolecule(modeller, salt_concentration, params, args.sdf)
-        
-    # Add restraints BEFORE minimization
+    else: # PPi, metadynamics, protein
+        system = create_model_ppi(modeller, salt_concentration, params)
+
+    # ---------------------
+    # Stage 0: Minimization
+    # ---------------------
+    print('\n=== Stage 0: Energy minimization with restraints ===')
+
+    # Add restraints for equilibration BEFORE minimization
     k = params['simulation']['equilibration']['protein_k']
     system, restraint_force = add_positional_restraints(system, modeller.topology, modeller.positions, k=k)
 
@@ -207,10 +236,6 @@ def simulate(args, params):
     simulation = app.Simulation(modeller.topology, system, integrator, platform, properties)
     simulation.context.setPositions(modeller.positions)
 
-    # ---------------------
-    # Stage 0: Minimization
-    # ---------------------
-    print('\n=== Stage 0: Energy minimization with restraints ===')
     energy_minimisation(simulation)
 
     # ---------------------
@@ -238,16 +263,8 @@ def simulate(args, params):
     barostat = MonteCarloBarostat(pressure, temperature, barostat_interval_steps)
     system.addForce(barostat)
     simulation.context.reinitialize(preserveState=True)
-
-    # Define tapering schedule for restraints (kcal/mol/Å²)
-    protein_k = params['simulation']['constraints']['protein_k']
-    if protein_k > 0:
-        tampering_k = [protein_k/2, protein_k]
-    else:
-        tampering_k = [k/2, k/10]
-    
-
-    for k in tampering_k:
+  
+    for k in [k/2, k/10]: # usually k = 10 -> 5 -> 1
         print(f"Tapering restraints to {k} kcal/mol/Å²")
         # Update global k parameter (not per particle!)
         simulation.context.setParameter('k', k * kilojoule_per_mole / nanometer**2)
@@ -261,17 +278,20 @@ def simulate(args, params):
     # ---------------------
     print('\n=== Stage 3: Unrestrained NPT equilibration ===')
     # remove the CustomForce which restrained the system
-    if protein_k == 0: # only performe for normal unconstrined MD
-        for i, force in enumerate(system.getForces()):
-            if force.__class__.__name__ == restraint_force.__class__.__name__:
-                system.removeForce(i)
-                break
+    # TODO make this nicer and readd energys
 
-    print("FORCE")
-    print(system.getForces())
+    if args.verbose:
+        save_active_forces(system, simulation.context, logfile='before.txt')
 
-    print(    )
-    print(restraint_force)
+    print('\n=== Removing positional restraints ===')
+    for i, force in enumerate(system.getForces()):
+        # Remove 06 CustomExternalForce
+        if force.__class__.__name__ == restraint_force.__class__.__name__:
+            system.removeForce(i)
+            break
+
+    if args.verbose:
+        save_active_forces(system, simulation.context, logfile='after.txt')
 
     simulation.context.reinitialize(preserveState=True)
     simulation.step(params['simulation']['equilibration']['NPT_unrestrained'])
@@ -283,10 +303,23 @@ def simulate(args, params):
     # Stage 4: Metadynamics (optional)
     # ---------------------
 
-    if args.metadynamics_hills is not None:
+    if args.mode == 'metadynamics':
         print(f'\n=== Stage 4: Initiate Metadynamics')
         simulation.system = add_metadynamics_forces_centerofmass(params, simulation.system, args)
         simulation.context.reinitialize(preserveState=True)  # keep positions/velocities
+
+    # ---------------------
+    # Stage 5: Rigidify receptor except flexible binding pocket (optional)
+    # ---------------------
+
+    # Define tapering schedule for restraints (kcal/mol/Å²)
+    # Rigify everything except 
+    if 'flexible_binding_pocket' in params['simulation']:
+        flexible_resids = params['simulation']['flexible_binding_pocket']['flexible_resids']
+        system, restraint_force = add_positional_restraints(system, modeller.topology, modeller.positions, k=10000, flexible_resids=flexible_resids)
+        save_active_forces(system, simulation.context, logfile='flexible_binding_pocket.txt')
+        simulation.context.reinitialize(preserveState=True)
+        
 
     # ---------------------
     # Stage 5: Production
@@ -317,10 +350,15 @@ def simulate(args, params):
 
 def parse_arguments():
     parser = argparse.ArgumentParser(description='Run Molecular Dynamics simulations.')
-    # Input
-    parser.add_argument('--pdb', default='input/fix1.pdb')
-    parser.add_argument('--md_settings', default='input/params.yml')
+    # Required Input
+    parser.add_argument('--pdb', default='input/protein.pdb')
+    parser.add_argument('--md_settings', default='input/params.yml')  
+    parser.add_argument('--mode', default='PPi')
+
+    # Optional Input
     parser.add_argument('--seed', type=int, default=12)
+    parser.add_argument('--verbose', default=True)
+
 
     # Output
     parser.add_argument('--equilibrated', default='output/equilibrated.pdb', help="Equilibrated system in water box")
@@ -329,11 +367,12 @@ def parse_arguments():
     parser.add_argument('--stats', default='output/stats.txt', help="Molecular dynamics statistics and progress")
     parser.add_argument('--metadynamics_hills', help='Metadynamics hill output file.')
     parser.add_argument('--metadynamics_colvar', default="output/metadynamics_colvar.txt", help='Metadynamics output file.')
-    parser.add_argument('--sdf', required=False,help='Small molecule sdf file')
+    parser.add_argument('--sdf', required=False, default="input/ligand.sdf",help='Small molecule sdf file')
     return parser.parse_args()
 
-
 if __name__ == '__main__':
+
     args = parse_arguments()
     params = import_yaml(args.md_settings)
+
     simulate(args, params)
