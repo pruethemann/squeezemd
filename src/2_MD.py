@@ -38,22 +38,20 @@ def add_positional_restraints(system, topology, positions, k=10.0, flexible_resi
     restraint.addPerParticleParameter("y0")
     restraint.addPerParticleParameter("z0")
 
-    # TODO: Restrain UNK during equilibration
-    unrestrained_residues = ('HOH', 'Na+', 'Cl-', 'Na', 'Cl', 'UNK')
-
-    print("RESIDUES")
-    print(flexible_resids)
-
-    restrain_count = 0
+    if len(flexible_resids) > 0:
+        # Do not restrain water, ions and ligands during equilibration
+        unrestrained_residues = ('HOH', 'Na+', 'Cl-', 'Na', 'Cl', 'UNK')
+    else: # keep flexible binding pocket -> ligand (UNK) can move
+        unrestrained_residues = ('HOH', 'Na+', 'Cl-', 'Na', 'Cl')
 
     for atom in topology.atoms():
         res = atom.residue      # information about residue
         resname = res.name      # Either amino acid name or ion name or ligand name
-        resid = int(res.id)          # PDB residue number (string!)
+        resid = int(res.id)     # PDB residue number (string!)
         resindex = res.index    # 0-based OpenMM index (int)
 
         # Exclude water and ions and ligand from the restraints
-        if resname in unrestrained_residues or atom.element.symbol != 'H':
+        if resname in unrestrained_residues or atom.element.symbol == 'H':
             continue
 
         # Exclude flexible amino acids from restraining
@@ -61,13 +59,11 @@ def add_positional_restraints(system, topology, positions, k=10.0, flexible_resi
             print(resid, flexible_resids[resid])
             continue
 
-        restrain_count += 1
-
         # Restrain the rest
-        #print(f"Residue {resname} {resid} (index {resindex}), "f"Atom {atom.name}, element {atom.element.symbol}, "f"atom index {atom.index}")
+        if args.verbose:
+            print(f"Residue {resname} {resid} (index {resindex}), "f"Atom {atom.name}, element {atom.element.symbol}, "f"atom index {atom.index}")
         restraint.addParticle(atom.index, positions[atom.index])
 
-    print("RESTRAINED atoms", restrain_count)
     return system, restraint
 
 
@@ -277,8 +273,6 @@ def simulate(args, params):
     # Stage 3: Unrestrained NPT at simulation T
     # ---------------------
     print('\n=== Stage 3: Unrestrained NPT equilibration ===')
-    # remove the CustomForce which restrained the system
-    # TODO make this nicer and readd energys
 
     if args.verbose:
         save_active_forces(system, simulation.context, logfile='before.txt')
@@ -316,10 +310,14 @@ def simulate(args, params):
     # Rigify everything except 
     if 'flexible_binding_pocket' in params['simulation']:
         flexible_resids = params['simulation']['flexible_binding_pocket']['flexible_resids']
-        system, restraint_force = add_positional_restraints(system, modeller.topology, modeller.positions, k=10000, flexible_resids=flexible_resids)
-        save_active_forces(system, simulation.context, logfile='flexible_binding_pocket.txt')
-        simulation.context.reinitialize(preserveState=True)
+        k = params['simulation']['flexible_binding_pocket']['protein_k']
+        system, restraint_force = add_positional_restraints(system, modeller.topology, modeller.positions, k=k, flexible_resids=flexible_resids)
         
+        # is this required?
+        simulation.context.setParameter('k', 10000 * kilojoule_per_mole / nanometer**2)
+        print("k in context:", simulation.context.getParameter('k'))
+        simulation.context.reinitialize(preserveState=True)
+        save_active_forces(system, simulation.context, logfile='flexible_binding_pocket.txt')
 
     # ---------------------
     # Stage 5: Production
