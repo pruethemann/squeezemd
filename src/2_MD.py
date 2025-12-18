@@ -14,14 +14,13 @@
 """
 
 import argparse, os
-from openmm.unit import *
 from openmm import app, OpenMMException, Platform, LangevinMiddleIntegrator, MonteCarloBarostat, CustomExternalForce
 from openmmforcefields.generators import SystemGenerator
 from openff.toolkit.topology import Molecule
 import mdtraj
 import mdtraj.reporters
 from Helper import import_yaml
-from openmm.unit import kilojoule_per_mole,  nanometer
+from openmm.unit import kilojoule_per_mole, nanometers, femtoseconds, kelvin, molar, picoseconds, atmospheres
 from metadynamics import add_metadynamics_forces_centerofmass, save_active_forces
 
 def add_positional_restraints(system, topology, positions, k=10.0, flexible_resids={}):
@@ -33,16 +32,16 @@ def add_positional_restraints(system, topology, positions, k=10.0, flexible_resi
     
     system.addForce(restraint)
 
-    restraint.addGlobalParameter('k', k*kilojoule_per_mole/nanometer**2)
+    restraint.addGlobalParameter('k', k*kilojoule_per_mole/nanometers**2)
     restraint.addPerParticleParameter("x0")
     restraint.addPerParticleParameter("y0")
     restraint.addPerParticleParameter("z0")
 
     if len(flexible_resids) > 0:
         # Do not restrain water, ions and ligands during equilibration
-        unrestrained_residues = ('HOH', 'Na+', 'Cl-', 'Na', 'Cl', 'UNK')
+        unrestrained_residues = ('HOH', 'Na+', 'Cl-', 'NA', 'CL', 'UNK')
     else: # keep flexible binding pocket -> ligand (UNK) can move
-        unrestrained_residues = ('HOH', 'Na+', 'Cl-', 'Na', 'Cl')
+        unrestrained_residues = ('HOH', 'Na+', 'Cl-', 'NA', 'CL')
 
     for atom in topology.atoms():
         res = atom.residue      # information about residue
@@ -263,7 +262,7 @@ def simulate(args, params):
     for k in [k/2, k/10]: # usually k = 10 -> 5 -> 1
         print(f"Tapering restraints to {k} kcal/mol/Å²")
         # Update global k parameter (not per particle!)
-        simulation.context.setParameter('k', k * kilojoule_per_mole / nanometer**2)
+        simulation.context.setParameter('k', k * kilojoule_per_mole / nanometers**2)
         print("k in context:", simulation.context.getParameter('k'))
 
         # Run equilibration for each step
@@ -299,7 +298,7 @@ def simulate(args, params):
 
     if args.mode == 'metadynamics':
         print(f'\n=== Stage 4: Initiate Metadynamics')
-        simulation.system = add_metadynamics_forces_centerofmass(params, simulation.system, args)
+        simulation.system = add_metadynamics_forces_centerofmass(params, simulation.system, args, T)
         simulation.context.reinitialize(preserveState=True)  # keep positions/velocities
 
     # ---------------------
@@ -314,7 +313,7 @@ def simulate(args, params):
         system, restraint_force = add_positional_restraints(system, modeller.topology, modeller.positions, k=k, flexible_resids=flexible_resids)
         
         # is this required?
-        simulation.context.setParameter('k', 10000 * kilojoule_per_mole / nanometer**2)
+        simulation.context.setParameter('k', k * kilojoule_per_mole / nanometers**2)
         print("k in context:", simulation.context.getParameter('k'))
         simulation.context.reinitialize(preserveState=True)
         save_active_forces(system, simulation.context, logfile='flexible_binding_pocket.txt')
@@ -355,7 +354,7 @@ def parse_arguments():
 
     # Optional Input
     parser.add_argument('--seed', type=int, default=12)
-    parser.add_argument('--verbose', default=True)
+    parser.add_argument('--verbose', default=False)
 
 
     # Output

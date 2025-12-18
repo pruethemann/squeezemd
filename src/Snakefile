@@ -120,7 +120,7 @@ rule MD_PPi:
     output:
         equilibrated='PPi/{complex}/{mutation}/{seed}/MD/equilibrated.pdb',
         topo_cif='PPi/{complex}/{mutation}/{seed}/MD/frame_end.cif',
-        traj=temp('PPi/{complex}/{mutation}/{seed}/MD/trajectory.h5'),
+        traj='PPi/{complex}/{mutation}/{seed}/MD/trajectory.h5',
         stats='PPi/{complex}/{mutation}/{seed}/MD/MDStats.csv'
     resources: gpu=1
     priority: 3
@@ -144,7 +144,7 @@ rule MD_molecule:
     output:
         equilibrated='molecule/{complex}/{mutation}/{seed}/MD/equilibrated.pdb',
         topo_cif='molecule/{complex}/{mutation}/{seed}/MD/frame_end.cif',
-        traj=temp('molecule/{complex}/{mutation}/{seed}/MD/trajectory.h5'),
+        traj='molecule/{complex}/{mutation}/{seed}/MD/trajectory.h5',
         stats='molecule/{complex}/{mutation}/{seed}/MD/MDStats.csv',
     resources: gpu=1
     priority: 3

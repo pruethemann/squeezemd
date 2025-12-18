@@ -28,7 +28,8 @@ def add_metadynamics_forces_singledistance(metadynamics_params, T:int, system, a
     return system
 
 
-def add_metadynamics_forces_centerofmass(params, system, args):
+def add_metadynamics_forces_centerofmass(params, system, args, T=300):
+    print("temperature", T)
     # Metadynamics params
     sigma = params['simulation']['metadynamics']['SIGMA']
     height = params['simulation']['metadynamics']['HEIGHT']
