@@ -50,9 +50,10 @@ rule metadynamics:
 
 rule protein_molecule:
     input:
-        expand('protein_molecule/{complex}/{mutation}/{seed}/frames/lig_{i}.pdb', i=range(n_frames), complex=COMPLEXES, mutation=mutations, seed=seeds),
-        expand('protein_molecule/{complex}/{mutation}/{seed}/frames/rec_{i}.pdb', i=range(n_frames), complex=COMPLEXES, mutation=mutations, seed=seeds),
-        expand('protein_molecule/{complex}/{mutation}/{seed}/po-sco/{i}.txt', i=range(n_frames), complex=COMPLEXES, mutation=mutations, seed=seeds),
+        expand('protein_molecule/{complex}/{mutation}/{seed}/MD/energy.csv', complex=COMPLEXES, mutation=mutations, seed=seeds),    
+        #expand('protein_molecule/{complex}/{mutation}/{seed}/frames/lig_{i}.pdb', i=range(n_frames), complex=COMPLEXES, mutation=mutations, seed=seeds),
+        #expand('protein_molecule/{complex}/{mutation}/{seed}/frames/rec_{i}.pdb', i=range(n_frames), complex=COMPLEXES, mutation=mutations, seed=seeds),
+        #expand('protein_molecule/{complex}/{mutation}/{seed}/po-sco/{i}.txt', i=range(n_frames), complex=COMPLEXES, mutation=mutations, seed=seeds),
         #'results/posco/posco_interactions.parquet',
         #'results/alignment/align.pse'
         #expand('molecule/{complex}/{mutation}/{seed}/aquaduct/aquaduct.pse',complex=COMPLEXES, mutation=mutations, seed=seeds)
@@ -163,6 +164,26 @@ rule md_metadynamics:
                   --metadynamics_colvar {output.metadynamics_colvar} \
                   --mode metadynamics
         """
+
+rule ana_potential_energy:
+    input:
+        topo='protein_molecule/{complex}/{mutation}/{seed}/MD/equilibrated.pdb',
+        traj='protein_molecule/{complex}/{mutation}/{seed}/MD/trajectory.h5',           
+        md_config=ancient('config/md_config.yml'),
+        sdf=lambda wc: config["complexes"][wc.complex]["sdf"]
+    output:
+        'protein_molecule/{complex}/{mutation}/{seed}/MD/energy.csv',
+    resources: gpu=1
+    priority: 3
+    shell:
+        """
+        analyze_potential_energy.py --topo {input.topo} \
+                                    --traj {input.traj} \
+                                    --md_config {input.md_config} \
+                                    --sdf {input.sdf} \
+                                    --energy {output}
+        """
+
 
 rule util_center_trajectory:
     input:
@@ -366,14 +387,14 @@ rule ana_prolif_contacts:
     threads: 4
     shell:
         """
-        analyze_proflif_fingerprints.py --topo {input.topo} \
-                                        --traj  {input.traj} \
-                                        --output {output} \
-                                        --n_frames {params.number_frames} \
-                                        --threads {threads} \
-                                        --complex {wildcards.complex} \
-                                        --mutation {wildcards.mutation} \
-                                        --seed {wildcards.seed}
+        compute_prolif_fingerprints.py --topo {input.topo} \
+                                       --traj  {input.traj} \
+                                       --output {output} \
+                                       --n_frames {params.number_frames} \
+                                       --threads {threads} \
+                                       --complex {wildcards.complex} \
+                                       --mutation {wildcards.mutation} \
+                                       --seed {wildcards.seed}
         """
 
 rule plot_prolif_contacts:
@@ -386,7 +407,7 @@ rule plot_prolif_contacts:
         n_frames = n_frames
     shell:
         """
-        compute_prolif_fingerprints.py  --fingerprints {input.fingerprints} \
+        analyze_proflif_fingerprints.py --fingerprints {input.fingerprints} \
                                         --interactions {output.interactions} \
                                         --n_frames {params.n_frames} \
                                         --figure {output.figure}

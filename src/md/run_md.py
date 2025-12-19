@@ -96,7 +96,8 @@ def create_model_smallmolecule(modeller, salt_concentration, params, sdf):
 
     ligand = Molecule.from_file(sdf)
     
-    #is this necessary? ligand.assign_partial_charges('gasteiger')   
+    # Assign partial charges
+    ligand.assign_partial_charges('gasteiger')   
 
     ligand_topology = ligand.to_topology().to_openmm()
     ligand_positions = ligand.conformers[0].to_openmm()
@@ -373,3 +374,5 @@ if __name__ == '__main__':
     params = import_yaml(args.md_settings)
 
     simulate(args, params)
+
+    # Postprocessing
