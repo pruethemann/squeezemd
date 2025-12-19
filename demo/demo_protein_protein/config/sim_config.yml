@@ -6,9 +6,9 @@ complexes:
   C1s_Gigastasin:
     receptor: C1s
     ligand: Gigastasin
-    pdb: pdb/13_C1s-BD001.pdb
+    pdb: pdb/C1s-BD001.pdb
 
   MASP2_Gigastasin:
     receptor: MASP2
     ligand: Gigastasin
-    pdb: pdb/13_C1s-BD001.pdb
+    pdb: pdb/C1s-BD001.pdb

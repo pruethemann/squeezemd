@@ -1,6 +1,6 @@
 [project]
 name = "squeezemd"
-version = "1.5.0"
+version = "1.5.1"
 description = "SqueezeMD is a autmated Molecular dynamics workflow with extensive post-analysis for PPi"
 readme = "README.rst"
 authors = [
@@ -68,7 +68,13 @@ include-package-data = true
 # This considers all bash scripts as part of the python package
 [tool.setuptools.package-data]
 "squeeze.scripts" = ["src/*.sh", 
-                    "src/*.py",
+                    "src/analysis/contact_posco/*.py",
+                    "src/analysis/contact_prolif/*.py",
+                    "src/analysis/metadynamics/*.py",
+                    "src/analysis/trajectory/*.py",
+                    "src/analysis/visualization/*.py",
+                    "src/md/*.py",
+                    "src/preprocessing/*.py",
                     "src/squeeze",
                     "config/*.rst",
                     "src/Snakefile",
@@ -79,7 +85,13 @@ include-package-data = true
 # This will make it callable
 [tool.setuptools.data-files]
 "bin" = ["src/*.sh", 
-        "src/*.py",
+        "src/analysis/contact_posco/*.py",
+        "src/analysis/contact_prolif/*.py",
+        "src/analysis/metadynamics/*.py",
+        "src/analysis/trajectory/*.py",
+        "src/analysis/visualization/*.py",
+        "src/md/*.py",
+        "src/preprocessing/*.py",
         "src/squeeze",
         "src/Snakefile",
         "config/pymol_template.pml",

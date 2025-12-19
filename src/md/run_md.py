@@ -21,7 +21,7 @@ import mdtraj
 import mdtraj.reporters
 from Helper import import_yaml
 from openmm.unit import kilojoule_per_mole, nanometers, femtoseconds, kelvin, molar, picoseconds, atmospheres
-from metadynamics import add_metadynamics_forces_centerofmass, save_active_forces
+from metadynamics_auxillary import add_metadynamics_forces_centerofmass, save_active_forces
 
 def add_positional_restraints(system, topology, positions, k=10.0, flexible_resids={}):
     """
@@ -39,9 +39,9 @@ def add_positional_restraints(system, topology, positions, k=10.0, flexible_resi
 
     if len(flexible_resids) > 0:
         # Do not restrain water, ions and ligands during equilibration
-        unrestrained_residues = ('HOH', 'Na+', 'Cl-', 'NA', 'CL', 'UNK')
+        unrestrained_residues = ('HOH', 'Na+', 'Cl-', 'CL', 'UNK')
     else: # keep flexible binding pocket -> ligand (UNK) can move
-        unrestrained_residues = ('HOH', 'Na+', 'Cl-', 'NA', 'CL')
+        unrestrained_residues = ('HOH', 'Na+', 'Cl-', 'CL')
 
     for atom in topology.atoms():
         res = atom.residue      # information about residue
