@@ -1,3 +1,4 @@
+#!/usr/bin/env python
 import numpy as np
 import mdtraj as md
 from openmm import unit, Platform, Context, app, VerletIntegrator
@@ -6,8 +7,6 @@ import argparse
 import pandas as pd
 from openmmforcefields.generators import SystemGenerator
 from openff.toolkit.topology import Molecule
-
-
 
 def assign_force_groups(system):
     """
@@ -75,11 +74,9 @@ def compute_potential_energy(
     }
 
     # Calculate the potential energy for every frame
-    for i in range(0,lig_traj.n_frames, 10):
+    for i in range(lig_traj.n_frames):
         # Determine atom positions of seleciton in paricular frame
         context.setPositions(lig_positions_nm[i] * unit.nanometer)
-
-        print(i)
 
         # Extract all energy terms individually
         for ene_name, g in group_map.items():
@@ -143,10 +140,6 @@ def parse_arguments():
 
 if __name__ == '__main__':
 
-
-    import sys
-    sys.exit()
-
     args = parse_arguments()
 
     # define the system if energies
@@ -156,10 +149,10 @@ if __name__ == '__main__':
     group_map = assign_force_groups(ligand_system)
 
     # Compute the energies from the trajectory
-    energy = compute_potential_energy(args.traj, args.topo,args.selection,ligand_system,group_map,'CUDA')
+    energy = compute_potential_energy(args.traj, args.topo,args.selection,ligand_system,group_map)
 
     data_df = pd.DataFrame(energy)
     data_df['frame'] = data_df.index
 
     print(data_df)
-    data_df.to_csv('energy.csv')
+    data_df.to_parquet(args.energy)

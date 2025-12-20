@@ -204,7 +204,7 @@ def simulate(args, params):
     salt_concentration = params['simulation']['system']['salt_molar'] * molar
 
     # Create solvated system depending on whether ligand is small molecule or protein
-    if args.mode == 'molecule':
+    if args.mode == 'protein_molecule':
         system = create_model_smallmolecule(modeller, salt_concentration, params, args.sdf)
     else: # PPi, metadynamics, protein
         system = create_model_ppi(modeller, salt_concentration, params)

@@ -55,7 +55,7 @@ rule protein_molecule:
         #expand('protein_molecule/{complex}/{mutation}/{seed}/frames/rec_{i}.pdb', i=range(n_frames), complex=COMPLEXES, mutation=mutations, seed=seeds),
         #expand('protein_molecule/{complex}/{mutation}/{seed}/po-sco/{i}.txt', i=range(n_frames), complex=COMPLEXES, mutation=mutations, seed=seeds),
         #'results/posco/posco_interactions.parquet',
-        #'results/alignment/align.pse'
+        'results/alignment/align.pse'
         #expand('molecule/{complex}/{mutation}/{seed}/aquaduct/aquaduct.pse',complex=COMPLEXES, mutation=mutations, seed=seeds)
 
 # Run a apo protein only
@@ -172,14 +172,14 @@ rule ana_potential_energy:
         md_config=ancient('config/md_config.yml'),
         sdf=lambda wc: config["complexes"][wc.complex]["sdf"]
     output:
-        'protein_molecule/{complex}/{mutation}/{seed}/MD/energy.csv',
+        'protein_molecule/{complex}/{mutation}/{seed}/MD/potential_energy.parquet',
     resources: gpu=1
     priority: 3
     shell:
         """
         analyze_potential_energy.py --topo {input.topo} \
                                     --traj {input.traj} \
-                                    --md_config {input.md_config} \
+                                    --config {input.md_config} \
                                     --sdf {input.sdf} \
                                     --energy {output}
         """
