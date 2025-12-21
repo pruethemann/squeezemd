@@ -2,54 +2,19 @@
 
 import argparse
 from pathlib import Path
-
-import numpy as np
 import pandas as pd
 from matplotlib import pyplot as plt
-
 from squeezemd import io
-
 
 INTERACTION_TYPES = ["total", "H-bond", "lipophilic", "salt-bridge"]
 
-
-# ----------------------------------------------------------------------
-# CLI
-# ----------------------------------------------------------------------
-
 def parse_arguments() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(
-        description="Per-residue interaction barplots (mean ± SD) "
-                    "for ligand and receptor using the squeezeMD unified tables."
-    )
-    parser.add_argument(
-        "--complex",
-        required=True,
-        help="Name of the complex (must match 'complex' column in tables).",
-    )
-    parser.add_argument(
-        "--condition",
-        default=None,
-        help="Optional condition filter (e.g. 'NPT_300K', 'WT_meta'), "
-             "must match 'condition' in runs table if provided.",
-    )
-    parser.add_argument(
-        "--output-dir",
-        default="figures/posco_barplots",
-        help="Directory to store output SVGs.",
-    )
-    parser.add_argument(
-        "--dpi",
-        type=int,
-        default=300,
-        help="Figure DPI.",
-    )
+    parser = argparse.ArgumentParser(description="Per-residue interaction barplots (mean ± SD) for ligand and receptor using the squeezeMD unified tables.")
+    parser.add_argument("--complex",required=True,help="Name of the complex (must match 'complex' column in tables).")
+    parser.add_argument("--condition",default=None,help="Optional condition filter (e.g. 'NPT_300K', 'WT_meta') must match 'condition' in runs table if provided.")
+    parser.add_argument("--output-dir",default="figures/posco_barplots",help="Directory to store output SVGs.")
+    parser.add_argument("--dpi",type=int,default=300,help="Figure DPI.")
     return parser.parse_args()
-
-
-# ----------------------------------------------------------------------
-# Data helpers
-# ----------------------------------------------------------------------
 
 def get_runs(complex_name: str, condition: str | None) -> pd.DataFrame:
     filters = {"complex": complex_name}
@@ -236,10 +201,6 @@ def merge_with_sequence(
     return merged
 
 
-# ----------------------------------------------------------------------
-# Plotting
-# ----------------------------------------------------------------------
-
 def plot_partner_for_mutation(
     complex_name: str,
     mutation: str,
@@ -282,10 +243,6 @@ def plot_partner_for_mutation(
     fig.savefig(out_path, dpi=dpi)
     plt.close(fig)
 
-
-# ----------------------------------------------------------------------
-# Main
-# ----------------------------------------------------------------------
 
 def main() -> None:
     args = parse_arguments()

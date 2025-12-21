@@ -27,5 +27,5 @@ else
     # Execute snakemake with all provided arguments
     # Find Snakefile from active environment
     CONDA_BASE_PATH=$CONDA_PREFIX
-    snakemake --use-conda -s "$CONDA_BASE_PATH/bin/Snakefile" "$@"
+    snakemake --use-conda -s "$CONDA_BASE_PATH/bin/Snakefile" "$@" --config mode="$mode"
 fi

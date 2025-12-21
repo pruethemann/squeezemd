@@ -242,7 +242,6 @@ def main(args):
     results = pd.concat(results)
 
     results.to_parquet(args.output)
-    #results.to_csv('posco_interactions.csv')
 
 
 def parse_arguments():

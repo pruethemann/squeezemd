@@ -15,12 +15,11 @@
 
 import argparse, os
 from openmm import app, OpenMMException, Platform, LangevinMiddleIntegrator, MonteCarloBarostat, CustomExternalForce
+from openmm.unit import kilojoule_per_mole, nanometers, femtoseconds, kelvin, molar, picoseconds, atmospheres
 from openmmforcefields.generators import SystemGenerator
 from openff.toolkit.topology import Molecule
 import mdtraj
-import mdtraj.reporters
 from Helper import import_yaml
-from openmm.unit import kilojoule_per_mole, nanometers, femtoseconds, kelvin, molar, picoseconds, atmospheres
 from metadynamics_auxillary import add_metadynamics_forces_centerofmass, save_active_forces
 
 def add_positional_restraints(system, topology, positions, k=10.0, flexible_resids={}):
@@ -65,7 +64,6 @@ def add_positional_restraints(system, topology, positions, k=10.0, flexible_resi
 
     return system, restraint
 
-
 def define_platform():
     """
     Detect NVIDIA GPU (CUDA) or fallback to CPU.
@@ -75,7 +73,6 @@ def define_platform():
     except OpenMMException:
         print("ATTENTION: No CUDA GPU detected. Running on CPU.")
         return Platform.getPlatformByName('CPU')
-
 
 def energy_minimisation(simulation):
     """Run energy minimization and print energy difference."""
@@ -185,10 +182,6 @@ def save_pdb(simulation, pdb_file:os.path):
     positions = simulation.context.getState(getPositions=True, enforcePeriodicBox=True).getPositions()
     with open(pdb_file, "w") as f:
         app.PDBFile.writeFile(simulation.topology, positions,f, keepIds=True)
-
-# ---------------------------
-# Simulation procedure
-# ---------------------------
 
 def simulate(args, params):
     """
@@ -342,11 +335,10 @@ def simulate(args, params):
     save_cif(simulation, args.topo_cif)
 
 
-# ---------------------------
-# Argument parsing
-# ---------------------------
-
 def parse_arguments():
+    """
+    Argument parsing
+    """
     parser = argparse.ArgumentParser(description='Run Molecular Dynamics simulations.')
     # Required Input
     parser.add_argument('--pdb', default='input/protein.pdb')
@@ -356,7 +348,6 @@ def parse_arguments():
     # Optional Input
     parser.add_argument('--seed', type=int, default=12)
     parser.add_argument('--verbose', default=False)
-
 
     # Output
     parser.add_argument('--equilibrated', default='output/equilibrated.pdb', help="Equilibrated system in water box")
@@ -369,10 +360,7 @@ def parse_arguments():
     return parser.parse_args()
 
 if __name__ == '__main__':
-
     args = parse_arguments()
     params = import_yaml(args.md_settings)
 
     simulate(args, params)
-
-    # Postprocessing

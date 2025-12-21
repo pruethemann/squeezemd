@@ -1,12 +1,7 @@
 import sys, os, yaml
 import numpy as np
-import pandas as pd
-from Helper import save_yaml
 
-# ======================
-# Configuration Handling
-# ======================
-
+# Merge three different config sources
 configfile: os.path.join('config', 'sim_config.yml') 
 with open(os.path.join('config', 'md_config.yml')) as f:
     config_md = yaml.safe_load(f)
@@ -17,16 +12,13 @@ COMPLEXES = list(config.get("complexes").keys())
 mutations = config['mutations']
 n_frames = config['simulation']['number_frames']
 
-# ==================================
-# Random Seed Generation for Replicates
-# ==================================
+# Seed generation
 seed = config.get('seed', 23)
 np.random.seed(seed)              # Ensure reproducibility
 seeds = np.random.randint(100, 1000, size=config['simulation']['replicates'])
 representative_seed = seeds[0] # First seeds is used as representation for surface interaction analysis
 
-try: mode = [arg for arg in sys.argv[1:] if not arg.startswith("-")][1]
-except: mode = 'protein_protein'
+mode = config.get('mode', 'protein_protein')
 
 rule protein_protein: # protein-protein interaction analysis
     input:
@@ -50,7 +42,7 @@ rule metadynamics:
 
 rule protein_molecule:
     input:
-        expand('protein_molecule/{complex}/{mutation}/{seed}/MD/energy.csv', complex=COMPLEXES, mutation=mutations, seed=seeds),    
+        expand('protein_molecule/{complex}/{mutation}/{seed}/MD/potential_energy.parquet', complex=COMPLEXES, mutation=mutations, seed=seeds),    
         #expand('protein_molecule/{complex}/{mutation}/{seed}/frames/lig_{i}.pdb', i=range(n_frames), complex=COMPLEXES, mutation=mutations, seed=seeds),
         #expand('protein_molecule/{complex}/{mutation}/{seed}/frames/rec_{i}.pdb', i=range(n_frames), complex=COMPLEXES, mutation=mutations, seed=seeds),
         #expand('protein_molecule/{complex}/{mutation}/{seed}/po-sco/{i}.txt', i=range(n_frames), complex=COMPLEXES, mutation=mutations, seed=seeds),
@@ -207,9 +199,7 @@ rule metadynamics_run:
     output:
         'metadynamics/{complex}/{mutation}/{seed}/metadynamics/fes.dat'
     shell:
-        """
-        plumed sum_hills --hills {input} --outfile {output}
-        """
+        "plumed sum_hills --hills {input} --outfile {output}"
 
 rule metadynamics_ana:
     input:
@@ -242,12 +232,9 @@ rule ana_aquaduct:
         aquaduct='{mode}/{complex}/{mutation}/{seed}/aquaduct/aquaduct.txt',
         aquaduct_folder=directory('{mode}/{complex}/{mutation}/{seed}/aquaduct/'),
         pymol_cmd='{mode}/{complex}/{mutation}/{seed}/aquaduct/6_visualize_results.py',
-    priority:
-        10
     params:
         directory('{mode}/{complex}/{mutation}/{seed}')
-    conda:
-        "aquaduct"
+    conda: "aquaduct"
     shell:
         """
         sed  's|PREFIXINPUT|{params}|g' {input.aquaduct_template} > {output.aquaduct} &&
@@ -260,8 +247,6 @@ rule ana_aquaduct_pymol:
         '{mode}/{complex}/{mutation}/{seed}/aquaduct/6_visualize_results.py',
     output:
         '{mode}/{complex}/{mutation}/{seed}/aquaduct/aquaduct.pse',
-    priority:
-        10
     params:
         directory('{complex}/{mutation}/{seed}')
     shell:
@@ -341,7 +326,6 @@ rule ana_contacts_posco:
         rec_frame='{mode}/{complex}/{mutation}/{seed}/frames/rec_{i}.pdb'
     output:
         '{mode}/{complex}/{mutation}/{seed}/po-sco/{i}.txt'
-    threads: 1
     shell:
         "po-sco {input.rec_frame} {input.lig_frame} -b  > {output}"
 

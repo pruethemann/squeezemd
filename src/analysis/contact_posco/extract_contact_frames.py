@@ -10,8 +10,10 @@ import openmm.app as app
 import pandas as pd
 
 def extract_sequence(ligand, receptor, sequence_file):
+    """
+    Extract the amino acid sequence from the structure for the ligand and receptor and saves it as parquet.
+    """
 
-    print(ligand)
     # Extract sequence
     seq_ligand = {"resid": ligand.residues.resids,
                   "resname": ligand.residues.resnames}
@@ -29,20 +31,17 @@ def extract_sequence(ligand, receptor, sequence_file):
     seq = seq.set_index(['resid', 'resname'])
     seq.to_parquet(sequence_file)
 
-
-
 def extract_binding_surface(u, t=8):
     """
     Extracts the ligand (segid A or X), receptor, and all complete water molecules within t Angstrom
     from the binding surface.
     A: protein ligand
     X: small molecule ligand
-    TODO: make sure it is always A
     """
 
     # Determine the ligand segid
     ligand = u.select_atoms('segid A')
-    if len(ligand) == 0:
+    if len(ligand) == 0:        # For small molecule the chain ID is X
         ligand = u.select_atoms('segid X')
         ligand_segid = 'X'
     else:
@@ -53,7 +52,6 @@ def extract_binding_surface(u, t=8):
 
     # Extract and save sequences information for posco
     extract_sequence(ligand, receptor, args.sequence)
-
 
     # Select water molecules within 5 Å of both chain A and chain B
     water_binding_site = u.select_atoms(f'resname HOH and (around {t} segid {ligand_segid}) and (around {t} (not segid {ligand_segid} and protein))')
@@ -94,12 +92,13 @@ if __name__ == '__main__':
     # Parse command-line arguments
     args = parse_arguments()
 
-    # Import Trajectory #TODO export to helpers
-    # TODO: I am aware that it is slow to open the whole trajectory in every frame, but snakemake doesn't really like expanding output files
+    # Import Trajectory
+    # I am aware that it is slow to open the whole trajectory in every frame, but snakemake doesn't really like expanding output files
+    # TODO Consider exporting all frames in one go.
     topo = app.PDBxFile(args.topo)
-
     u = mda.Universe(topo, args.traj, in_memory=False)
-    #u = mda.Universe(topo,in_memory=False)
+
+    # Define residues and chains according to pdb
     u = remap_MDAnalysis(u, topo)
 
     # Extract frame required
@@ -107,8 +106,6 @@ if __name__ == '__main__':
 
     # Extract protein and water in binding surface
     print(f"Processing frame {args.frame}: {ts.frame}")
-
-    # Extract water molecules around binding surface
     (ligand, receptor) = extract_binding_surface(u)
 
     # Save ligand and receptor files separatly

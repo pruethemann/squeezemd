@@ -97,6 +97,7 @@ def generate_ligand_system(ligand_path):
 
     ligand.assign_partial_charges('gasteiger')   
 
+    """
     ff_kwargs = {
         'constraints':app.HBonds,
         'rigidWater': True,# TODO standardize with yaml
@@ -106,6 +107,7 @@ def generate_ligand_system(ligand_path):
         'nonbondedMethod': app.PME,
         'nonbondedCutoff': 1.0 #params['simulation']['constraints']['cutoff_nm'] * nanometers
     }
+    """
 
     protein_forcefield = "amber19-all.xml" # params['simulation']['forcefield']['protein']
     water_model = "amber19/tip4pew.xml"#params['simulation']['forcefield']['water']
