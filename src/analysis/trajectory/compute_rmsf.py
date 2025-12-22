@@ -9,11 +9,14 @@ from Helper import remap_MDAnalysis
 
 def calculate_RMSF(u: mda.Universe, i):
 
-    c_alphas = u.select_atoms(f'chainID A and name CA')
+    # TODO: separate ligand and receptor. currently all backbones
+    c_alphas = u.select_atoms(f'name CA')
     R = rms.RMSF(c_alphas).run()
 
     # Store RMSF and secondary structure data
-    rmsf_df = {'resid':c_alphas.resids, 'rmsf': R.results.rmsf, 'sim_id': i}
+    rmsf_df = {'resid':c_alphas.resids, 
+               'rmsf': R.results.rmsf, 
+               'sim_id': i}
 
     return pd.DataFrame(rmsf_df)
 

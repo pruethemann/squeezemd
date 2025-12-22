@@ -43,11 +43,9 @@ rule metadynamics:
 rule protein_molecule:
     input:
         expand('protein_molecule/{complex}/{mutation}/{seed}/MD/energy/potential_energy.parquet', complex=COMPLEXES, mutation=mutations, seed=seeds),    
-        #expand('protein_molecule/{complex}/{mutation}/{seed}/frames/lig_{i}.pdb', i=range(n_frames), complex=COMPLEXES, mutation=mutations, seed=seeds),
-        #expand('protein_molecule/{complex}/{mutation}/{seed}/frames/rec_{i}.pdb', i=range(n_frames), complex=COMPLEXES, mutation=mutations, seed=seeds),
-        #expand('protein_molecule/{complex}/{mutation}/{seed}/po-sco/{i}.txt', i=range(n_frames), complex=COMPLEXES, mutation=mutations, seed=seeds),
         'results/posco/posco_interactions.parquet',
-        'results/alignment/align.pse'
+        'results/alignment/align.pse',
+        'results/rmsf/rmsf.svg',
         #expand('molecule/{complex}/{mutation}/{seed}/aquaduct/aquaduct.pse',complex=COMPLEXES, mutation=mutations, seed=seeds)
 
 # Run a apo protein only
@@ -89,7 +87,7 @@ rule md_protein_protein:
     output:
         equilibrated='protein_protein/{complex}/{mutation}/{seed}/MD/structure_equilibrated.pdb',
         topo_cif='protein_protein/{complex}/{mutation}/{seed}/MD/structure_end.cif',
-        traj=temp('protein_protein/{complex}/{mutation}/{seed}/MD/trajectory_raw.hdf5'),
+        traj=temp('protein_protein/{complex}/{mutation}/{seed}/MD/trajectory_raw.h5'),
         stats='protein_protein/{complex}/{mutation}/{seed}/MD/mdstats.csv'
     resources: gpu=1
     priority: 3
@@ -113,7 +111,7 @@ rule md_protein_molecule:
     output:
         equilibrated='protein_molecule/{complex}/{mutation}/{seed}/MD/structure_equilibrated.pdb',
         topo_cif='protein_molecule/{complex}/{mutation}/{seed}/MD/structure_end.cif',
-        traj=temp('protein_molecule/{complex}/{mutation}/{seed}/MD/trajectory_raw.hdf5'),
+        traj=temp('protein_molecule/{complex}/{mutation}/{seed}/MD/trajectory_raw.h5'),
         stats='protein_molecule/{complex}/{mutation}/{seed}/MD/mdstats.csv',
     resources: gpu=1
     priority: 3
@@ -137,7 +135,7 @@ rule md_metadynamics:
     output:
         equilibrated = 'metadynamics/{complex}/{mutation}/{seed}/MD/structure_equilibrated.pdb',
         topo_cif = 'metadynamics/{complex}/{mutation}/{seed}/MD/structure_end.cif',
-        traj=temp('metadynamics/{complex}/{mutation}/{seed}/MD/trajectory_raw.hdf5'),
+        traj=temp('metadynamics/{complex}/{mutation}/{seed}/MD/trajectory_raw.h5'),
         stats='metadynamics/{complex}/{mutation}/{seed}/MD/mdstats.csv',
         metadynamics_hill='metadynamics/{complex}/{mutation}/{seed}/metadynamics/metadynamics_hill.txt',
         metadynamics_colvar='metadynamics/{complex}/{mutation}/{seed}/metadynamics/Colvar.dat'
@@ -160,7 +158,7 @@ rule md_metadynamics:
 rule ana_potential_energy:
     input:
         topo='protein_molecule/{complex}/{mutation}/{seed}/MD/structure_equilibrated.pdb',
-        traj='protein_molecule/{complex}/{mutation}/{seed}/MD/trajectory_raw.hdf5',           
+        traj='protein_molecule/{complex}/{mutation}/{seed}/MD/trajectory_raw.h5',           
         md_config=ancient('config/md_config.yml'),
         sdf=lambda wc: config["complexes"][wc.complex]["sdf"]
     output:
@@ -176,14 +174,14 @@ rule ana_potential_energy:
                                     --energy {output}
         """
 
-rule util_center_trajectory:
+rule center_trajectory:
     input:
         topo='{mode}/{complex}/{mutation}/{seed}/MD/structure_end.cif',
-        traj='{mode}/{complex}/{mutation}/{seed}/MD/trajectory_raw.hdf5'
+        traj='{mode}/{complex}/{mutation}/{seed}/MD/trajectory_raw.h5'
     output:
         topo_center='{mode}/{complex}/{mutation}/{seed}/MD/center/structure_end_center_{seed}.pdb',
         traj_center='{mode}/{complex}/{mutation}/{seed}/MD/center/trajectory_centered.dcd',
-        traj_center_hdf5='{mode}/{complex}/{mutation}/{seed}/MD/center/trajectory_centered.hdf5'
+        traj_center_h5='{mode}/{complex}/{mutation}/{seed}/MD/center/trajectory_centered.h5'
     priority: 3
     shell:
         """
@@ -191,7 +189,7 @@ rule util_center_trajectory:
                              --traj {input.traj} \
                              --traj_center {output.traj_center} \
                              --topo_center {output.topo_center} \
-                             --traj_center_hdf5 {output.traj_center_hdf5}
+                             --traj_center_h5 {output.traj_center_h5}
         """
 
 rule metadynamics_run:

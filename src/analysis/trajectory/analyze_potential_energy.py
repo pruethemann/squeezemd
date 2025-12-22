@@ -148,7 +148,11 @@ if __name__ == '__main__':
     group_map = assign_force_groups(ligand_system)
 
     # Compute the energies from the trajectory
-    energy = compute_potential_energy(args.traj, args.topo,args.selection,ligand_system,group_map)
+    energy = compute_potential_energy(traj_h5=args.traj,
+                                      top=args.topo, 
+                                      ligand_selection=args.selection, 
+                                      ligand_system=ligand_system,
+                                      group_map=group_map)
 
     data_df = pd.DataFrame(energy)
     data_df['frame'] = data_df.index
