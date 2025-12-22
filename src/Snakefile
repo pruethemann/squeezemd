@@ -42,7 +42,7 @@ rule metadynamics:
 
 rule protein_molecule:
     input:
-        expand('protein_molecule/{complex}/{mutation}/{seed}/MD/potential_energy.parquet', complex=COMPLEXES, mutation=mutations, seed=seeds),    
+        expand('protein_molecule/{complex}/{mutation}/{seed}/MD/energy/potential_energy.parquet', complex=COMPLEXES, mutation=mutations, seed=seeds),    
         #expand('protein_molecule/{complex}/{mutation}/{seed}/frames/lig_{i}.pdb', i=range(n_frames), complex=COMPLEXES, mutation=mutations, seed=seeds),
         #expand('protein_molecule/{complex}/{mutation}/{seed}/frames/rec_{i}.pdb', i=range(n_frames), complex=COMPLEXES, mutation=mutations, seed=seeds),
         #expand('protein_molecule/{complex}/{mutation}/{seed}/po-sco/{i}.txt', i=range(n_frames), complex=COMPLEXES, mutation=mutations, seed=seeds),
@@ -53,7 +53,7 @@ rule protein_molecule:
 # Run a apo protein only
 rule protein:
     input:
-        expand('protein/{complex}/{mutation}/{seed}/MD/traj_center.dcd', complex=COMPLEXES, mutation=mutations, seed=seeds),
+        expand('protein/{complex}/{mutation}/{seed}/MD/center/trajectory_centered.dcd', complex=COMPLEXES, mutation=mutations, seed=seeds),
         expand('protein/{complex}/{mutation}/{seed}/analysis/RMSF.html', complex=COMPLEXES, mutation=mutations, seed=seeds),
         expand('protein/{complex}/{mutation}/{seed}/aquaduct/aquaduct.pse',complex=COMPLEXES, mutation=mutations, seed=seeds)
 
@@ -87,10 +87,10 @@ rule md_protein_protein:
         md_settings=ancient('config/md_config.yml'),
         pdb='protein_protein/{complex}/{mutation}/mutation.pdb',
     output:
-        equilibrated='protein_protein/{complex}/{mutation}/{seed}/MD/equilibrated.pdb',
-        topo_cif='protein_protein/{complex}/{mutation}/{seed}/MD/frame_end.cif',
-        traj=temp('protein_protein/{complex}/{mutation}/{seed}/MD/trajectory.h5'),
-        stats='protein_protein/{complex}/{mutation}/{seed}/MD/MDStats.csv'
+        equilibrated='protein_protein/{complex}/{mutation}/{seed}/MD/structure_equilibrated.pdb',
+        topo_cif='protein_protein/{complex}/{mutation}/{seed}/MD/structure_end.cif',
+        traj=temp('protein_protein/{complex}/{mutation}/{seed}/MD/trajectory_raw.hdf5'),
+        stats='protein_protein/{complex}/{mutation}/{seed}/MD/mdstats.csv'
     resources: gpu=1
     priority: 3
     shell:
@@ -111,10 +111,10 @@ rule md_protein_molecule:
         pdb='protein_molecule/{complex}/{mutation}/mutation.pdb',
         sdf=lambda wc: config["complexes"][wc.complex]["sdf"]
     output:
-        equilibrated='protein_molecule/{complex}/{mutation}/{seed}/MD/equilibrated.pdb',
-        topo_cif='protein_molecule/{complex}/{mutation}/{seed}/MD/frame_end.cif',
-        traj=temp('protein_molecule/{complex}/{mutation}/{seed}/MD/trajectory.h5'),
-        stats='protein_molecule/{complex}/{mutation}/{seed}/MD/MDStats.csv',
+        equilibrated='protein_molecule/{complex}/{mutation}/{seed}/MD/structure_equilibrated.pdb',
+        topo_cif='protein_molecule/{complex}/{mutation}/{seed}/MD/structure_end.cif',
+        traj=temp('protein_molecule/{complex}/{mutation}/{seed}/MD/trajectory_raw.hdf5'),
+        stats='protein_molecule/{complex}/{mutation}/{seed}/MD/mdstats.csv',
     resources: gpu=1
     priority: 3
     shell:
@@ -135,10 +135,10 @@ rule md_metadynamics:
         md_settings=ancient('config/md_config.yml'),
         pdb='metadynamics/{complex}/{mutation}/mutation.pdb',
     output:
-        equilibrated = 'metadynamics/{complex}/{mutation}/{seed}/MD/equilibrated.pdb',
-        topo_cif = 'metadynamics/{complex}/{mutation}/{seed}/MD/frame_end.cif',
-        traj=temp('metadynamics/{complex}/{mutation}/{seed}/MD/trajectory.h5'),
-        stats='metadynamics/{complex}/{mutation}/{seed}/MD/MDStats.csv',
+        equilibrated = 'metadynamics/{complex}/{mutation}/{seed}/MD/structure_equilibrated.pdb',
+        topo_cif = 'metadynamics/{complex}/{mutation}/{seed}/MD/structure_end.cif',
+        traj=temp('metadynamics/{complex}/{mutation}/{seed}/MD/trajectory_raw.hdf5'),
+        stats='metadynamics/{complex}/{mutation}/{seed}/MD/mdstats.csv',
         metadynamics_hill='metadynamics/{complex}/{mutation}/{seed}/metadynamics/metadynamics_hill.txt',
         metadynamics_colvar='metadynamics/{complex}/{mutation}/{seed}/metadynamics/Colvar.dat'
     resources: gpu=1
@@ -159,12 +159,12 @@ rule md_metadynamics:
 
 rule ana_potential_energy:
     input:
-        topo='protein_molecule/{complex}/{mutation}/{seed}/MD/equilibrated.pdb',
-        traj='protein_molecule/{complex}/{mutation}/{seed}/MD/trajectory.h5',           
+        topo='protein_molecule/{complex}/{mutation}/{seed}/MD/structure_equilibrated.pdb',
+        traj='protein_molecule/{complex}/{mutation}/{seed}/MD/trajectory_raw.hdf5',           
         md_config=ancient('config/md_config.yml'),
         sdf=lambda wc: config["complexes"][wc.complex]["sdf"]
     output:
-        'protein_molecule/{complex}/{mutation}/{seed}/MD/potential_energy.parquet',
+        'protein_molecule/{complex}/{mutation}/{seed}/MD/energy/potential_energy.parquet',
     resources: gpu=1
     priority: 3
     shell:
@@ -178,12 +178,12 @@ rule ana_potential_energy:
 
 rule util_center_trajectory:
     input:
-        topo='{mode}/{complex}/{mutation}/{seed}/MD/frame_end.cif',
-        traj='{mode}/{complex}/{mutation}/{seed}/MD/trajectory.h5'
+        topo='{mode}/{complex}/{mutation}/{seed}/MD/structure_end.cif',
+        traj='{mode}/{complex}/{mutation}/{seed}/MD/trajectory_raw.hdf5'
     output:
-        topo_center='{mode}/{complex}/{mutation}/{seed}/MD/topo_center_{seed}.pdb',
-        traj_center='{mode}/{complex}/{mutation}/{seed}/MD/traj_center.dcd',
-        traj_center_h5='{mode}/{complex}/{mutation}/{seed}/MD/traj_center.h5'
+        topo_center='{mode}/{complex}/{mutation}/{seed}/MD/center/structure_end_center_{seed}.pdb',
+        traj_center='{mode}/{complex}/{mutation}/{seed}/MD/center/trajectory_centered.dcd',
+        traj_center_hdf5='{mode}/{complex}/{mutation}/{seed}/MD/center/trajectory_centered.hdf5'
     priority: 3
     shell:
         """
@@ -191,7 +191,7 @@ rule util_center_trajectory:
                              --traj {input.traj} \
                              --traj_center {output.traj_center} \
                              --topo_center {output.topo_center} \
-                             --traj_center_h5 {output.traj_center_h5}
+                             --traj_center_hdf5 {output.traj_center_hdf5}
         """
 
 rule metadynamics_run:
@@ -217,7 +217,7 @@ rule metadynamics_ana:
 
 rule visualize_structure_alignment:
     input:
-        expand('{mode}/{complex}/{mutation}/{seed}/MD/topo_center_{seed}.pdb',complex=COMPLEXES, mutation=mutations, seed=seeds, mode=mode),
+        expand('{mode}/{complex}/{mutation}/{seed}/MD/center/structure_end_center_{seed}.pdb',complex=COMPLEXES, mutation=mutations, seed=seeds, mode=mode),
     output:
         'results/alignment/align.pse'
     params: os.path.join(os.environ['CONDA_PREFIX'], 'bin', 'align_structures.py')
@@ -226,8 +226,8 @@ rule visualize_structure_alignment:
 
 rule ana_aquaduct:
     input:
-        topo_center = '{mode}/{complex}/{mutation}/{seed}/MD/topo_center_{seed}.pdb',
-        traj_center='{mode}/{complex}/{mutation}/{seed}/MD/traj_center.dcd',
+        topo_center = '{mode}/{complex}/{mutation}/{seed}/MD/center/structure_end_center_{seed}.pdb',
+        traj_center='{mode}/{complex}/{mutation}/{seed}/MD/center/trajectory_centered.dcd',
         aquaduct_template='config/TEMPLATE_aquaduct.txt',
     output:
         aquaduct='{mode}/{complex}/{mutation}/{seed}/aquaduct/aquaduct.txt',
@@ -255,9 +255,9 @@ rule ana_aquaduct_pymol:
 
 rule ana_trajectory_descriptive:
     input:
-        topo='{mode}/{complex}/{mutation}/{seed}/MD/frame_end.cif',
-        traj='{mode}/{complex}/{mutation}/{seed}/MD/traj_center.dcd',
-        stats='{mode}/{complex}/{mutation}/{seed}/MD/MDStats.csv'
+        topo='{mode}/{complex}/{mutation}/{seed}/MD/structure_end.cif',
+        traj='{mode}/{complex}/{mutation}/{seed}/MD/center/trajectory_centered.dcd',
+        stats='{mode}/{complex}/{mutation}/{seed}/MD/mdstats.csv'
     output:
         rmsf= report('{mode}/{complex}/{mutation}/{seed}/analysis/RMSF.html',caption="RMSF.rst",category="RMSF",labels={"Complex": "{complex}", "Mutation": "{mutation}"}),
         rmsd= report('{mode}/{complex}/{mutation}/{seed}/analysis/RMSD.svg',caption="RMSF.rst",category="RMSD",labels={"Complex": "{complex}", "Mutation": "{mutation}"}),
@@ -280,8 +280,8 @@ rule ana_trajectory_descriptive:
 
 rule ana_rmsf:
     input:
-        topo = expand('{mode}/{complex}/{mutation}/{seed}/MD/frame_end.cif',complex=COMPLEXES, mutation=mutations, seed=seeds, mode=mode),
-        traj = expand('{mode}/{complex}/{mutation}/{seed}/MD/traj_center.dcd',  complex=COMPLEXES, mutation=mutations, seed=seeds, mode=mode), 
+        topo = expand('{mode}/{complex}/{mutation}/{seed}/MD/structure_end.cif',complex=COMPLEXES, mutation=mutations, seed=seeds, mode=mode),
+        traj = expand('{mode}/{complex}/{mutation}/{seed}/MD/center/trajectory_centered.dcd',  complex=COMPLEXES, mutation=mutations, seed=seeds, mode=mode), 
     output:
         'results/rmsf/rmsf.parquet'
     shell:
@@ -304,8 +304,8 @@ rule plot_rmsf:
 
 rule ana_extract_frames:
     input:
-        topo='{mode}/{complex}/{mutation}/{seed}/MD/frame_end.cif',
-        traj='{mode}/{complex}/{mutation}/{seed}/MD/traj_center.dcd'
+        topo='{mode}/{complex}/{mutation}/{seed}/MD/structure_end.cif',
+        traj='{mode}/{complex}/{mutation}/{seed}/MD/center/trajectory_centered.dcd'
     output:
         lig_frame='{mode}/{complex}/{mutation}/{seed}/frames/lig_{i}.pdb',
         rec_frame='{mode}/{complex}/{mutation}/{seed}/frames/rec_{i}.pdb'
@@ -363,8 +363,8 @@ rule plot_contacts_barplot:             # TODO: does not work for mutations of d
 
 rule ana_prolif_contacts:
     input:
-        topo='{mode}/{complex}/{mutation}/{seed}/MD/frame_end.cif',
-        traj='{mode}/{complex}/{mutation}/{seed}/MD/traj_center.dcd',
+        topo='{mode}/{complex}/{mutation}/{seed}/MD/structure_end.cif',
+        traj='{mode}/{complex}/{mutation}/{seed}/MD/center/trajectory_centered.dcd',
     output:
         report('{mode}/{complex}/{mutation}/{seed}/fingerprint/fingerprint.parquet', labels=({"Name": "Interaction Analysis Prolif", "Type": "List"}),caption="RMSF.rst",category="Interaction Fingerprint")
     params:
@@ -400,7 +400,7 @@ rule plot_prolif_contacts:
 
 rule visualize_interaction_surface:
     input:
-        final_frame = f'{mode}/{{complex}}/{{mutation}}/{representative_seed}/MD/topo_center_{representative_seed}.pdb',
+        final_frame = f'{mode}/{{complex}}/{{mutation}}/{representative_seed}/MD/center/structure_end_center_{representative_seed}.pdb',
         interactions= 'results/posco/posco_interactions.parquet',
     output:
         bfactor_pdbs = 'results/interactionSurface/{complex}.{mutation}.interaction.pdb',

@@ -179,7 +179,7 @@ def simulate(args, params):
     """
     # Detect GPU or fallback to CPU.
     try:
-        properties = Platform.getPlatformByName('CUDA')
+        platform = Platform.getPlatformByName('CUDA')
         platform_properties = {"Precision": "mixed", "DeterministicForces": "true"}
     except OpenMMException:
         print("ATTENTION: No CUDA GPU detected. Running on CPU.")

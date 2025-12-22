@@ -31,6 +31,7 @@
 import pandas as pd
 import seaborn as sns
 import argparse
+from glob import glob
 
 sns.set(rc={'figure.figsize':(40,8.27)})
 
@@ -194,8 +195,9 @@ def parse(posco_output):
     seed = int(metadata[-3])
 
     # Import the sequence information for ligand and receptor
-    sequence = pd.read_parquet(f'{complex}/{mutation}/{seed}/frames/sequence.parquet')
-
+    # TODO: Extremly dirty hardcoded. But bug fix in posco is probably never coming because Martin left
+    sequence_path = glob('**/**/**/**/frames/sequence.parquet')
+    sequence = pd.read_parquet(sequence_path[0])
 
     # In rare cases the same resname and resid can exist in rec and lig. remove this duplicates
     # and only use lig
