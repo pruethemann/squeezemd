@@ -98,9 +98,6 @@ def chain2resid(file_csv):
     chain_max = renum.groupby('chainID').max().rename(columns={'resid amber': 'amber_end', 'resid': 'end'})
 
     chains = pd.concat([chain_min, chain_max], axis=1)
-
-    # TODO: Add one resname of every chain for start resid
-
     return chains
 
 def is_numeric(character):

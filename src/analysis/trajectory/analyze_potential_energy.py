@@ -91,10 +91,7 @@ def compute_potential_energy(
 
 def generate_ligand_system(ligand_path):
     ligand = Molecule.from_file(ligand_path)
-
     ligand_topology = ligand.to_topology().to_openmm()
-    ligand_positions = ligand.conformers[0].to_openmm()
-
     ligand.assign_partial_charges('gasteiger')   
 
     """
@@ -118,8 +115,8 @@ def generate_ligand_system(ligand_path):
         small_molecule_forcefield="openff-2.2.0",           # TODO: make sure to update to 3.0 if released soon
         molecules=[ligand],
         cache=None,
-        forcefield_kwargs=ff_kwargs,
-        periodic_forcefield_kwargs=periodic_forcefield_kwargs
+        #forcefield_kwargs=ff_kwargs,
+        #periodic_forcefield_kwargs=periodic_forcefield_kwargs
     )
 
     ligand_system = generator.create_system(ligand_topology)

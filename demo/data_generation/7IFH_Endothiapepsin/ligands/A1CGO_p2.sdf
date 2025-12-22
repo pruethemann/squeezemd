@@ -1,0 +1,292 @@
+A1CGO_P2
+     RDKit          3D
+
+  0  0  0  0  0  0  0  0  0  0999 V3000
+M  V30 BEGIN CTAB
+M  V30 COUNTS 21 21 0 0 1
+M  V30 BEGIN ATOM
+M  V30 1 C 28.500635 4.880779 58.549979 0
+M  V30 2 C 26.134432 1.324167 60.388632 0
+M  V30 3 C 27.029388 2.525144 60.114110 0
+M  V30 4 C 27.135460 4.698209 58.907103 0
+M  V30 5 C 26.274284 5.810286 58.800716 0
+M  V30 6 C 26.771570 7.059562 58.381221 0
+M  V30 7 C 28.137208 7.184858 58.075719 0
+M  V30 8 N 26.541515 3.457383 59.279123 0
+M  V30 9 N 28.934353 6.104166 58.177754 0 CHG=1
+M  V30 10 N 29.440489 3.858418 58.475737 0
+M  V30 11 O 28.134343 2.589492 60.647505 0
+M  V30 12 H 25.379083 1.578390 61.133145 0
+M  V30 13 H 25.625699 0.999074 59.480796 0
+M  V30 14 H 26.716280 0.484379 60.767949 0
+M  V30 15 H 25.228743 5.702319 59.026508 0
+M  V30 16 H 26.110609 7.903002 58.260172 0
+M  V30 17 H 28.602151 8.090156 57.710491 0
+M  V30 18 H 29.118535 2.904481 58.533185 0
+M  V30 19 H 30.259392 4.000102 57.887299 0
+M  V30 20 H 25.578501 3.326113 58.999359 0
+M  V30 21 H 29.905340 6.177845 57.850800 0
+M  V30 END ATOM
+M  V30 BEGIN BOND
+M  V30 1 1 3 2
+M  V30 2 2 4 1
+M  V30 3 1 5 4
+M  V30 4 2 6 5
+M  V30 5 1 7 6
+M  V30 6 1 8 3
+M  V30 7 1 8 4
+M  V30 8 1 9 1
+M  V30 9 2 9 7
+M  V30 10 1 10 1
+M  V30 11 2 11 3
+M  V30 12 1 12 2
+M  V30 13 1 13 2
+M  V30 14 1 14 2
+M  V30 15 1 15 5
+M  V30 16 1 16 6
+M  V30 17 1 17 7
+M  V30 18 1 18 10
+M  V30 19 1 19 10
+M  V30 20 1 20 8
+M  V30 21 1 21 9
+M  V30 END BOND
+M  V30 END CTAB
+M  END
+>  <i_epik_Tot_Q>  (1) 
+1
+
+>  <i_epik_Tot_abs_Q>  (1) 
+1
+
+>  <i_f3d_flags>  (1) 
+0
+
+>  <i_i_glide_confnum>  (1) 
+3
+
+>  <i_i_glide_lignum>  (1) 
+1
+
+>  <i_i_glide_posenum>  (1) 
+352
+
+>  <i_i_glide_rotatable_bonds>  (1) 
+2
+
+>  <i_lp_mmshare_version>  (1) 
+71160
+
+>  <i_m_Source_File_Index>  (1) 
+1
+
+>  <i_m_source_file_index>  (1) 
+1
+
+>  <i_pdb_PDB_CRYST1_z>  (1) 
+2
+
+>  <i_pdb_PDB_Model>  (1) 
+1
+
+>  <b_lp_Chiralities_Consistent>  (1) 
+1
+
+>  <b_m_subgroup_collapsed>  (1) 
+0
+
+>  <b_ppw_created_disulfur>  (1) 
+1
+
+>  <b_ppw_prepared>  (1) 
+1
+
+>  <r_epik_Charging_Adjusted_Penalty>  (1) 
+0.020195527241813328
+
+>  <r_epik_Ionization_Penalty>  (1) 
+0.020195559418610964
+
+>  <r_epik_Ionization_Penalty_Charging>  (1) 
+0.020195527241813328
+
+>  <r_epik_Ionization_Penalty_Neutral>  (1) 
+3.2176797635686642e-08
+
+>  <r_epik_State_Penalty>  (1) 
+0
+
+>  <r_i_docking_score>  (1) 
+-5.5810502826462427
+
+>  <r_i_glide_ecoul>  (1) 
+-6.1850047837975808
+
+>  <r_i_glide_eff_state_penalty>  (1) 
+0
+
+>  <r_i_glide_einternal>  (1) 
+4.0295235584459688
+
+>  <r_i_glide_emodel>  (1) 
+-37.027843863109396
+
+>  <r_i_glide_energy>  (1) 
+-25.040785512133372
+
+>  <r_i_glide_erotb>  (1) 
+0.44689807944289967
+
+>  <r_i_glide_esite>  (1) 
+-0.17166464584596919
+
+>  <r_i_glide_evdw>  (1) 
+-18.855780728335791
+
+>  <r_i_glide_gscore>  (1) 
+-5.5810502826462427
+
+>  <r_i_glide_hbond>  (1) 
+-0.70430689397531254
+
+>  <r_i_glide_ligand_efficiency>  (1) 
+-0.50736820751329481
+
+>  <r_i_glide_ligand_efficiency_ln>  (1) 
+-1.6425021475279056
+
+>  <r_i_glide_ligand_efficiency_sa>  (1) 
+-1.1283767920974088
+
+>  <r_i_glide_lipo>  (1) 
+-0.33890972483325438
+
+>  <r_i_glide_metal>  (1) 
+0
+
+>  <r_i_glide_rewards>  (1) 
+-2.9425273434481789
+
+>  <r_lp_Energy>  (1) 
+19.641869
+
+>  <r_lp_tautomer_probability>  (1) 
+1
+
+>  <r_pdb_PDB_CRYST1_a>  (1) 
+45.270000457763672
+
+>  <r_pdb_PDB_CRYST1_alpha>  (1) 
+90
+
+>  <r_pdb_PDB_CRYST1_b>  (1) 
+73
+
+>  <r_pdb_PDB_CRYST1_beta>  (1) 
+109.16000366210938
+
+>  <r_pdb_PDB_CRYST1_c>  (1) 
+52.540000915527344
+
+>  <r_pdb_PDB_CRYST1_gamma>  (1) 
+90
+
+>  <r_pdb_PDB_EXPDTA_PH>  (1) 
+4.5999999046325684
+
+>  <r_pdb_PDB_EXPDTA_TEMPERATURE>  (1) 
+100
+
+>  <r_pdb_PDB_R>  (1) 
+0.16189999878406525
+
+>  <r_pdb_PDB_RESOLUTION>  (1) 
+1.0299999713897705
+
+>  <r_pdb_PDB_Rfree>  (1) 
+0.17460000514984131
+
+>  <r_ppw_minimizer_energy>  (1) 
+-14620.008496156312
+
+>  <r_ppw_minimizer_rmsd>  (1) 
+0.28293071627371502
+
+>  <r_ppw_preprocess_pH>  (1) 
+4.5999999046325684
+
+>  <s_epik_cmdline>  (1) 
+J2VwaWtfcHl0aG9uJywgJy1waHQnLCAnMS4wJywgJy1waCcsICc0LjYnLCAnLW50JywgJy1tYScsICc1MDAnLCAnLWltYWUnLCAnPGluZmlsZS5tYWU+JywgJy1vbWFlJywgJzxvdXRmaWxlLm1hZT4n
+
+>  <s_epik_input>  (1) 
+W0NIM11DKD1PKVtOSF1jKGMxW05IMl0pW2NIXVtjSF1bY0hdbjE=
+
+>  <s_i_glide_gridfile>  (1) 
+redocking
+
+>  <s_lp_Force_Field>  (1) 
+S-OPLS
+
+>  <s_lp_Variant>  (1) 
+4-7IFH-ligand-A1CGO-1
+
+>  <s_m_Source_File>  (1) 
+LigandDockingTask_6_pv.maegz
+
+>  <s_m_Source_Path>  (1) 
+/Users/husedo15/maestro/LigandDockingTask_6
+
+>  <s_m_entry_id>  (1) 
+20
+
+>  <s_m_entry_name>  (1) 
+7ifh.1
+
+>  <s_m_job_name>  (1) 
+LigandDockingTask_6
+
+>  <s_m_source_file>  (1) 
+ligprep_3.maegz
+
+>  <s_m_subgroup_title>  (1) 
+LigandDockingTask_6_pv
+
+>  <s_m_subgroupid>  (1) 
+LigandDockingTask_6_pv
+
+>  <s_pdb_PDB_CLASSIFICATION>  (1) 
+HYDROLASE
+
+>  <s_pdb_PDB_CRYST1_Space_Group>  (1) 
+P 21
+
+>  <s_pdb_PDB_DEPOSITION_DATE>  (1) 
+2025-06-05
+
+>  <s_pdb_PDB_EXPDTA>  (1) 
+X-RAY DIFFRACTION
+
+>  <s_pdb_PDB_ID>  (1) 
+7IFH
+
+>  <s_pdb_PDB_REMARK_350_Biomolecule_1_Transform_1_Chains>  (1) 
+A
+
+>  <s_pdb_PDB_REMARK_350_Biomolecule_1_Transform_1_Matrix_1>  (1) 
+1.000000 0.000000 0.000000   0.000000;0.000000 1.000000 0.000000   0.000000;0.000000 0.000000 1.000000   0.000000
+
+>  <s_pdb_PDB_TITLE>  (1) 
+Crystal structure of Endothiapepsin in complex with fragment EOS103296 from ECBL-96
+
+>  <s_pdb_PDB_format_version>  (1) 
+5.406
+
+>  <s_pdb_PDB_source_format>  (1) 
+mmcif_pdbx.dic
+
+>  <s_ppw_het_states>  (1) 
+eJzlkctqwzAQRX/FaG2C3pL7KyEYkSqpQbWL5BSK8b9nPHYzJnTVRTfdiDuHufPQTKz9jLl0Q9+yl8oJYXldAQvpFhcyMQHvcWLnt5CvsSzBUSpj6oqf6mqRlqQj6Uk2D7kU/5aCpCSp6kpsUhPFbqDZkF9h2t0Qaye5dUKwq7EBTcCixRFwmCGfgaGiHi0NZfhnS4OAPywocUNBy66DSVzjI/YhjV+wBz942TgtvFHaao4Dsvc4htSuSR3++TQDLuchRwj6W0oQdv1laMuYd6S0Q+6uHfgAXkIqEXx/eTv+v24nrNfS2kY7qbRS+ufbscWO+dwYJYUXDrbTRqlfX/U0z3fiv+V2
+
+>  <s_ppw_prepared_with_version>  (1) 
+2025-3
+
+$$$$

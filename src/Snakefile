@@ -46,7 +46,7 @@ rule protein_molecule:
         #expand('protein_molecule/{complex}/{mutation}/{seed}/frames/lig_{i}.pdb', i=range(n_frames), complex=COMPLEXES, mutation=mutations, seed=seeds),
         #expand('protein_molecule/{complex}/{mutation}/{seed}/frames/rec_{i}.pdb', i=range(n_frames), complex=COMPLEXES, mutation=mutations, seed=seeds),
         #expand('protein_molecule/{complex}/{mutation}/{seed}/po-sco/{i}.txt', i=range(n_frames), complex=COMPLEXES, mutation=mutations, seed=seeds),
-        #'results/posco/posco_interactions.parquet',
+        'results/posco/posco_interactions.parquet',
         'results/alignment/align.pse'
         #expand('molecule/{complex}/{mutation}/{seed}/aquaduct/aquaduct.pse',complex=COMPLEXES, mutation=mutations, seed=seeds)
 
@@ -89,7 +89,7 @@ rule md_protein_protein:
     output:
         equilibrated='protein_protein/{complex}/{mutation}/{seed}/MD/equilibrated.pdb',
         topo_cif='protein_protein/{complex}/{mutation}/{seed}/MD/frame_end.cif',
-        traj='protein_protein/{complex}/{mutation}/{seed}/MD/trajectory.h5',
+        traj=temp('protein_protein/{complex}/{mutation}/{seed}/MD/trajectory.h5'),
         stats='protein_protein/{complex}/{mutation}/{seed}/MD/MDStats.csv'
     resources: gpu=1
     priority: 3
@@ -113,7 +113,7 @@ rule md_protein_molecule:
     output:
         equilibrated='protein_molecule/{complex}/{mutation}/{seed}/MD/equilibrated.pdb',
         topo_cif='protein_molecule/{complex}/{mutation}/{seed}/MD/frame_end.cif',
-        traj='protein_molecule/{complex}/{mutation}/{seed}/MD/trajectory.h5',
+        traj=temp('protein_molecule/{complex}/{mutation}/{seed}/MD/trajectory.h5'),
         stats='protein_molecule/{complex}/{mutation}/{seed}/MD/MDStats.csv',
     resources: gpu=1
     priority: 3
@@ -176,21 +176,22 @@ rule ana_potential_energy:
                                     --energy {output}
         """
 
-
 rule util_center_trajectory:
     input:
         topo='{mode}/{complex}/{mutation}/{seed}/MD/frame_end.cif',
         traj='{mode}/{complex}/{mutation}/{seed}/MD/trajectory.h5'
     output:
         topo_center='{mode}/{complex}/{mutation}/{seed}/MD/topo_center_{seed}.pdb',
-        traj_center='{mode}/{complex}/{mutation}/{seed}/MD/traj_center.dcd'
+        traj_center='{mode}/{complex}/{mutation}/{seed}/MD/traj_center.dcd',
+        traj_center_h5='{mode}/{complex}/{mutation}/{seed}/MD/traj_center.h5'
     priority: 3
     shell:
         """
         center_trajectory.py --topo {input.topo} \
                              --traj {input.traj} \
                              --traj_center {output.traj_center} \
-                             --topo_center {output.topo_center}
+                             --topo_center {output.topo_center} \
+                             --traj_center_h5 {output.traj_center_h5}
         """
 
 rule metadynamics_run:

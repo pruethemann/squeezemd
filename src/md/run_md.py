@@ -64,16 +64,6 @@ def add_positional_restraints(system, topology, positions, k=10.0, flexible_resi
 
     return system, restraint
 
-def define_platform():
-    """
-    Detect NVIDIA GPU (CUDA) or fallback to CPU.
-    """
-    try:
-        return Platform.getPlatformByName('CUDA')
-    except OpenMMException:
-        print("ATTENTION: No CUDA GPU detected. Running on CPU.")
-        return Platform.getPlatformByName('CPU')
-
 def energy_minimisation(simulation):
     """Run energy minimization and print energy difference."""
     e_before = simulation.context.getState(getEnergy=True).getPotentialEnergy()
@@ -94,14 +84,14 @@ def create_model_smallmolecule(modeller, salt_concentration, params, sdf):
     ligand = Molecule.from_file(sdf)
     
     # Assign partial charges
-    ligand.assign_partial_charges('gasteiger')   
+    ligand.assign_partial_charges('am1bcc')   
 
     ligand_topology = ligand.to_topology().to_openmm()
     ligand_positions = ligand.conformers[0].to_openmm()
 
     ff_kwargs = {
         'constraints':app.HBonds,
-        'rigidWater': True,# TODO standardize with yaml
+        'rigidWater': params['simulation']['constraints']['rigid_water'],
         'ewaldErrorTolerance':params['simulation']['constraints']['ewald_error_tolerance']
     }
     periodic_forcefield_kwargs = {
@@ -187,8 +177,14 @@ def simulate(args, params):
     """
     Set up and start the simulation
     """
-    # Detect GPU
-    platform = define_platform()
+    # Detect GPU or fallback to CPU.
+    try:
+        properties = Platform.getPlatformByName('CUDA')
+        platform_properties = {"Precision": "mixed", "DeterministicForces": "true"}
+    except OpenMMException:
+        print("ATTENTION: No CUDA GPU detected. Running on CPU.")
+        platform = Platform.getPlatformByName('CPU')
+        platform_properties = None 
 
     # Load structure
     protein = app.PDBFile(args.pdb)
@@ -221,8 +217,7 @@ def simulate(args, params):
     integrator.setRandomNumberSeed(args.seed)
 
     # Set up the simulation. Add the integrator and the position
-    properties = {"Precision": "mixed", "DeterministicForces": "true"}
-    simulation = app.Simulation(modeller.topology, system, integrator, platform, properties)
+    simulation = app.Simulation(modeller.topology, system, integrator, platform=platform, platformProperties=platform_properties)
     simulation.context.setPositions(modeller.positions)
 
     energy_minimisation(simulation)
