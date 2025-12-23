@@ -1,6 +1,6 @@
 simulation:
-  replicates: 1
-  time_ns: 1
+  replicates: 2
+  time_ns: 3
   recording_interval_ps: 1            
   number_frames: 2
   seed: 2025

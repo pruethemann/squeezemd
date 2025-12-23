@@ -1,0 +1,12 @@
+simulation:
+  replicates: 1
+  time_ns: 0.1
+  recording_interval_ps: 0.1            
+  number_frames: 2
+  seed: 2025
+
+  equilibration:
+    protein_k: 10     # harmonic constant to restrain only protein during equilibration
+    NVT_heating:  10 # 10 ps for each T
+    NPT_equilibration: 10 # 100 ps for 2 steps
+    NPT_unrestrained:  10 #100000 # 200 ps

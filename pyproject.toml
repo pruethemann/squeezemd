@@ -1,6 +1,6 @@
 [project]
 name = "squeezemd"
-version = "1.5.3"
+version = "1.6.0"
 description = "SqueezeMD is a autmated Molecular dynamics workflow with extensive post-analysis for PPi"
 readme = "README.rst"
 authors = [
@@ -34,11 +34,43 @@ test = [
 
 [project.urls]
 bugs = "https://github.com/pruethemann/squeezemd"
-changelog = "https://github.com/pruethemann/ruedi/blob/master/changelog.md"
+changelog = "https://github.com/pruethemann/squeezemd/blob/master/changelog.md"
 homepage = "https://github.com/pruethemann/squeezemd"
 
 [project.scripts]
-ruedi = "ruedi.cli:app"
+squeezemd = "squeezemd.cli:app"
+
+# preprocessing
+mutate = "squeezemd.preprocessing.mutate_structure:main"
+
+#md
+center-traj = "squeezemd.md.center_trajectory:main"
+run-md = "squeezemd.md.run_md:main"
+
+# Analysis - Posco
+extract-contact-frames = "squeezemd.analysis.contact_posco.extract_contact_frames:main"
+plot-contact-barplot = "squeezemd.analysis.contact_posco.plot_contact_barplot:main"
+plot-contact-heatmap = "squeezemd.analysis.contact_posco.plot_contact_heatmap:main"
+transform-contact-data = "squeezemd.analysis.contact_posco.transform_contact_data:main"
+
+# Analysis Prolif
+compute-proflif-fingerprints = "squeezemd.analysis.contact_prolif.compute_prolif_fingerprints:main"
+analyze-proflif-fingerprints = "squeezemd.analysis.contact_prolif.analyze_prolif_fingerprints:main"
+
+# Analysis Trajectory
+analyze-potential-energy = "squeezemd.analysis.trajectory.analyze_potential_energy:main"
+explore-trajectory = "squeezemd.analysis.trajectory.explore_trajectory:main"
+compute-rmsf = "squeezemd.analysis.trajectory.compute_rmsf:main"
+plot-rmsf = "squeezemd.analysis.trajectory.plot_rmsf:main"
+
+# Visualization
+#visualize-aligned-structures = "squeezemd.analysis.visualization.align_structures:main"
+visualize-interaction-surface = "squeezemd.analysis.visualization.align_structures:main"
+
+# Analysis metadynamics
+analyze-collective-vars = "squeezemd.analysis.metadynamics.analyze_collective_vars:main"
+analyze-metadynamics-hills = "squeezemd.analysis.metadynamics.analyze_metadynamics_hills:main"
+
 
 [tool.ty]
 # All rules are enabled as "error" by default; no need to specify unless overriding.
@@ -61,39 +93,16 @@ select = [
 [tool.uv]
 package = true
 
-
 [tool.setuptools]
 include-package-data = true
 
-# This considers all bash scripts as part of the python package
-[tool.setuptools.package-data]
-"squeeze.scripts" = ["src/*.sh", 
-                    "src/analysis/contact_posco/*.py",
-                    "src/analysis/contact_prolif/*.py",
-                    "src/analysis/metadynamics/*.py",
-                    "src/analysis/trajectory/*.py",
-                    "src/analysis/visualization/*.py",
-                    "src/md/*.py",
-                    "src/preprocessing/*.py",
-                    "src/squeeze",
-                    "config/*.rst",
-                    "src/Snakefile",
-                    "config/TEMPLATE_aquaduct.txt",
-                    "config/pymol_template.pml",
-                    "install/MD_env.yml"]
+[tool.setuptools.packages.find]
+where = ["src"]
 
-# This will make it callable
+[tool.setuptools.package-data]
+squeezemd = ["resources/*.yaml","md/*.py", "Snakefile"]
+
 [tool.setuptools.data-files]
-"bin" = ["src/*.sh", 
-        "src/analysis/contact_posco/*.py",
-        "src/analysis/contact_prolif/*.py",
-        "src/analysis/metadynamics/*.py",
-        "src/analysis/trajectory/*.py",
-        "src/analysis/visualization/*.py",
-        "src/md/*.py",
-        "src/preprocessing/*.py",
-        "src/squeeze",
-        "src/Snakefile",
-        "config/pymol_template.pml",
-        "config/*.rst",
-        "install/upgrade_package.sh"]
+"bin" = ["scripts/squeeze",
+        "scripts/squeeze_test"]
+
