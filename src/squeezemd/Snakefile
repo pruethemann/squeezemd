@@ -1,7 +1,7 @@
 import sys, os, yaml
 import numpy as np
 from importlib.resources import files
-from helper_functions import config_deep_update
+from helper_functions import config_deep_update, save_yaml, import_yaml
 
 
 ############################
@@ -10,24 +10,24 @@ from helper_functions import config_deep_update
 
 # Merge three different config sources
 # 1. Import simulation config
-configfile: os.path.join('config', 'sim_config.yml') 
+configfile: os.path.join('config', 'sim_config.yaml') 
 
 # 2. Import and merge Molecular dynamics config
-with open(os.path.join('config', 'md_config.yml')) as f:
-    config_md = yaml.safe_load(f)
+config_md = import_yaml('config/md_config.yaml')
 config.update(config_md)        # Merge simulation and md params together
-
-print(config)
 
 #  test situation
 if 'test' in config:
     print("ATTENTION: This is a testrun")
     test_md_config = files("squeezemd").joinpath("resources/md_test_config.yaml")
-    with open(test_md_config) as f:
-        md_test = yaml.safe_load(f)
+    md_test = import_yaml(test_md_config)
     config = config_deep_update(config, md_test)
-else:
+    save_yaml(config, 'config/md_test_config.yaml')
+
+    md_config = 'config/md_test_config.yaml'
+else: # Production run
     print("Production run")
+    md_config = 'config/md_config.yaml'
 
 COMPLEXES = list(config.get("complexes").keys())
 mutations = config['mutations']
@@ -78,8 +78,8 @@ rule protein:
 
 rule prep_mutagenesis:
     input:
-        'config/md_config.yml',
-        'config/sim_config.yml'
+        md_config,
+        'config/sim_config.yaml'
     output:
         '{mode}/{complex}/{mutation}/mutation.pdb'
     params:
@@ -103,7 +103,7 @@ rule prep_mutagenesis:
 
 rule md_protein_protein:
     input:   
-        md_settings=ancient('config/md_config.yml'),
+        md_settings=ancient(md_config),
         pdb='protein_protein/{complex}/{mutation}/mutation.pdb',
     output:
         equilibrated='protein_protein/{complex}/{mutation}/{seed}/MD/structure_equilibrated.pdb',
@@ -126,7 +126,7 @@ rule md_protein_protein:
 
 rule md_protein_molecule:
     input:   
-        md_settings=ancient('config/md_config.yml'),
+        md_settings=ancient(md_config),
         pdb='protein_molecule/{complex}/{mutation}/mutation.pdb',
         sdf=lambda wc: config["complexes"][wc.complex]["sdf"]
     output:
@@ -151,7 +151,7 @@ rule md_protein_molecule:
 
 rule md_metadynamics:
     input:   
-        md_settings=ancient('config/md_config.yml'),
+        md_settings=ancient(md_config),
         pdb='metadynamics/{complex}/{mutation}/mutation.pdb',
     output:
         equilibrated = 'metadynamics/{complex}/{mutation}/{seed}/MD/structure_equilibrated.pdb',
@@ -180,7 +180,7 @@ rule ana_potential_energy:
     input:
         topo='protein_molecule/{complex}/{mutation}/{seed}/MD/structure_equilibrated.pdb',
         traj='protein_molecule/{complex}/{mutation}/{seed}/MD/trajectory_raw.h5',           
-        md_config=ancient('config/md_config.yml'),
+        md_config=ancient(md_config),
         sdf=lambda wc: config["complexes"][wc.complex]["sdf"]
     output:
         'protein_molecule/{complex}/{mutation}/{seed}/MD/energy/potential_energy.parquet',
@@ -234,12 +234,13 @@ rule metadynamics_ana:
         analyze-metadynamics-hills --fes {input.fes} --freeenergy {output.freeenergy}
         """
 
+# TODO: Path is fragile
 rule visualize_structure_alignment:
     input:
         expand('{mode}/{complex}/{mutation}/{seed}/MD/center/structure_end_center_{seed}.pdb',complex=COMPLEXES, mutation=mutations, seed=seeds, mode=mode),
     output:
         'results/alignment/align.pse'
-    params: os.path.join(os.environ['CONDA_PREFIX'], 'bin', 'align_structures.py')
+    params: os.path.join(os.environ['CONDA_PREFIX'], 'lib', 'python3.13','site-packages','squeezemd','analysis','visualization','visualize_aligned_structures.py')
     shell:
         "pymol -c {params} --input {input} --output {output}"
 

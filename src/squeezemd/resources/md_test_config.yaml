@@ -1,5 +1,5 @@
 simulation:
-  replicates: 1
+  replicates: 2
   time_ns: 0.1
   recording_interval_ps: 0.1            
   number_frames: 2

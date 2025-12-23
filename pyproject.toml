@@ -1,6 +1,6 @@
 [project]
 name = "squeezemd"
-version = "1.6.0"
+version = "1.6.1"
 description = "SqueezeMD is a autmated Molecular dynamics workflow with extensive post-analysis for PPi"
 readme = "README.rst"
 authors = [
@@ -65,7 +65,7 @@ plot-rmsf = "squeezemd.analysis.trajectory.plot_rmsf:main"
 
 # Visualization
 #visualize-aligned-structures = "squeezemd.analysis.visualization.align_structures:main"
-visualize-interaction-surface = "squeezemd.analysis.visualization.align_structures:main"
+visualize-interaction-surface = "squeezemd.analysis.visualization.visualize_interaction_surface:main"
 
 # Analysis metadynamics
 analyze-collective-vars = "squeezemd.analysis.metadynamics.analyze_collective_vars:main"
@@ -104,5 +104,6 @@ squeezemd = ["resources/*.yaml","md/*.py", "Snakefile"]
 
 [tool.setuptools.data-files]
 "bin" = ["scripts/squeeze",
-        "scripts/squeeze_test"]
+        "scripts/squeeze_test",
+        "src/squeezemd/analysis/visualization/visualize_aligned_structures.py"]
 

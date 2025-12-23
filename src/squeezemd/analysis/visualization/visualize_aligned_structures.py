@@ -15,15 +15,17 @@ def align_structures(input_structures, output, cutoff=3.0):
     """
 
     objects = []
-    
+
+    print(input_structures)
+   
     # Load all structures
     for struct_file in input_structures:
-        "C1s_Gigastasin/WT/842/MD/topo_center_842.pdb"
-
-        mutation = struct_file.split("/")[-4]
+        mutation = struct_file.split("/")[-5]
+        seed = struct_file.split("/")[-4]
+        complex = struct_file.split("/")[-6]
 
         # Import every final structure
-        obj = os.path.basename(struct_file)[:-3]
+        obj = complex + '_' + '_' + seed + '_' + mutation
         obj = obj + "_" + mutation
         cmd.load(struct_file, obj) 
         objects.append(obj)    
@@ -48,9 +50,13 @@ def align_structures(input_structures, output, cutoff=3.0):
     # Align all structures to the first
     reference = objects[0]
 
-    for mobile in objects[1:]:
-        print(reference, mobile)
-        cmd.align(mobile, reference)
+    print("OBJECTS")
+    print(objects)
+
+    # Only perform alignment if more than 1 structure
+    if len(objects) > 1:
+        for mobile in objects[1:]:
+            cmd.align(mobile, reference)
 
     # Save aligned session
     cmd.save(output)
@@ -64,10 +70,5 @@ def parse_arguments():
     parser.add_argument('--output', required=False, default='align.pse', help='')
     return parser.parse_args()
 
-def main():
-    args = parse_arguments()
-    align_structures(args.input, args.output)
-
-if __name__ == '__main__':
-    main()
-    
+args = parse_arguments()
+align_structures(args.input, args.output)
