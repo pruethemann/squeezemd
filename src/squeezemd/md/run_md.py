@@ -113,7 +113,7 @@ def create_model_smallmolecule(modeller, salt_concentration, params, sdf):
     modeller.add(ligand_topology, ligand_positions)
 
     modeller.addHydrogens(generator.forcefield)       # TODO: Check whether His protonation states are changed
-    #modeller.addExtraParticles(forcefield_generated.forcefield)          # Required for tip4p (orbital)
+    modeller.addExtraParticles(generator.forcefield)          # Add dummy positions for orbitals (OPC, TIP4)
 
     # Add solvent
     modeller.addSolvent(generator.forcefield,
