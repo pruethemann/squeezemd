@@ -54,12 +54,24 @@ def center_in_chunks_h5(topo, traj, topo_center, traj_center_h5, chunk_size=20):
     # If you want the centered coordinates of the final frame, you could save last_chunk[-1].
     chunk[-1].save(topo_center)
 
-
-def convert_h5_to_dcd(h5_path, topo, dcd_path):
-
-    # Import centered h5
+def convert_h5_to_dcd(h5_path, topo, dcd_path, stride=10):
+    """
+    Convert HDF5 trajectory to DCD, saving only every `stride`-th frame.
+    
+    Parameters
+    ----------
+    h5_path : str
+        Path to input HDF5 trajectory
+    topo : str
+        Path to topology file (PDB/PSF/etc.)
+    dcd_path : str
+        Path to output DCD file
+    stride : int, optional
+        Save every `stride`-th frame (default: 10)
+    """
     traj = md.load(h5_path, top=topo)
-    traj.save(dcd_path)
+    traj_strided = traj[::stride]
+    traj_strided.save(dcd_path)
 
 def main():
     parser = argparse.ArgumentParser()

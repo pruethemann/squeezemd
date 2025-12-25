@@ -327,8 +327,8 @@ rule ana_extract_frames:
         topo='{mode}/{complex}/{mutation}/{seed}/MD/structure_end.cif',
         traj='{mode}/{complex}/{mutation}/{seed}/MD/center/trajectory_centered.dcd'
     output:
-        lig_frame='{mode}/{complex}/{mutation}/{seed}/frames/lig_{i}.pdb',
-        rec_frame='{mode}/{complex}/{mutation}/{seed}/frames/rec_{i}.pdb'
+        lig_frame=temp('{mode}/{complex}/{mutation}/{seed}/frames/lig_{i}.pdb'),
+        rec_frame=temp('{mode}/{complex}/{mutation}/{seed}/frames/rec_{i}.pdb')
     params:
         sequence='{mode}/{complex}/{mutation}/{seed}/frames/sequence.parquet'
     shell:
