@@ -340,7 +340,7 @@ rule compute_posco_contacts:
                                    --lig_frame {output.lig_frame} \
                                    --rec_frame {output.rec_frame} \
                                    --sequence {params.sequence} && \
-        po-sco {input.rec_frame} {input.lig_frame} -b  > {output-posco}
+        po-sco {output.rec_frame} {output.lig_frame} -b  > {output.posco}
         """
 
 rule ana_contacts_concat:

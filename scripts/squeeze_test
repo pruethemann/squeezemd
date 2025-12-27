@@ -31,7 +31,7 @@ else
     echo $CONDA_BASE_PATH
 
     # /home/peter/miniconda3/envs/squeeze/lib/python3.13/site-packages/squeezemd/Snakefile
-    snakemake_cmd="snakemake --use-conda -s "$CONDA_BASE_PATH/lib/python3.13/site-packages/squeezemd/Snakefile" "$@" --config mode="$mode" test=True"
+    snakemake_cmd="snakemake --use-conda -s "$CONDA_BASE_PATH/lib/python3.12/site-packages/squeezemd/Snakefile" "$@" --config mode="$mode" test=True"
 
     # save command
     echo -e "#!/bin/bash\n$snakemake_cmd" > execute.sh
