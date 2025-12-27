@@ -76,10 +76,10 @@ def parse_arguments():
     # Initialize argument parser
     parser = argparse.ArgumentParser()
 
-    # Add arguments for input files, output options, and parallelization settings
+    # Input
     parser.add_argument('--topo', required=False, help='', default='frame_end.cif')
-    parser.add_argument('--traj', required=False, help='', default='trajectory.dcd')
-    parser.add_argument('--frame', type=int,required=False, help='PDB file for the ligand and receptor')
+    parser.add_argument('--traj', required=False, help='', default='trajectory.h5')
+    parser.add_argument('--frame', type=int,required=False, help='Frame number to be extracted. frame 5 is the 5th frame from the end')
 
     # Output
     parser.add_argument('--lig_frame', required=False, help='PDB file for the ligand', default='lig.pdb')

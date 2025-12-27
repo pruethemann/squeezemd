@@ -29,11 +29,8 @@
 """
 
 import pandas as pd
-import seaborn as sns
 import argparse
 from glob import glob
-
-sns.set(rc={'figure.figsize':(40,8.27)})
 
 def generate_data(interactions:list):
     """
@@ -248,7 +245,6 @@ def main():
 
 
 def parse_arguments():
-    # Parse Arguments
     parser = argparse.ArgumentParser()
 
     # Input
@@ -256,7 +252,6 @@ def parse_arguments():
 
     # Output
     parser.add_argument('--output', required=False, default='dev3/interactions.feather')
-
     return parser.parse_args()
 
 if __name__ == '__main__':
