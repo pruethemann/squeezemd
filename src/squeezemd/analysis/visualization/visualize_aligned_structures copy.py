@@ -70,15 +70,5 @@ def parse_arguments():
     parser.add_argument('--output', required=False, default='align.pse', help='')
     return parser.parse_args()
 
-
-def main():
-    print("Hello world")
-    args = parse_arguments()
-    align_structures(args.input, args.output)
-
-
-
-print("Hello world")
 args = parse_arguments()
 align_structures(args.input, args.output)
-

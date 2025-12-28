@@ -297,7 +297,11 @@ def simulate(args, params):
     # Define tapering schedule for restraints (kcal/mol/Å²)
     # Rigify everything except 
     if 'flexible_binding_pocket' in params['simulation']:
-        flexible_resids = params['simulation']['flexible_binding_pocket']['flexible_resids']
+        # TODO: use cleaner
+        if 'flexible_resids' in params['simulation']['flexible_binding_pocket']['flexible_resids']:
+            flexible_resids = params['simulation']['flexible_binding_pocket']['flexible_resids']
+        else:
+            flexible_resids = {}
         k = params['simulation']['flexible_binding_pocket']['protein_k']
         system, restraint_force = add_positional_restraints(system, modeller.topology, modeller.positions, k=k, flexible_resids=flexible_resids, verbose=args.verbose)
         

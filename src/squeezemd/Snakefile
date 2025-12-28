@@ -240,7 +240,7 @@ rule visualize_structure_alignment:
         expand('{mode}/{complex}/{mutation}/{seed}/MD/center/structure_end_center_{seed}.pdb',complex=COMPLEXES, mutation=mutations, seed=seeds, mode=mode),
     output:
         'results/alignment/align.pse'
-    params: os.path.join(os.environ['CONDA_PREFIX'], 'lib', 'python3.13','site-packages','squeezemd','analysis','visualization','visualize_aligned_structures.py')
+    params: os.path.join(os.environ['CONDA_PREFIX'], 'lib', 'python3.12','site-packages','squeezemd','analysis','visualization','visualize_aligned_structures.py')
     shell:
         "pymol -c {params} --input {input} --output {output}"
 
