@@ -298,7 +298,7 @@ def simulate(args, params):
     # Rigify everything except 
     if 'flexible_binding_pocket' in params['simulation']:
         # TODO: use cleaner
-        if 'flexible_resids' in params['simulation']['flexible_binding_pocket']['flexible_resids']:
+        if 'flexible_resids' in params['simulation']['flexible_binding_pocket']:
             flexible_resids = params['simulation']['flexible_binding_pocket']['flexible_resids']
         else:
             flexible_resids = {}
