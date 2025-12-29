@@ -22,10 +22,12 @@ import mdtraj
 from ..helper_functions import import_yaml
 from .metadynamics_auxillary import add_metadynamics_forces_centerofmass, save_active_forces
 
-def add_positional_restraints(system, topology, positions, k=10.0, flexible_resids={}, verbose=False):
+def add_positional_restraints(system, topology, positions, k=10.0, flexible_resids={}, verbose=False, flexible_ligand=True):
     """
     Add harmonic restraints to heavy atoms (kcal/mol/Å²).
     Applied to all non-solvent heavy atoms.
+    This function is used for equilibation and for the data generation for AI which requires little
+    movement except the binding pocket.
     """
     restraint = CustomExternalForce('k*periodicdistance(x, y, z, x0, y0, z0)^2')
     
@@ -36,11 +38,10 @@ def add_positional_restraints(system, topology, positions, k=10.0, flexible_resi
     restraint.addPerParticleParameter("y0")
     restraint.addPerParticleParameter("z0")
 
-    if len(flexible_resids) > 0:
-        # Do not restrain water, ions and ligands during equilibration
+    # water and ions are not restrained because they need to equilibrate
+    unrestrained_residues = ('HOH', 'Na+', 'Cl-', 'CL')
+    if flexible_ligand:
         unrestrained_residues = ('HOH', 'Na+', 'Cl-', 'CL', 'UNK')
-    else: # keep flexible binding pocket -> ligand (UNK) can move
-        unrestrained_residues = ('HOH', 'Na+', 'Cl-', 'CL')
 
     for atom in topology.atoms():
         res = atom.residue      # information about residue
@@ -205,7 +206,7 @@ def simulate(args, params):
 
     # Add restraints for equilibration BEFORE minimization
     k = params['simulation']['equilibration']['protein_k']
-    system, restraint_force = add_positional_restraints(system, modeller.topology, modeller.positions, k=k, verbose=args.verbose)
+    system, restraint_force = add_positional_restraints(system, modeller.topology, modeller.positions, k=k, verbose=args.verbose, flexible_ligand=False)
 
     # Integrator setup
     dt_fs = params['simulation']['constraints']['dt_fs']
@@ -302,8 +303,9 @@ def simulate(args, params):
             flexible_resids = params['simulation']['flexible_binding_pocket']['flexible_resids']
         else:
             flexible_resids = {}
+
         k = params['simulation']['flexible_binding_pocket']['protein_k']
-        system, restraint_force = add_positional_restraints(system, modeller.topology, modeller.positions, k=k, flexible_resids=flexible_resids, verbose=args.verbose)
+        system, restraint_force = add_positional_restraints(system, modeller.topology, modeller.positions, k=k, flexible_resids=flexible_resids, verbose=args.verbose, flexible_ligand=True)
         
         # Set k to the parameter in param file to fix the rigid atoms
         simulation.context.setParameter('k', k * kilojoule_per_mole / nanometers**2)

@@ -1,6 +1,6 @@
 [project]
 name = "squeezemd"
-version = "1.6.3"
+version = "1.6.4"
 description = "SqueezeMD is a autmated Molecular dynamics workflow with extensive post-analysis for PPi"
 readme = "README.rst"
 authors = [
