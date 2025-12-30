@@ -435,4 +435,4 @@ onsuccess:
     print(f"Workflow finished without errors. Report for the mode {mode} will be generated")
     shell(f"squeeze {mode} --report report.html")
     print("Synchronize data to caracara")
-    shell("rsync -auvz "$(pwd)" ~/caracara/Squeeze")
+    shell("""rsync -auvz "$(pwd)" ~/caracara/Squeeze""")
