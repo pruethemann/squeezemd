@@ -84,7 +84,7 @@ rule prep_mutagenesis:
         '{mode}/{complex}/{mutation}/mutation.pdb'
     params:
         out_dir=directory('{mode}/{complex}/{mutation}'),
-        foldX='foldx_20251231',
+        foldX='foldx_20270131',
         pdb=lambda wc: config["complexes"][wc.complex]["pdb"]
     log:
         '{mode}/{complex}/{mutation}/mutation.log'

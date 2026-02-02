@@ -131,3 +131,5 @@ token
 examples/
 delete.csv
 *.log
+
+*.parquet
