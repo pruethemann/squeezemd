@@ -43,6 +43,7 @@ mode = config.get('mode', 'protein_protein')
 
 rule protein_protein: # protein-protein interaction analysis
     input:
+        expand('{mode}/{complex}/{mutation}/{seed}/po-sco/posco_interaction.parquet',complex=COMPLEXES,mutation=mutations,seed=seeds,mode=mode),
         'results/alignment/align.pse',
         expand('{mode}/{complex}/{mutation}/{seed}/fingerprint/fingerprint.parquet',complex=COMPLEXES,mutation=mutations,seed=seeds,mode=mode),
         'results/posco/lig_heatmap.svg',
@@ -52,6 +53,7 @@ rule protein_protein: # protein-protein interaction analysis
 
 rule metadynamics:
     input:
+        expand('{mode}/{complex}/{mutation}/{seed}/po-sco/posco_interaction.parquet',complex=COMPLEXES,mutation=mutations,seed=seeds,mode=mode),
         expand('metadynamics/{complex}/{mutation}/{seed}/metadynamics/fes.dat',complex=COMPLEXES, mutation=mutations, seed=seeds),
         expand('metadynamics/{complex}/{mutation}/{seed}/metadynamics/freeenergy.png',complex=COMPLEXES, mutation=mutations, seed=seeds),
         'results/alignment/align.pse',
@@ -63,6 +65,7 @@ rule metadynamics:
 
 rule protein_molecule:
     input:
+        expand('{mode}/{complex}/{mutation}/{seed}/po-sco/posco_interaction.parquet',complex=COMPLEXES,mutation=mutations,seed=seeds,mode=mode),
         expand('protein_molecule/{complex}/{mutation}/{seed}/MD/energy/potential_energy.parquet', complex=COMPLEXES, mutation=mutations, seed=seeds),    
         'results/posco/posco_interactions.parquet',
         'results/alignment/align.pse',
@@ -326,30 +329,39 @@ rule compute_posco_contacts:
     input:
         topo='{mode}/{complex}/{mutation}/{seed}/MD/structure_end.cif',
         traj='{mode}/{complex}/{mutation}/{seed}/MD/center/trajectory_centered.dcd'
-    output:
-        lig_frame=temp('{mode}/{complex}/{mutation}/{seed}/frames/lig_{i}.pdb'),
-        rec_frame=temp('{mode}/{complex}/{mutation}/{seed}/frames/rec_{i}.pdb'),
-        posco = '{mode}/{complex}/{mutation}/{seed}/po-sco/{i}.txt'
     params:
-        sequence='{mode}/{complex}/{mutation}/{seed}/frames/sequence.parquet'
+        number_frames = n_frames
+    output:
+        posco_parquet = '{mode}/{complex}/{mutation}/{seed}/po-sco/posco_interaction.parquet',
+        posco_interaction = '{mode}/{complex}/{mutation}/{seed}/po-sco/posco_interaction.txt',
     shell:
         """
-        extract-contact-frames  --topo {input.topo} \
-                                   --traj {input.traj} \
-                                   --frame {wildcards.i} \
-                                   --lig_frame {output.lig_frame} \
-                                   --rec_frame {output.rec_frame} \
-                                   --sequence {params.sequence} && \
-        po-sco {output.rec_frame} {output.lig_frame} -b  > {output.posco}
+        compute-posco-contacts  --topo {input.topo} \
+                                --traj {input.traj} \
+                                --number_frames {params.number_frames} \
+                                --posco_parquet {output.posco_parquet} \
+                                --posco_interaction {output.posco_interaction} \
+                                --complex {wildcards.complex} \
+                                --mutation {wildcards.mutation} \
+                                --seed {wildcards.seed}
         """
 
-rule ana_contacts_concat:
+rule merge_posco_contact:
     input:
-        posco = expand('{mode}/{complex}/{mutation}/{seed}/po-sco/{i}.txt', i=range(n_frames), complex=COMPLEXES, mutation=mutations, seed=seeds, mode= mode),
+        expand('{mode}/{complex}/{mutation}/{seed}/po-sco/posco_interaction.parquet', complex=COMPLEXES, mutation=mutations, seed=seeds, mode= mode),
     output:
         'results/posco/posco_interactions.parquet'
-    shell:
-        "transform-contact-data --input {input.posco} --output {output}"
+    run:
+        import os
+        import pandas as pd
+
+        posco_df = pd.concat(
+            (pd.read_parquet(f) for f in input),
+            axis=0,
+            ignore_index=True
+        )
+        posco_df.to_parquet(output[0], index=False)
+
 
 rule plot_contacts_heatmap:
     input:

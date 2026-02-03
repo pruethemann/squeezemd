@@ -1,13 +1,13 @@
 [project]
 name = "squeezemd"
-version = "1.6.4"
+version = "1.6.6"
 description = "SqueezeMD is a autmated Molecular dynamics workflow with extensive post-analysis for PPi"
 readme = "README.rst"
 authors = [
   {name = "Rüthemann Peter", email = "peter.ruethemann@gmail.com"}
 ]
 maintainers = [
-  {name = "peter", email = "peter@gmail.com"}
+  {name = "peter", email = "peter.ruethemann@gmail.com"}
 ]
 classifiers = [
     # TODO
@@ -48,10 +48,9 @@ center-traj = "squeezemd.md.center_trajectory:main"
 run-md = "squeezemd.md.run_md:main"
 
 # Analysis - Posco
-extract-contact-frames = "squeezemd.analysis.contact_posco.extract_contact_frames:main"
+compute-posco-contacts = "squeezemd.analysis.contact_posco.compute_posco_interactions:main"
 plot-contact-barplot = "squeezemd.analysis.contact_posco.plot_contact_barplot:main"
 plot-contact-heatmap = "squeezemd.analysis.contact_posco.plot_contact_heatmap:main"
-transform-contact-data = "squeezemd.analysis.contact_posco.transform_contact_data:main"
 
 # Analysis Prolif
 compute-proflif-fingerprints = "squeezemd.analysis.contact_prolif.compute_prolif_fingerprints:main"

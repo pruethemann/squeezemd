@@ -2,7 +2,6 @@
 
 """
 This Helper modules contains multiple function used by multiple other modules.
-
 """
 
 import subprocess

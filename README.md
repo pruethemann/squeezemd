@@ -128,4 +128,8 @@ twine upload dist/*
 ## Further info:
 
 - Compare with this pipeline: https://github.com/ci-lab-cz/streamd
-- 
+
+# TODO
+- Rotabase path fix
+- Posco analysis in 1 job
+- Implement unhappy water
