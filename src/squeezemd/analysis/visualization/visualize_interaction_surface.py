@@ -34,10 +34,10 @@ Terminology:
 import pandas as pd
 import argparse
 import MDAnalysis as mda
-import openmm.app as app
 import seaborn as sns
 import matplotlib.pyplot as plt
 import os
+from importlib.resources import files
 
 plt.style.use('ggplot')
 sns.set_style('ticks')
@@ -54,12 +54,7 @@ def create_pml_script(ligand_resids, receptor_resids, pdb, output_file, pymol_sc
     - target: Name of the target protein.
     """
 
-    # Check if the script is running in a Conda environment and extract path to pymol_template in env
-    if 'CONDA_PREFIX' in os.environ:
-        conda_env = os.environ['CONDA_PREFIX']
-        pymol_template = os.path.join(conda_env, 'bin', 'pymol_template.pml')
-    else:
-        raise Exception("This script is not running in a Conda environment.")
+    pymol_template = (files("squeezemd").joinpath("resources", "pymol_template.pml"))
 
     with open(pymol_template, 'r') as template_file:
         content = template_file.read().format(input_pdb=pdb,
@@ -154,6 +149,7 @@ def parse_arguments():
     A namespace object containing the arguments.
     """
     parser = argparse.ArgumentParser(description='Generate PyMOL script for BD001 mutation labeling and interaction surface calculation.')
+    parser.add_argument('--final_frame', required=True, help='')
     parser.add_argument('--interactions', required=True, help='Path to the interactions CSV file.')
     parser.add_argument('--seed', type=int, required=True, help='Seed number for selecting representative frames.')
     parser.add_argument('--mutation', required=True, help='Mutation identifiers (e.g., WT, Y117E_Y119E_Y121E).')
@@ -184,7 +180,7 @@ def main():
 
     (mutation, complex) = (args.mutation, args.complex)
 
-    pdb = os.path.join(complex, mutation, str(args.seed), 'MD', f'topo_center_{args.seed}.pdb')
+    pdb = args.final_frame
     
     interactions_filtered = interactions.loc[(complex, mutation)]
 

@@ -99,7 +99,7 @@ include-package-data = true
 where = ["src"]
 
 [tool.setuptools.package-data]
-squeezemd = ["resources/*.yaml","md/*.py", "Snakefile"]
+squeezemd = ["resources/*.yaml","md/*.py", "Snakefile", "resources/pymol_template.pml", "resources/*.rst"]
 
 [tool.setuptools.data-files]
 "bin" = ["scripts/squeeze",

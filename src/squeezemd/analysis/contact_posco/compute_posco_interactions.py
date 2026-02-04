@@ -283,17 +283,13 @@ def main():
             cmd = f"po-sco {rec_path} {lig_path}  > {args.posco_interaction}"
             execute(cmd)
 
-
         # Clean up
         os.remove(rec_path)
         os.remove(lig_path)
-
-
-
+        os.remove(posco_result)
 
     posco_interactions = pd.concat(posco_interactions)
     posco_interactions.to_parquet(args.posco_parquet)
-      
 
 if __name__ == '__main__':
     main()

@@ -2,6 +2,8 @@ import sys, os, yaml
 import numpy as np
 from importlib.resources import files
 from helper_functions import config_deep_update, save_yaml, import_yaml
+import sysconfig
+from pathlib import Path
 
 
 ############################
@@ -45,8 +47,8 @@ rule protein_protein: # protein-protein interaction analysis
     input:
         expand('{mode}/{complex}/{mutation}/{seed}/po-sco/posco_interaction.parquet',complex=COMPLEXES,mutation=mutations,seed=seeds,mode=mode),
         'results/alignment/align.pse',
-        expand('{mode}/{complex}/{mutation}/{seed}/fingerprint/fingerprint.parquet',complex=COMPLEXES,mutation=mutations,seed=seeds,mode=mode),
-        'results/posco/lig_heatmap.svg',
+        #expand('{mode}/{complex}/{mutation}/{seed}/fingerprint/fingerprint.parquet',complex=COMPLEXES,mutation=mutations,seed=seeds,mode=mode),
+        #'results/posco/lig_heatmap.svg',
         'results/posco/lig_barplot.svg',
         'results/rmsf/rmsf.svg',
         expand('results/interactionSurface/{complex}.{mutation}.interaction.pdb', complex=COMPLEXES, mutation=mutations),
@@ -237,15 +239,18 @@ rule metadynamics_ana:
         analyze-metadynamics-hills --fes {input.fes} --freeenergy {output.freeenergy}
         """
 
+visualize_alignment_pymol = str(Path(sysconfig.get_path("scripts")) / "visualize_aligned_structures.py")
+
 # TODO: Path is fragile
 rule visualize_structure_alignment:
     input:
         expand('{mode}/{complex}/{mutation}/{seed}/MD/center/structure_end_center_{seed}.pdb',complex=COMPLEXES, mutation=mutations, seed=seeds, mode=mode),
     output:
         'results/alignment/align.pse'
-    params: os.path.join(os.environ['CONDA_PREFIX'], 'lib', 'python3.12','site-packages','squeezemd','analysis','visualization','visualize_aligned_structures.py')
+    params: 
+        pml = visualize_alignment_pymol
     shell:
-        "pymol -c {params} --input {input} --output {output}"
+        "pymol -c {params.pml} --input {input} --output {output}"
 
 rule ana_aquaduct:
     input:
@@ -282,8 +287,8 @@ rule ana_trajectory_descriptive:
         traj='{mode}/{complex}/{mutation}/{seed}/MD/center/trajectory_centered.dcd',
         stats='{mode}/{complex}/{mutation}/{seed}/MD/mdstats.csv'
     output:
-        rmsf= report('{mode}/{complex}/{mutation}/{seed}/analysis/RMSF.html',caption="RMSF.rst",category="RMSF",labels={"Complex": "{complex}", "Mutation": "{mutation}"}),
-        rmsd= report('{mode}/{complex}/{mutation}/{seed}/analysis/RMSD.svg',caption="RMSF.rst",category="RMSD",labels={"Complex": "{complex}", "Mutation": "{mutation}"}),
+        rmsf= report('{mode}/{complex}/{mutation}/{seed}/analysis/RMSF.html',caption="resources/RMSF.rst",category="RMSF",labels={"Complex": "{complex}", "Mutation": "{mutation}"}),
+        rmsd= report('{mode}/{complex}/{mutation}/{seed}/analysis/RMSD.svg',caption="resoucrs/RMSF.rst",category="RMSD",labels={"Complex": "{complex}", "Mutation": "{mutation}"}),
         rmsd_raw= '{mode}/{complex}/{mutation}/{seed}/analysis/RMSD.csv',
         bfactors='{mode}/{complex}/{mutation}/{seed}/analysis/bfactors.pdb',
         stats='{mode}/{complex}/{mutation}/{seed}/analysis/Stats.svg',
@@ -382,8 +387,8 @@ rule plot_contacts_barplot:             # TODO: does not work for mutations of d
     shell:
         """
         plot-contact-barplot --input {input} \
-                                --ligand_interaction {output.lig_barplot} \
-                                --receptor_interaction {output.rec_barplot}
+                             --ligand_interaction {output.lig_barplot} \
+                             --receptor_interaction {output.rec_barplot}
         """
 
 rule ana_prolif_contacts:
@@ -391,7 +396,7 @@ rule ana_prolif_contacts:
         topo='{mode}/{complex}/{mutation}/{seed}/MD/structure_end.cif',
         traj='{mode}/{complex}/{mutation}/{seed}/MD/center/trajectory_centered.dcd',
     output:
-        report('{mode}/{complex}/{mutation}/{seed}/fingerprint/fingerprint.parquet', labels=({"Name": "Interaction Analysis Prolif", "Type": "List"}),caption="RMSF.rst",category="Interaction Fingerprint")
+        report('{mode}/{complex}/{mutation}/{seed}/fingerprint/fingerprint.parquet', labels=({"Name": "Interaction Analysis Prolif", "Type": "List"}),caption="resources/RMSF.rst",category="Interaction Fingerprint")
     params:
         number_frames = n_frames
     threads: 4
@@ -411,8 +416,8 @@ rule plot_prolif_contacts:
     input:
         fingerprints=expand('{mode}/{complex}/{mutation}/{seed}/fingerprint/fingerprint.parquet', complex=COMPLEXES, mutation=mutations, seed=seeds, mode=mode),
     output:
-        interactions = report('results/fingerprints/interactions.parquet',labels=({"Name": "Interaction Analysis Prolif", "Type": "List"}),caption="RMSF.rst",category="Interaction Fingerprint"),
-        figure = report('results/fingerprints/fingerprints.html',labels=({"Name": "Interaction Analysis Prolif", "Type": "Plot"}),caption="RMSF.rst",category="Interaction Fingerprint"),
+        interactions = report('results/fingerprints/interactions.parquet',labels=({"Name": "Interaction Analysis Prolif", "Type": "List"}),caption="resources/RMSF.rst",category="Interaction Fingerprint"),
+        figure = report('results/fingerprints/fingerprints.html',labels=({"Name": "Interaction Analysis Prolif", "Type": "Plot"}),caption="resources/RMSF.rst",category="Interaction Fingerprint"),
     params:
         n_frames = n_frames
     shell:
@@ -430,16 +435,17 @@ rule visualize_interaction_surface:
     output:
         bfactor_pdbs = 'results/interactionSurface/{complex}.{mutation}.interaction.pdb',
         pymol_cmd = 'results/interactionSurface/{complex}.{mutation}.pml',
-        pymol = report('results/interactionSurface/{complex}.{mutation}.final.pse',caption="RMSF.rst",category="PyMol",labels=({"Complex": "{complex}", "Mutation": "{mutation}", "Type": "PyMol"})),
-        surface= report('results/interactionSurface/{complex}.{mutation}.png',caption="RMSF.rst",category="PyMol", labels=({"Complex": "{complex}", "Mutation": "{mutation}", "Type": "Image"}))
+        pymol = report('results/interactionSurface/{complex}.{mutation}.final.pse',caption="resources/RMSF.rst",category="PyMol",labels=({"Complex": "{complex}", "Mutation": "{mutation}", "Type": "PyMol"})),
+        surface= report('results/interactionSurface/{complex}.{mutation}.png',caption="resources/RMSF.rst",category="PyMol", labels=({"Complex": "{complex}", "Mutation": "{mutation}", "Type": "Image"}))
     params:
         representative_seed = seeds[0],
     shell:
         """
-        visualize-interaction-surface --interactions {input.interactions} \
-                                         --seed {params.representative_seed} \
-                                         --mutation {wildcards.mutation} \
-                                         --complex {wildcards.complex}
+        visualize-interaction-surface --final_frame {input.final_frame} \
+                                      --interactions {input.interactions} \
+                                      --seed {params.representative_seed} \
+                                      --mutation {wildcards.mutation} \
+                                      --complex {wildcards.complex}
         pymol -cQ {output.pymol_cmd}
         """
 

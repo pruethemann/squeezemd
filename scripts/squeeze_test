@@ -30,8 +30,8 @@ else
     CONDA_BASE_PATH=$CONDA_PREFIX
     echo $CONDA_BASE_PATH
 
-    # /home/peter/miniconda3/envs/squeeze/lib/python3.13/site-packages/squeezemd/Snakefile
-    snakemake_cmd="snakemake --use-conda -s "$CONDA_BASE_PATH/lib/python3.13/site-packages/squeezemd/Snakefile" "$@" --config mode="$mode" test=True"
+    SNAKEFILE=$(python3 -c 'from importlib.resources import files; print(files("squeezemd").joinpath("Snakefile"))')
+    snakemake_cmd="snakemake --use-conda -s "$SNAKEFILE" "$@" --config mode="$mode" test=True"
 
     # save command
     echo -e "#!/bin/bash\n$snakemake_cmd" > execute.sh
