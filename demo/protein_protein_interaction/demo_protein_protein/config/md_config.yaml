@@ -1,4 +1,4 @@
-simulation:
+qsimulation:
   replicates: 1
   time_ns: 0.1
   recording_interval_ps: 0.1            
@@ -7,9 +7,9 @@ simulation:
 
   equilibration:
     protein_k: 10
-    NVT_heating:  1 # 5000 # 10 ps for each T
-    NPT_equilibration: 1 # 50000 # 100 ps for 2 steps
-    NPT_unrestrained:  1 #100000 # 200 ps
+    NVT_heating: 5000 # 10 ps for each T
+    NPT_equilibration: 50000 # 100 ps for 2 steps
+    NPT_unrestrained: 100000 # 200 ps
 
   # Forcefield settings
   forcefield:
@@ -34,7 +34,8 @@ simulation:
 
   metadynamics: 
         CV: COM
-        SIGMA: 0.2    # 0.1-0.5 nm. The width of each Gaussian hill deposited in the free-energy landscape.
+        SIGMA_COM: 0.2    # 0.1-0.5 nm. The width of each Gaussian hill deposited in the free-energy landscape.
+        SIGMA_CONTACTS: 2.0
         HEIGHT: 0.03  # 0.1–1.0 kJ/mol. The amplitude (energy) of each Gaussian hill
         PACE: 1000     # 100-2000. Frequency of applying hill
         STRIDE: 50    # How often values of your collective variables are written to the COLVAR file.

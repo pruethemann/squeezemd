@@ -27,8 +27,70 @@ def add_metadynamics_forces_singledistance(metadynamics_params, T:int, system, a
     print("Metadynamics variable added")
     return system
 
+def add_metadynamics_forces_centerofmass_contacts(params, system, args, T=300):
+
+    print("temperature", T)
+
+    # Metadynamics params
+    meta = params['simulation']['metadynamics']
+    sigma_com = meta['SIGMA_COM']            # kept for COM CV (nm)
+    sigma_contacts = meta['SIGMA_CONTACTS']
+    height = meta['HEIGHT']
+    pace = meta['PACE']
+    stride = meta['STRIDE']
+
+    # Optional: contact-switch parameters
+    # R_0 is in nm; NN controls sharpness (larger => sharper)
+    r0 = meta.get('CONTACT_R0', 0.45)     # ~4.5 Å is a common start for heavy-atom contacts
+    nn = meta.get('CONTACT_NN', 6)
+
+    # Get absolute paths for outputs
+    hills_path = os.path.abspath(args.metadynamics_hills)
+    colvar_path = os.path.abspath(args.metadynamics_colvar)
+
+    # get relevant atom indexes
+    id = extract_atom_indices(args.equilibrated)
+
+    script = f"""
+            # get residue and chainID information
+            MOLINFO STRUCTURE={args.equilibrated}
+
+            # Define two groups (ligand:Entity0 and receptor:Entity1)
+            WHOLEMOLECULES ENTITY0={id['lig_min']}-{id['lig_max']} ENTITY1={id['rec_min']}-{id['rec_max']}
+
+            # Group atoms (adjust to heavy atoms if your index ranges include hydrogens)
+            grp_lig: GROUP ATOMS={id['lig_min']}-{id['lig_max']}
+            grp_rec: GROUP ATOMS={id['rec_min']}-{id['rec_max']}
+
+            # Define center of mass of the two partners
+            lig: COM ATOMS=grp_lig
+            rec: COM ATOMS=grp_rec
+
+            # CV1: Distance between the two COMs (in nm)
+            d1: DISTANCE ATOMS=lig,rec
+
+            # CV2: Interface contacts as coordination number (dimensionless)
+            # This counts (smoothly) how many ligand atoms are within ~R_0 of receptor atoms.
+            # If you want "native contacts only", we can instead use CONTACTMAP with a reference.
+            c1: COORDINATION GROUPA=grp_lig GROUPB=grp_rec R_0={r0} NN={nn} MM=0
+
+            # Bias both CVs
+            METAD ARG=d1,c1 SIGMA={sigma_com},{sigma_contacts} HEIGHT={height} PACE={pace} FILE={hills_path}
+
+            # Print both CVs
+            PRINT ARG=d1,c1 STRIDE={stride} FILE={colvar_path}
+            """
+
+    plumed = PlumedForce(script)
+    plumed.setTemperature(T * kelvin)
+    system.addForce(plumed)
+    print("Metadynamics variables added: COM distance (d1) + interface contacts (c1)")
+    return system
 
 def add_metadynamics_forces_centerofmass(params, system, args, T=300):
+    """
+    TODO: currently deprectated
+    """
     print("temperature", T)
     # Metadynamics params
     sigma = params['simulation']['metadynamics']['SIGMA']

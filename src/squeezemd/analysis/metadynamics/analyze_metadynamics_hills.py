@@ -64,15 +64,29 @@ def main():
     args = parse_args()
 
     # Read FES
-    df = pd.read_csv(args.fes, sep='\s+', comment="#", header=None, names=['d1', 'F' ,'der_d1'])
+    df = pd.read_csv(args.fes, sep='\s+', comment="#", header=None, names=['d1', 'c1','F' ,'der_d1', 'der_c1'])
 
+    """
+    d1: first CV: COM distance in nm
+    c1: second CV: interace contactes (the coordination number, wo unit)
+    F: Free energy (F(d1,c1))in k//Mol
+    der_d1: Gradient (force) of the free energy along the COM distance
+    der_c1: gradient (force) along the contacts CV
+
+    Use gradients to find transition states
+    """
+    plt.subplot(2, 1, 1)
     sns.lineplot(data=df,
                  x='d1',
                  y='F')
     
+    plt.subplot(2, 1, 2)
+    sns.lineplot(data=df,
+                 x='c1',
+                 y='F')
+    
     plt.savefig(args.freeenergy)
     plt.close()
-    #plt.show()
 
 
 if __name__ == "__main__":
