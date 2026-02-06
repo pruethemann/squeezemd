@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
-"""
-analyze_fes.py
+"""Plot a 1D free-energy surface from PLUMED sum_hills output.
 
-Plot a 1D free-energy surface from PLUMED sum_hills output
-and optionally perform convergence analysis by truncating the HILLS file.
+Reads a `fes.dat` file produced by `plumed sum_hills` and generates
+basic FES plots. The helper includes an optional truncation routine
+for convergence checks.
 """
 
 import argparse
@@ -13,6 +13,7 @@ import matplotlib.pyplot as plt
 
 
 def plot_fes(df, label=None):
+    """Plot a single FES curve (d1 vs free energy)."""
     plt.plot(df["d1"], df["F"], label=label)
     plt.xlabel("d1 (collective variable)")
     plt.ylabel("Free Energy")
@@ -24,6 +25,7 @@ def plot_fes(df, label=None):
 # Truncate HILLS for convergence
 # -----------------------------
 def truncate_hills(hills_path, fraction, outfile):
+    """Write a truncated HILLS file for convergence diagnostics."""
     with open(hills_path) as f:
         lines = f.readlines()
 
@@ -37,6 +39,7 @@ def truncate_hills(hills_path, fraction, outfile):
 
 
 def get_fes_from_hills(hills_path, outfile):
+    """Run `plumed sum_hills` to generate a FES file."""
     cmd = ["plumed", "sum_hills", "--hills", hills_path, "--outfile", outfile, "--mintozero"]
     subprocess.run(cmd, check=True)
 

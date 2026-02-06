@@ -1,5 +1,11 @@
 #!/usr/bin/env python
 
+"""Exploratory trajectory analysis (RMSF/RMSD/secondary structure/MD stats).
+
+This script aggregates common post‑MD diagnostics into a single run and
+exports plots plus B‑factors for visualization.
+"""
+
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 import pandas as pd
@@ -13,6 +19,7 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 
 def visualize_MDStats(stats_file, output_graph):
+    """Plot energy, temperature, and volume time series from OpenMM stats."""
     data = pd.read_csv(stats_file, sep=',')
 
     data['time (ns)'] = data['Time (ps)'] / 1000
@@ -79,6 +86,7 @@ def find_series(sec_str, structure):
     return secondary_series
 
 def calculate_RMSF_and_secondary_structure(u: mda.Universe, args):
+    """Compute RMSF per chain and overlay secondary structure annotations."""
     # Extract all unique chainIDs from the Universe object
     chains = list(set(atom.chainID for atom in u.atoms))
     # Exclude numeric values which correspond to salts and solvents
@@ -106,6 +114,7 @@ def calculate_RMSF_and_secondary_structure(u: mda.Universe, args):
 
 
 def calculate_bfactors(R):
+    """Write RMSF values into the B‑factor column for visualization."""
     u.add_TopologyAttr('tempfactors')  # add empty attribute for all atoms
     protein = u.select_atoms('protein')  # select protein atoms
     for residue, r_value in zip(protein.residues, R.results.rmsf):
@@ -114,6 +123,7 @@ def calculate_bfactors(R):
     u.atoms.write(args.bfactors)
 
 def predict_secondary_structure(u: mda.Universe, chainID: str):
+    """Predict secondary structure using DSSP for a specific chain."""
     chain = u.select_atoms(f'chainID {chainID}')
     dssp_analysis = DSSP(chain).run()
     mean_secondary_structure = translate(dssp_analysis.results.dssp_ndarray.mean(axis=0))
@@ -122,6 +132,7 @@ def predict_secondary_structure(u: mda.Universe, chainID: str):
 
 
 def visualize_RMSF(rmsf_data, secondary_structure_data, output_file):
+    """Render RMSF curves with shaded helix/sheet regions per chain."""
     num_chains = len(rmsf_data)
     fig = make_subplots(rows=num_chains, cols=1, shared_xaxes=False, vertical_spacing=0.05)
 
@@ -135,7 +146,7 @@ def visualize_RMSF(rmsf_data, secondary_structure_data, output_file):
     for chain, (resids, rmsf_values) in sorted(rmsf_data.items()):
         secondary_str = secondary_structure_data[chain]
 
-        # Plot RMSF
+        # Plot RMSF trace
         fig.add_trace(go.Scatter(x=resids, y=rmsf_values, mode='lines', name=f'Chain {chain} RMSF'),
                       row=row, col=1)
         
@@ -149,8 +160,6 @@ def visualize_RMSF(rmsf_data, secondary_structure_data, output_file):
         start_residue = min(resids)
 
         # Draw secondary structure shades
-        # 4. Add a blue shade in the background of the graph from x=5 to x=10           
-
         for helix in helix_series:
             # Second shade from x=15 to x=20
             # TODO: Check if the residue numbers for secondary structures are correct
@@ -210,11 +219,11 @@ def calculate_RMSD(u: mda.Universe, args):
     ligand = u.select_atoms('chainID A')
     receptor = u.select_atoms('chainID B')
 
-    # 3. Compute RMSD for receptor and ligand
+    # Compute RMSD for receptor and ligand
     RMSD_ligand = rms.RMSD(ligand, ref_frame=0).run()
     RMSD_receptor = rms.RMSD(receptor, ref_frame=0).run()
 
-    # 4. Save the data in a dataframe
+    # Save the data in a dataframe
     data = {
         'Time (ns)': RMSD_ligand.times,
         'Ligand': RMSD_ligand.results.rmsd[:, 2],  # Column 2 contains the RMSD values
@@ -225,7 +234,7 @@ def calculate_RMSD(u: mda.Universe, args):
     # Melt the dataframe for seaborn plotting
     df_melted = df.melt(id_vars=["Time (ns)"], var_name="Molecule", value_name="RMSD")
 
-    # 5. Plot the data with seaborn
+    # Plot the data with seaborn
     sns.lineplot(data=df_melted, x="Time (ns)", y="RMSD", hue="Molecule")
     plt.xlabel('Time (ns)')
     plt.ylabel('RMSD (Å)')
@@ -239,6 +248,7 @@ def calculate_RMSD(u: mda.Universe, args):
 
 
 def parse_arguments():
+    """Parse CLI arguments for exploratory trajectory analysis."""
     parser = argparse.ArgumentParser()
 
     # Input
@@ -270,7 +280,7 @@ def main():
 
     calculate_RMSD(u, args)
 
-    # Visualize Energies, T, ...
+    # Visualize energies, temperature, and volume
     visualize_MDStats(args.stats, args.fig_stats)
 
 if __name__ == '__main__':

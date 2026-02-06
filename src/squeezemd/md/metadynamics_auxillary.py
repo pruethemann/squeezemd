@@ -20,7 +20,7 @@ def add_metadynamics_forces_centerofmass(params, system, args, T=300):
     hills_path = os.path.abspath(args.metadynamics_hills)
     colvar_path = os.path.abspath(args.metadynamics_colvar)
 
-    # get relevant atom indexes
+    # Get relevant atom indices (Cα only for COM CV)
     idx = extract_atom_indices(args.equilibrated)
 
     script = f"""
@@ -50,6 +50,7 @@ def add_metadynamics_forces_centerofmass(params, system, args, T=300):
     return system
 
 def extract_atom_indices(pdf_file: os.path):
+    """Extract ligand/receptor atom indices and Cα subsets for PLUMED."""
 
     u = mda.Universe(pdf_file)
 
@@ -287,7 +288,7 @@ def add_metadynamics_forces_centerofmass_contacts(params, system, args, T=300):
     hills_path = os.path.abspath(args.metadynamics_hills)
     colvar_path = os.path.abspath(args.metadynamics_colvar)
 
-    # get relevant atom indexes
+    # Get relevant atom indices
     id = extract_atom_indices(args.equilibrated)
 
     script = f"""
@@ -327,6 +328,7 @@ def add_metadynamics_forces_centerofmass_contacts(params, system, args, T=300):
     return system
 
 def extract_atom_indices_extended(pdf_file: os.path, cutoff = 5.0):
+    """Extract interface atoms and Cα subsets within a distance cutoff."""
 
     u = mda.Universe(pdf_file)
 

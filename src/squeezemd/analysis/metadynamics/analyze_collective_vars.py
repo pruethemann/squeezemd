@@ -1,16 +1,7 @@
 #!/usr/bin/env python3
-"""
-analyze_colvar.py
+"""Analyze PLUMED COLVAR output (time vs collective variable).
 
-Analysis and plotting for a PLUMED COLVAR file that contains:
-    time   d1
-
-This script:
-- Loads the COLVAR file
-- Plots d1 vs time
-
-Usage:
-    python analyze_colvar.py COLVAR
+Loads a COLVAR file and plots the primary CV (d1) against time.
 """
 
 import argparse
@@ -19,11 +10,12 @@ import matplotlib.pyplot as plt
 
 
 def parse_arguments():
+    """Parse CLI arguments for COLVAR plotting."""
     parser = argparse.ArgumentParser()
-    # input
+    # Input
     parser.add_argument("--colvar", help="Path to COLVAR file")
 
-    # output
+    # Output
     parser.add_argument("--colvar_fig", help="Path to COLVAR file")
 
     return parser.parse_args()

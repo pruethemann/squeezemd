@@ -1,4 +1,6 @@
 #!/usr/bin/env python
+
+"""Toy analysis for complex dissociation (RMSD and distances)."""
 import pandas as pd
 import seaborn as sns
 import matplotlib.pyplot as plt
@@ -9,6 +11,7 @@ import numpy as np
 import MDAnalysis as mda
 
 def rmsd_analysis(args):
+    """Aggregate RMSD files and plot time series by receptor."""
     # Let's do it the old-fashioned way and just consider all possible RMSD files
     rmsd_files = glob(f"output/{args.job_id}/**/**/**/RMSD.csv")
 
@@ -54,6 +57,7 @@ def rmsd_analysis(args):
 
 
 def get_distances(u, group_a, group_b):
+    """Compute a simple distance time series between two atom groups."""
     timeseries = []
     for ts in u.trajectory[::2]:
         # calculate distances between group_a and group_b
@@ -65,6 +69,7 @@ def get_distances(u, group_a, group_b):
 # 20 ns simulations
 
 def calculate_distances(args):
+    """Compute selected distances across centered trajectories."""
     # Just consider all topos and trajectors which have been centered
     topos = glob(f"C1s_BD001/**/**/MD/center/topo_center.pdb", recursive=True)
     trajs = glob(f"C1s_BD001/**/**/MD/center/traj_center.dcd", recursive=True)

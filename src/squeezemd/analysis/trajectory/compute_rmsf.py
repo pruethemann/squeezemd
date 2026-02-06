@@ -1,5 +1,7 @@
 #!/usr/bin/env python
 
+"""Compute RMSF across one or more trajectories and save as parquet."""
+
 import argparse
 import pandas as pd
 import MDAnalysis as mda
@@ -8,8 +10,9 @@ import openmm.app as app
 from ...helper_functions import remap_MDAnalysis
 
 def calculate_RMSF(u: mda.Universe, i):
+    """Calculate Cα RMSF for a single trajectory and label by simulation id."""
 
-    # TODO: separate ligand and receptor. currently all backbones
+    # TODO: separate ligand and receptor. currently all Cα atoms
     c_alphas = u.select_atoms(f'name CA')
     R = rms.RMSF(c_alphas).run()
 
@@ -22,6 +25,7 @@ def calculate_RMSF(u: mda.Universe, i):
 
 
 def parse_arguments():
+    """Parse CLI arguments for RMSF computation."""
     parser = argparse.ArgumentParser()
 
     # Input
@@ -48,7 +52,7 @@ def main():
         u = mda.Universe(topo, traj, in_memory=False)
         u = remap_MDAnalysis(u, topo)
 
-        # calcualte RMSDF
+        # Calculate RMSF
         rmsf = calculate_RMSF(u,i)
         rmsf_data.append(rmsf)
 

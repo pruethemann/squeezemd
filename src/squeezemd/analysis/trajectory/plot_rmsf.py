@@ -1,5 +1,7 @@
 #!/usr/bin/env python
 
+"""Plot RMSF distributions from a parquet table."""
+
 import pandas as pd
 import matplotlib.pyplot as plt
 import seaborn as sns
@@ -7,6 +9,7 @@ import argparse
 
 
 def parse_arguments():
+    """Parse CLI arguments for RMSF plotting."""
     parser = argparse.ArgumentParser()
 
     # Input
@@ -21,6 +24,7 @@ def parse_arguments():
 def main():
     args = parse_arguments()
 
+    # Load RMSF data and plot with standard deviation shading
     rmsf_df = pd.read_parquet(args.input)
 
     sns.lineplot(data=rmsf_df,

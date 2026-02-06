@@ -1,8 +1,9 @@
 #!/usr/bin/env python
 
-"""
-This pymol script is execute within python with "run 6_Align.py --input ... --output align.pse"
-or in the terminal with "pymol -c 6_Align.py --input ... --output align.pse
+"""PyMOL alignment helper for final structure comparison.
+
+Run inside PyMOL (batch) to load multiple structures, filter to
+protein + nearby solvent/ions, align to a reference, and save a session.
 """
 
 from pymol import cmd

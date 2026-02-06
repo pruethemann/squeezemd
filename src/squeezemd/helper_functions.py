@@ -1,7 +1,10 @@
 #!/usr/bin/env python
 
-"""
-This Helper modules contains multiple function used by multiple other modules.
+"""Shared helper utilities used across the package.
+
+This module groups small utilities used by multiple scripts, including
+YAML handling, command execution, and residue/chain remapping helpers
+for MDAnalysis/OpenMM interoperability.
 """
 
 import subprocess
@@ -11,6 +14,15 @@ import pandas as pd
 import yaml
 
 def config_deep_update(base: dict, override: dict) -> dict:
+    """Recursively merge nested dicts, updating ``base`` in place.
+
+    Parameters
+    ----------
+    base
+        Original configuration dictionary.
+    override
+        New values to merge into ``base``.
+    """
     for key, value in override.items():
         if (
             key in base
@@ -58,6 +70,11 @@ def import_yaml(yaml_path: os.path):
 
 
 def extract_ligand_sequence(pdb_ligand: os.path):
+    """Extract a single-chain ligand sequence from a PDB file.
+
+    Assumes the ligand is on chain A and normalizes CYX -> CYS for
+    compatibility with sequence extraction.
+    """
 
      # Import pdb file with MDAnalysis
     u = mda.Universe(pdb_ligand)

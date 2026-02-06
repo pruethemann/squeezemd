@@ -1,3 +1,8 @@
+"""Legacy Streamlit config builder (v1).
+
+This is an older configuration UI retained for reference.
+"""
+
 # gui/app.py
 from __future__ import annotations
 

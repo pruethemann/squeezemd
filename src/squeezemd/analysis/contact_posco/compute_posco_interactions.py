@@ -1,6 +1,9 @@
 #!/usr/bin/env python
-"""
-This script processes molecular dynamics trajectories and performs interaction analysis between a ligand and a receptor.
+"""Run PoSCo on trajectory frames and parse interaction results.
+
+This script extracts ligand/receptor subsets from trajectory frames,
+executes PoSCo, and consolidates interactions into a parquet table with
+metadata (complex, mutation, seed, frame).
 """
 
 import argparse, os
@@ -10,6 +13,7 @@ import openmm.app as app
 import pandas as pd
 
 def parse_lipophilic(parts, sequence):
+    """Parse a PoSCo lipophilic interaction line into a dict."""
         
         interaction_info = parts[0].split()
         donor_acceptor = parts[1].strip().split()
@@ -54,6 +58,7 @@ def parse_lipophilic(parts, sequence):
 
 
 def parse_hbonds(parts, sequence):
+    """Parse a PoSCo H‑bond interaction line into a dict."""
 
         interaction_info = parts[0].split()
         donor_acceptor = parts[1].strip().split()
@@ -120,8 +125,8 @@ def parse_posco(posco_output, metadata, frame_id, sequence_parquet):
     # Import the sequence information for ligand and receptor
     sequence = pd.read_parquet(sequence_parquet)
 
-    # In rare cases the same resname and resid can exist in rec and lig. remove this duplicates
-    # and only use lig
+    # In rare cases the same resname and resid can exist in rec and lig.
+    # Keep the first occurrence to avoid ambiguity.
     if not sequence.index.is_unique:
         sequence = sequence[~sequence.index.duplicated(keep='first')]
     
@@ -180,7 +185,7 @@ def extract_binding_surface(u, sequence_path, t=8):
     X: small molecule ligand
     """
 
-    # Determine the ligand segid
+    # Determine the ligand segid (A for protein ligand, X for small molecule)
     ligand = u.select_atoms('segid A')
     if len(ligand) == 0:        # For small molecule the chain ID is X
         ligand = u.select_atoms('segid X')
@@ -188,13 +193,13 @@ def extract_binding_surface(u, sequence_path, t=8):
     else:
         ligand_segid = 'A'
 
-    # Select chain A (must be always ligand) and everything else
+    # Select ligand and receptor proteins
     receptor = u.select_atoms(f'not segid {ligand_segid} and protein')
 
     # Extract and save sequences information for posco
     extract_sequence(ligand, receptor, sequence_path)
 
-    # Select water molecules within 5 Å of both chain A and chain B
+    # Select water molecules within t Å of ligand and receptor
     water_binding_site = u.select_atoms(f'resname HOH and (around {t} segid {ligand_segid}) and (around {t} (not segid {ligand_segid} and protein))')
 
     # Get the residues of selected water molecules
@@ -254,7 +259,7 @@ def main():
     posco_interactions = []
 
     for i in range(args.number_frames):
-        # 1. Extract lig and rec file
+        # 1. Extract ligand and receptor for this frame
         ts = u.trajectory[-i - 1]
 
         # Extract protein and water in binding surface
@@ -268,12 +273,12 @@ def main():
         ligand.write(lig_path)
         receptor.write(rec_path)
 
-        # 2. Perform posco
+        # 2. Perform PoSCo
         posco_result = f'{i}_posco_{prefix}.txt'
         cmd = f"po-sco {rec_path} {lig_path} -b  > {posco_result}"
         execute(cmd)
 
-        # 3. Extract all information for every frame into a single parquet
+        # 3. Parse interactions into a single parquet table
         posco_interaction = parse_posco(posco_result, metadata, i, 'sequence.parquet')
         posco_interactions.append(posco_interaction)
 

@@ -1,4 +1,6 @@
 #!/usr/bin/env python3
+
+"""Stream PoSCo analysis from trajectory frames using FIFOs."""
 import argparse
 import os
 import shutil
@@ -13,6 +15,7 @@ from .transform_contact_data import parse_lines  # adjust import path if needed
 
 
 def run_one_frame(extract_bin, posco_bin, topo, traj, frame, sequence_path, complex, mutation, seed):
+    """Run PoSCo for a single frame using temporary FIFOs."""
 
     sequence = pd.read_parquet(sequence_path)
     if not sequence.index.is_unique:
@@ -60,6 +63,7 @@ def run_one_frame(extract_bin, posco_bin, topo, traj, frame, sequence_path, comp
             err = (err or "").strip()
             raise RuntimeError(f"po-sco failed for frame {frame}:\n{err}")
 
+        # Parse the interaction output
         lines = out.splitlines(True)  # keep line endings
         df = parse_lines(lines, sequence, complex, mutation, seed, frame)
         return df
@@ -68,6 +72,7 @@ def run_one_frame(extract_bin, posco_bin, topo, traj, frame, sequence_path, comp
         shutil.rmtree(tmpdir, ignore_errors=True)
 
 def parse_arugments():
+    """Parse CLI arguments for streaming PoSCo analysis."""
     ap = argparse.ArgumentParser()
     ap.add_argument("--topo", required=True)
     ap.add_argument("--traj", required=True)
@@ -85,6 +90,7 @@ def main():
 
     args = parse_arugments()
 
+    # Sequence parquet is used by the parser to map residue metadata
     args.sequence = "sequence.parquet"
 
     dfs = []

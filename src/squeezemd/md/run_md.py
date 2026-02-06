@@ -1,16 +1,17 @@
 #!/usr/bin/env python
-"""
-    Molecular Dynamics Workflow using OpenMM
-    -------------------------------------------------
-    Updated protocol (fixed heating instability):
-    1. Add positional restraints before minimization.
-    2. Energy minimization with heavy atoms restrained.
-    3. Gradual heating under NVT using smooth ramp (50→300 K).
-    4. Switch to NPT, gradually reduce restraints (10→5→1 kcal/mol/Å²).
-    5. Unrestrained NPT equilibration.
-    6. Production run.
+"""Molecular Dynamics workflow using OpenMM.
 
-    Designed for solvated protein(-protein) complexes.
+Protocol overview
+-----------------
+1. Add positional restraints before minimization.
+2. Energy minimization with heavy atoms restrained.
+3. Gradual heating under NVT (50 → 300 K ramp).
+4. NPT equilibration with tapering restraints.
+5. Unrestrained NPT equilibration.
+6. Production run (optional metadynamics).
+
+Designed for solvated protein(-protein) complexes, with a separate path
+for protein–small‑molecule systems using OpenFF parameters.
 """
 
 import argparse, os
@@ -165,11 +166,13 @@ def create_model_ppi(modeller, salt_concentration, params):
     return system
 
 def save_cif(simulation, cif_file: os.path):
+    """Write the current OpenMM context positions to a PDBx/mmCIF file."""
     positions = simulation.context.getState(getPositions=True, enforcePeriodicBox=True).getPositions()
     with open(cif_file, "w") as f:
         app.PDBxFile.writeFile(simulation.topology, positions, f, keepIds=True)
 
 def save_pdb(simulation, pdb_file:os.path):
+    """Write the current OpenMM context positions to a PDB file."""
     positions = simulation.context.getState(getPositions=True, enforcePeriodicBox=True).getPositions()
     with open(pdb_file, "w") as f:
         app.PDBFile.writeFile(simulation.topology, positions,f, keepIds=True)
@@ -187,7 +190,7 @@ def simulate(args, params):
         platform = Platform.getPlatformByName('CPU')
         platform_properties = None 
 
-    # Load structure
+    # Load input structure
     protein = app.PDBFile(args.pdb)
     modeller = app.Modeller(protein.topology, protein.positions)
 
@@ -200,7 +203,7 @@ def simulate(args, params):
         system = create_model_ppi(modeller, salt_concentration, params)
 
     # ---------------------
-    # Stage 0: Minimization
+    # Stage 0: Minimization (with restraints)
     # ---------------------
     print('\n=== Stage 0: Energy minimization with restraints ===')
 
@@ -224,7 +227,7 @@ def simulate(args, params):
     energy_minimisation(simulation)
 
     # ---------------------
-    # Stage 1: NVT Heating with restrains
+    # Stage 1: NVT heating with restraints
     # ---------------------
     print('\n=== Stage 1: Smooth NVT heating ===')
     simulation.context.setVelocitiesToTemperature(50 * kelvin)
@@ -259,7 +262,7 @@ def simulate(args, params):
         simulation.step(params['simulation']['equilibration']['NPT_equilibration'])
 
     # ---------------------
-    # Stage 3: Unrestrained NPT at simulation T
+    # Stage 3: Unrestrained NPT at simulation temperature
     # ---------------------
     print('\n=== Stage 3: Unrestrained NPT equilibration ===')
 

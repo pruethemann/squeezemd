@@ -1,5 +1,7 @@
 #!/usr/bin/env python
 
+"""Aggregate ProLIF fingerprints and plot interaction summaries."""
+
 import pandas as pd
 import plotly.express as px
 import plotly.subplots as sp
@@ -19,7 +21,7 @@ def import_data(fingerprints):
         Note: This function relies on 'data_engineering' to process individual DataFrames.
         """
 
-    ## Initialize an empty list to store processed data
+    # Initialize an empty list to store processed data
     combined_data = []
 
     for fp_path in fingerprints:
@@ -32,7 +34,7 @@ def import_data(fingerprints):
             print("Error with import from: ", fp_path)
             continue
 
-        # Determine metrics lables
+        # Determine metrics labels
         fp['name'] = fp.attrs['complex']
         fp['target'] = fp.attrs['target']
         fp['lig'] = fp.attrs['ligand']
@@ -81,13 +83,14 @@ def data_engineering(data, n_frames):
 
     data_agg['interaction_type'] = data_agg['interaction'].map(interaction_map)
 
-    # extract resids
+    # extract residue indices from labels
     data_agg['resid'] = data_agg['ligand'].str.extract('(\d+)').astype(int)
     return data_agg
 
 def create_fig(fp_df, fig_path):
+    """Create a multi-panel barplot of interaction types vs residue."""
 
-    # Group by 'interaction_type', 'mutation', and 'resid', and calculate mean and standard deviation of the 'sum'
+    # Group by interaction type/mutation/resid and calculate mean and SD
     df_grouped = fp_df.groupby(['interaction_type', 'mutation', 'resid']).agg(
         mean_sum=('sum', 'mean'),
         std_sum=('sum', 'std')
@@ -102,7 +105,7 @@ def create_fig(fp_df, fig_path):
     color_map = px.colors.qualitative.Plotly[:len(unique_mutations)]  # Use Plotly's color scheme
     mutation_color_mapping = dict(zip(unique_mutations, color_map))
 
-    # Create subplots for each 'interaction_type' with consistent colors for mutations
+    # Create subplots for each interaction_type with consistent colors for mutations
     interaction_types = df_grouped['interaction_type'].unique()
     fig = sp.make_subplots(rows=len(interaction_types), cols=1, subplot_titles=interaction_types)
 
@@ -143,6 +146,7 @@ def create_fig(fp_df, fig_path):
 
 
 def parse_arguments():
+    """Parse CLI arguments for fingerprint analysis/plotting."""
     parser = argparse.ArgumentParser()
 
     # Input

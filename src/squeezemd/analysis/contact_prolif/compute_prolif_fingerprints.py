@@ -1,5 +1,7 @@
 #!/usr/bin/env python
 
+"""Compute ProLIF interaction fingerprints from a trajectory."""
+
 import argparse
 import os
 import prolif as plf
@@ -60,6 +62,7 @@ def create_interaction_fingerprint(topology_file, trajectory_file, output_file, 
     interactions_df.to_csv(output_file.replace('.parquet', '.csv'))
 
 def parse_arguments():
+    """Parse CLI arguments for fingerprint calculation."""
     parser = argparse.ArgumentParser(description="Generate interaction fingerprints from molecular dynamics simulations.")
     # Inputs
     parser.add_argument('--topo', required=True, help='Topology file in CIF format')

@@ -1,11 +1,18 @@
 #!/usr/bin/env python
 
+"""Generate FoldX mutation files from a ligand sequence.
+
+This utility reads a ligand chain from a PDB, validates mutation strings
+(e.g., R65E or R65E_Y117E), and writes the WT/mutant sequences in the
+format expected by FoldX BuildModel.
+"""
+
 import argparse
 from Helper import save_file, extract_ligand_sequence
 
 def parse_arguments():
     """
-    Parse Arguments
+    Parse CLI arguments for mutation generation.
     """
     parser = argparse.ArgumentParser()
     # Input
@@ -19,16 +26,15 @@ def parse_arguments():
 
 def main():
     """
-    Generate a mutation file required for foldX mutagensis
+    Generate a mutation file required for FoldX mutagenesis.
     """
     args = parse_arguments()
 
-    # Extract ligand sequence and copy for later
+    # Extract ligand sequence and keep the WT sequence for output
     ligand_WT_sequence = extract_ligand_sequence(args.ligand)
     ligand_WT_sequence_original = ligand_WT_sequence
 
-    # Get all mutations which are separated by underscore
-    # tools handles single mutations (ex. R65E) and multiple mutations (ex R65E_Y117E)
+    # Mutations can be single (R65E) or multiple (R65E_Y117E)
     mutations = args.mutation.split('_')
 
     # Check every mutation
@@ -37,7 +43,7 @@ def main():
         resname_mutated = mutation[-1]      # resname after mutation
         resid = int(mutation[1:-1])         # resid
 
-        # Checks whether the orginal resname is correct
+        # Validate that the WT residue matches the sequence
         if ligand_WT_sequence[resid-1] != resname_WT:
             raise Exception(f"You are mutating the wrong amino acid. AA before: {resname_WT} AA expected: {ligand_WT_sequence[resid-1]} position: {resid}")
 
@@ -49,7 +55,7 @@ def main():
 
         ligand_WT_sequence = mut_seq
 
-    # Save the orginal sequence in line 1 and the mutated sequence in line 2
+    # Save WT sequence in line 1 and mutant sequence in line 2
     mut_seq = ligand_WT_sequence_original + '\n' + mut_seq
     save_file(mut_seq, args.output)
 

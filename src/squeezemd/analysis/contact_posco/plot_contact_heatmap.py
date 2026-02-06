@@ -1,11 +1,14 @@
 #!/usr/bin/env python
 
+"""Plot PoSCo interaction energy heatmaps across frames."""
+
 import argparse
 import pandas as pd
 from matplotlib import pyplot as plt
 import seaborn as sns
 
 def parse_arguments():
+    """Parse CLI arguments for heatmap generation."""
     parser = argparse.ArgumentParser()
 
     # Input
@@ -63,6 +66,7 @@ def interaction_data_aggregation(interaction_partner, interaction_type):
     return heatmap_data, emax
 
 def plot_interactions(heatmap_data, emax):
+    """Render heatmap panels for each interaction type."""
     # plotting params based on interaction type
     # TODO: make vmax dynamic based on max interaction energy
     if interaction_type == "total":

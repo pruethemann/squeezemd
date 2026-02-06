@@ -1,3 +1,6 @@
+# Snakemake workflow for squeezeMD
+# Orchestrates mutation prep, MD runs, and post‑analysis steps.
+
 import sys, os, yaml
 import numpy as np
 from importlib.resources import files

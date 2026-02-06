@@ -1,4 +1,6 @@
-# This script should allow simple clustering in pymol
+"""Example PyMOL script for manual trajectory clustering visualization."""
+
+# This script should allow simple clustering in PyMOL
 
 
 

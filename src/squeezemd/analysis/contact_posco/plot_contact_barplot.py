@@ -1,5 +1,7 @@
 #!/usr/bin/env python
 
+"""Plot PoSCo interaction energy barplots by residue."""
+
 import os
 import argparse
 import pathlib as path
@@ -10,6 +12,7 @@ import seaborn as sns
 from glob import glob
 
 def parse_arguments():
+    """Parse CLI arguments for barplot generation."""
     parser = argparse.ArgumentParser()
 
     #LINUX PATHS
@@ -23,6 +26,7 @@ def parse_arguments():
     return parser.parse_args()
 
 def import_sequence_range(seq_parquet:os.path, protein:str):
+    """Load residue range (min/max) for ligand or receptor from sequence parquet."""
 
     seq_df = pd.read_parquet(seq_parquet).reset_index()
     seq_df = seq_df[(seq_df['protein'] == protein)]
@@ -44,7 +48,7 @@ def interaction_data_aggregation(interaction_partner, interaction_type, df_filte
         df_interaction = df_filtered
 
     
-    # TODO Extremely dirty to get access to sequence
+    # TODO: Sequence source is global; consider passing path explicitly
     seq_path = glob(f"sequence.parquet")
 
     # based on "observed" interaction partner
@@ -83,6 +87,7 @@ def interaction_data_aggregation(interaction_partner, interaction_type, df_filte
     return final, emax
 
 def plot_interactions(interaction_type, interaction_partner, mutation, plot_data, emax):
+    """Render barplots for total and per‑interaction energies."""
     # plotting params based on interaction type
     # TODO: make vmax dynamic based on max interaction energy
     if interaction_type == "total":
@@ -101,7 +106,7 @@ def plot_interactions(interaction_type, interaction_partner, mutation, plot_data
         raise Exception("ERROR: Martin introduced a new interaction type")
 
 
-    # TODO Extremely dirty to get access to sequence
+    # TODO: Sequence source is global; consider passing path explicitly
     seq_path = glob(f"sequence.parquet")
 
     seq_range = import_sequence_range(seq_path[0], interaction_partner[:3])

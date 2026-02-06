@@ -1,10 +1,21 @@
-"""Console script for squeezemd."""
+"""Console entrypoint placeholder for squeezemd.
+
+This module currently provides a minimal CLI stub. It is kept for
+packaging and to reserve the top-level entrypoint while the full
+command interface is implemented elsewhere (e.g., Snakemake wrapper).
+"""
 import argparse
 import sys
 
 
 def main():
-    """Console script for squeezemd."""
+    """Parse arguments and print a placeholder message.
+
+    Notes
+    -----
+    This function intentionally does not implement behavior yet. It
+    exists to keep the CLI entrypoint stable during development.
+    """
     parser = argparse.ArgumentParser()
     parser.add_argument('_', nargs='*')
     args = parser.parse_args()

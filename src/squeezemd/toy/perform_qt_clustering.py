@@ -76,9 +76,8 @@ def parse_arguments():
 def load_trajectory(args):
     '''
     DESCRIPTION
-    Loads trajectory file using MDTraj. If trajectory format is h5, lh5 or
-    pdb, topology file is not required. Otherwise, you should specify a
-    topology file.
+    Load trajectory file using MDTraj. If trajectory format is h5/lh5/pdb,
+    topology file is not required. Otherwise, a topology file is required.
 
     Arguments:
         args (argparse.Namespace): user input parameters parsed by argparse.

@@ -1,34 +1,9 @@
 #!/usr/bin/env python
-"""
-This script generates a PyMOL script for labeling mutations in the BD001 complex and calculating interaction surfaces.
-It reads interaction data, selects representative frames based on a specified seed, and processes this information
-to visualize specific mutations and their interaction energies within the complex.
+"""Generate PyMOL scripts and interaction-surface visuals from contact data.
 
-Terminology:
- - Target: Receptor # TODO rename everywhere
- -
-
- Example:
-    python3 bin/10_InteractionSurface.py --output output/demo/results/interactionSurface   --interactions output/demo/results/martin/interactions.csv     --seed 695   --mutation WT Y117E_Y119E_Y121E --frames output/demo/C1s_BD001/WT/695/MD/frame_end.cif output/demo/C1s_BD001/WT/842/MD/frame_end.cif output/demo/C1s_BD001/Y117E_Y119E_Y121E/695/MD/frame_end.cif output/demo/C1s_BD001/Y117E_Y119E_Y121E/842/MD/frame_end.cif  --receptors C1s
-
-    # TODO extend to multiple targets!
-    #interactions_agg = interactions[['protein', 'target','mutation', 'resid', 'seed', 'chainID', 'energy']].groupby(['target', 'chainID', 'resid']).mean()
-    #interactions_agg = interactions[['protein', 'target', 'mutation', 'resid', 'seed', 'energy']].groupby(['target', 'resid']).mean()
-
-    Data variable description:
-    Group by:
-        name: same as complex
-        protein: ligand / receptor
-        interaction: inter, intra
-        target: receptor (C1s)
-        lig: (BD001)
-        mutation: WT / Y119E
-    Take Mean:
-        frame: 1:100
-        interaction type: hydrophobic, electrostatic, ..
-    Get SD:
-        seed: Seed of MD
-
+This script reads interaction tables, aggregates per‑residue energies, writes
+those energies into the B‑factor column, and generates a PyMOL script and
+session to visualize interaction surfaces.
 """
 
 import pandas as pd
@@ -77,7 +52,7 @@ def set_residue_interaction_intensity(pdb_path, ligand_resids, receptor_resids, 
     - receptor_resids: List of receptor residue IDs.
     - output_path: Path to save the modified PDB file.
     """
-    # This function's implementation will depend on specific requirements for adjusting B-factors.
+    # This writes energy values into the B‑factor column for visualization.
 
     # Import trajectory
     u = mda.Universe(pdb_path)
@@ -188,15 +163,14 @@ def main():
     #data_ligand = interactions_filtered.groupby(['name', 'mutation', 'ligand_resid']).mean(numeric_only=True).reset_index()
     #data_receptor = interactions_filtered.groupby(['name', 'mutation', 'receptor_resid']).mean(numeric_only=True).reset_index()
 
-    ## data aggregate
+    # Aggregate per‑residue energy across frames and seeds
     data_ligand = interactions.groupby(['name', 'mutation', 'ligand_resid'])['Energy (e)'].sum().reset_index()
     data_ligand["Energy (e)"] = data_ligand["Energy (e)"].div(n_frames * n_seeds)
 
     data_receptor = interactions.groupby(['name', 'mutation', 'receptor_resid'])['Energy (e)'].sum().reset_index()
     data_receptor["Energy (e)"] = data_receptor["Energy (e)"].div(n_frames * n_seeds)
     
-    # Get all receptor/ligand residues with an interaction energy smaller than -2 and join as string
-    # only consider really strong interactions
+    # Only consider strong interactions for labeling
     ENERGY_THRESHOLD = -0.8
     data_ligand = data_ligand[data_ligand['Energy (e)'] < ENERGY_THRESHOLD]
 

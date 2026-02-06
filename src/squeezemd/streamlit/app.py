@@ -1,3 +1,9 @@
+"""Streamlit config builder for squeezeMD.
+
+Provides guided editing for md_config.yaml and sim_config.yaml with
+validation via Pydantic models.
+"""
+
 # gui/app.py
 from __future__ import annotations
 

@@ -26,7 +26,7 @@ def center_in_chunks_h5(topo, traj, topo_center, traj_center_h5, chunk_size=20):
     with TrajWriter(traj_center_h5, mode="w", force_overwrite=True) as out:
         for chunk in md.iterload(traj, top=topo, chunk=chunk_size):
 
-            # 1) ensure molecules are whole first
+            # 1) ensure molecules are whole first (unwrap)
             chunk.make_molecules_whole(inplace=True)
 
             # 2) image with molecules kept whole and anchored to the protein
@@ -45,13 +45,10 @@ def center_in_chunks_h5(topo, traj, topo_center, traj_center_h5, chunk_size=20):
             cell_angles  = None if chunk.unitcell_angles  is None else np.asarray(chunk.unitcell_angles,  dtype=np.float32)
 
             # --- Write in a version-tolerant way ---
-            # 1) Try the "array + kwargs" signature
-
             out.write(xyz, time=getattr(chunk, "time", None),cell_lengths=cell_lengths, cell_angles=cell_angles)
      
 
     # Save centered/aligned topology (last chunk is fine; topology is the same)
-    # If you want the centered coordinates of the final frame, you could save last_chunk[-1].
     chunk[-1].save(topo_center)
 
 def convert_h5_to_dcd(h5_path, topo, dcd_path, stride=10):
@@ -88,7 +85,7 @@ def main():
     # Center protein in middle of water box and remove translation and rotation
     center_in_chunks_h5(topo=args.topo, traj=args.traj, topo_center=args.topo_center,traj_center_h5=args.traj_center_h5)
 
-    # Transform h5 to dcd for pymol visulationsion
+    # Transform h5 to DCD for PyMOL visualization
     convert_h5_to_dcd(args.traj_center_h5, args.topo_center, args.traj_center)
     
 

@@ -1,4 +1,6 @@
 #!/usr/bin/env python
+
+"""Compute ligand potential energy components from an MD trajectory."""
 import numpy as np
 import mdtraj as md
 from openmm import unit, Platform, Context, app, VerletIntegrator
@@ -9,6 +11,7 @@ from openmmforcefields.generators import SystemGenerator
 from openff.toolkit.topology import Molecule
 
 def generate_ligand_system(ligand_path):
+    """Build an OpenMM system for the ligand only (OpenFF parameters)."""
     ligand = Molecule.from_file(ligand_path)
     ligand_topology = ligand.to_topology().to_openmm()
     ligand.assign_partial_charges('gasteiger')   
@@ -92,7 +95,7 @@ def compute_potential_energy(
     energies_kj_mol : np.ndarray
         Potential energies in kJ/mol for each frame.
     """
-    # Load Traj and select ligand
+    # Load trajectory and select ligand
     traj = md.load(traj_h5, top=top)
     lig_idx = traj.topology.select(ligand_selection)
 
@@ -101,7 +104,7 @@ def compute_potential_energy(
     lig_traj = traj.atom_slice(lig_idx)
     lig_positions_nm = lig_traj.xyz  # shape (n_frames, n_atoms, 3) in nm
 
-    # Integrator is NOT used. But OpenMM requires integrator for API
+    # Integrator is not used, but OpenMM requires an integrator instance
     integrator = VerletIntegrator(1.0 * unit.femtoseconds)
 
     #platform = Platform.getPlatformByName('CUDA')
@@ -126,7 +129,7 @@ def compute_potential_energy(
             state = context.getState(getEnergy=True, groups=(1 << g))
             energies[ene_name][i] = state.getPotentialEnergy().value_in_unit(unit.kilojoule_per_mole)       
 
-        # Extract total energy: Sum of the above
+        # Extract total energy: sum of all components
         state = context.getState(getEnergy=True)
         energies['potential'][i] = state.getPotentialEnergy().value_in_unit(unit.kilojoule_per_mole)
 
@@ -135,6 +138,7 @@ def compute_potential_energy(
 
 
 def parse_arguments():
+    """Parse CLI arguments for potential energy analysis."""
     parser = argparse.ArgumentParser()
 
     # Input
