@@ -59,7 +59,7 @@ rule metadynamics:
         expand('metadynamics/{complex}/{mutation}/{seed}/metadynamics/fes.dat',complex=COMPLEXES, mutation=mutations, seed=seeds),
         expand('metadynamics/{complex}/{mutation}/{seed}/metadynamics/freeenergy.png',complex=COMPLEXES, mutation=mutations, seed=seeds),
         'results/alignment/align.pse',
-        expand('metadynamics/{complex}/{mutation}/{seed}/fingerprint/fingerprint.parquet',complex=COMPLEXES,mutation=mutations,seed=seeds),
+        #expand('metadynamics/{complex}/{mutation}/{seed}/fingerprint/fingerprint.parquet',complex=COMPLEXES,mutation=mutations,seed=seeds),
         #'results/posco/lig_heatmap.svg',
         'results/posco/lig_barplot.svg',
         'results/rmsf/rmsf.svg',

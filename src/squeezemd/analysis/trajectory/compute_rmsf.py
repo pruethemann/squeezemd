@@ -5,7 +5,7 @@ import pandas as pd
 import MDAnalysis as mda
 from MDAnalysis.analysis import rms
 import openmm.app as app
-from Helper import remap_MDAnalysis
+from ...helper_functions import remap_MDAnalysis
 
 def calculate_RMSF(u: mda.Universe, i):
 

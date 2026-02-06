@@ -4,8 +4,7 @@ This script processes molecular dynamics trajectories and performs interaction a
 """
 
 import argparse, os
-# TODO: Where is this helper file coming from. replace it with helper_functions
-from Helper import remap_MDAnalysis, execute  # Helper functions for execution and MDAnalysis remapping
+from ...helper_functions import remap_MDAnalysis, execute # Helper functions for execution and MDAnalysis remapping
 import MDAnalysis as mda             # MDAnalysis for atom selection and structure manipulation
 import openmm.app as app
 import pandas as pd

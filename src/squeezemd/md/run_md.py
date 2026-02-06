@@ -291,12 +291,6 @@ def simulate(args, params):
         simulation.system = add_metadynamics_forces_centerofmass(params, simulation.system, args, T)
         simulation.context.reinitialize(preserveState=True)  # keep positions/velocities
 
-    if args.mode == 'metadynamics_contacts':
-        print(f'\n=== Stage 4: Initiate Metadynamics with COM and contact CV')
-        simulation.system = add_metadynamics_forces_centerofmass_contacts(params, simulation.system, args, T)
-        simulation.context.reinitialize(preserveState=True)  # keep positions/velocities
-
-
     # ---------------------
     # Stage 5: Rigidify receptor except flexible binding pocket (optional)
     # ---------------------
