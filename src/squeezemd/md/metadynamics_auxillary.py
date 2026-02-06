@@ -29,8 +29,8 @@ def add_metadynamics_forces_centerofmass(params, system, args, T=300):
                         ENTITY1={idx['rec_min']}-{idx['rec_max']}
 
             # Cα-only groups (explicit indices)
-            grp_lig: GROUP ATOMS={idx['lig_ca']}
-            grp_rec: GROUP ATOMS={idx['rec_ca']}
+            grp_lig: GROUP ATOMS={idx['lig_backbone']}
+            grp_rec: GROUP ATOMS={idx['rec_backbone']}
 
             # Define center of mass of the two partners
             lig: COM ATOMS=grp_lig
@@ -58,15 +58,15 @@ def extract_atom_indices(pdf_file: os.path):
     rec = u.select_atoms("chainID B or chainID C")
 
     # get only C alphas to reduce computational cost of COM calculation
-    lig_ca = u.select_atoms("(chainID A) and (name CA)")
-    rec_ca = u.select_atoms("((chainID B) or (chainID C)) and (name CA)")
+    lig_backbone = u.select_atoms("(chainID A) and backbone")
+    rec_backbone = u.select_atoms("((chainID B) or (chainID C)) and backbone")
 
     # Print in PLUMED-friendly format. Add +1 because plumed starts at atom id 1 and not 0
-    lig_plumed_ca = ",".join(map(str, lig_ca.indices + 1))
-    rec_plumed_ca = ",".join(map(str, rec_ca.indices + 1))
+    lig_plumed_backbone = ",".join(map(str, lig_backbone.indices + 1))
+    rec_plumed_backbone = ",".join(map(str, rec_backbone.indices + 1))
 
-    atom_indices = {'lig_ca': lig_plumed_ca,
-                    'rec_ca': rec_plumed_ca,
+    atom_indices = {'lig_backbone': lig_plumed_backbone,
+                    'rec_backbone': rec_plumed_backbone,
                     'lig_min':lig.indices.min() + 1,
                     'lig_max':lig.indices.max() + 1,
                     'rec_min':rec.indices.min() + 1,

@@ -1,135 +1,191 @@
-# squeezeMD – A Comprehensive Molecular Dynamics Analysis Workflow
+# squeezeMD – Molecular Dynamics Workflow + Analysis
 
-[![PyPI version](https://img.shields.io/pypi/v/squeezemd.svg)](https://pypi.python.org/pypi/squeezemd)
-[![Documentation Status](https://readthedocs.org/projects/squeezemd/badge/?version=latest)](https://squeezemd.readthedocs.io/en/latest/?version=latest)
+squeezeMD is an automated molecular dynamics (MD) workflow built around Snakemake. It performs optional mutagenesis, runs OpenMM simulations, and generates standardized analysis outputs (trajectory statistics, interaction contacts, fingerprints, and visualization artifacts).
 
-* MIT license
-* Documentation: [squeezemd.readthedocs.io](https://squeezemd.readthedocs.io)
+This repository contains the Snakemake pipeline, the MD/analysis scripts, and helper tools for configuration and visualization.
 
 ---
 
 ## Install
 
-Please follow the instructions in [install/INSTALL.md](install/INSTALL.md).
+Follow the setup guide in [install/INSTALL.md](install/INSTALL.md).
 
 ---
 
-## Summary
+## What the package does
 
-*squeezeMD* provides an integrated solution for comprehensive molecular dynamics (MD) analysis.
-It includes functionality for:
+### 1) Preprocessing / Mutagenesis
+- Generates FoldX mutation files from a ligand chain and applies FoldX BuildModel for non‑WT variants.
+- See: `mutate` command and the Snakemake `prep_mutagenesis` rule.
 
-* in-silico mutagensis
-* MD simulations
-* Explorative trajectory analysis
-* Interaction fingerprinting analysis
-* Visualisation of the interaction surface
+### 2) Molecular Dynamics (OpenMM)
+- Protein–protein, protein–small‑molecule, and metadynamics modes.
+- Includes restrained minimization, NVT heating, NPT equilibration, and production.
+- Optional flexible binding pocket restraints and metadynamics (PLUMED).
 
+### 3) Trajectory preparation
+- Centers and aligns trajectories (H5MD → DCD) for analysis and visualization.
 
-The workflow streamlines the analysis of complex MD simulations, enabling detailed examination of molecular interactions, stability, and conformational changes.
+### 4) Analysis
+- RMSF/RMSD, MD statistics plots, and B‑factor outputs.
+- Posco contact analysis and summary plots (heatmaps + barplots).
+- ProLIF interaction fingerprints across trajectories.
+- Interaction surface visualization (PyMOL session + PNG + PDB with B‑factors).
 
----
-
-## Detailed Summary
-
-### Snakefile
-
-Serves as the backbone of the workflow, orchestrating the execution of analysis scripts.
-Ensures pipeline steps are executed efficiently and in the correct order.
-
-### Mutagenesis
-
-Performs mutation analysis, characterizing structural and functional effects of amino acid changes.
-
-### MD
-
-Runs molecular dynamics simulations, revealing conformational changes and dynamics of molecules.
-
-### Explorative Trajectory Analysis
-
-Provides tools for trajectory inspection, helping identify key molecular events and interactions.
-
-### Centering Trajectories
-
-Centers and aligns trajectories, enabling accurate comparisons across simulations.
-
-### Interaction Analysis
-
-Analyzes molecular interactions at atom/residue level and extracts global interaction patterns.
-
-### Interaction Fingerprints
-
-Generates and compares interaction fingerprints, summarizing interaction motifs across simulations.
-
-### Interaction Surface
-
-Analyzes binding and interaction surfaces, critical for studying molecular recognition.
+### 5) Visualization
+- Aligns final structures into a single PyMOL session.
+- Creates interaction-surface sessions and images per complex/mutation.
 
 ---
 
-## Demo Workflow
+## Workflow overview
+
+The core pipeline is defined in the Snakemake [src/squeezemd/Snakefile](src/squeezemd/Snakefile). You run it via the `squeeze` wrapper, which locates the packaged Snakefile and forwards arguments to Snakemake.
+
+Pipeline modes:
+- `protein_protein` (alias: `PPi`)
+- `protein_molecule` (alias: `molecule`)
+- `metadynamics`
+- `protein` (apo protein only)
+
+Outputs are written per mode/complex/mutation/seed, plus summarized results in `results/`.
+
+---
+
+## Quick start
+
+1) Create a `config/` directory in your working folder and add:
+- `config/sim_config.yaml`
+- `config/md_config.yaml`
+
+2) Run the pipeline:
 
 ```bash
-cd demo
-
-# Perform a dry run
-squeeze PPi --resources gpu=1 -j4 -n
-
-# Perform the demo production run
 squeeze PPi --resources gpu=1 -j4
 ```
 
+Dry‑run first if needed:
 
-## Infos
+```bash
+squeeze PPi --resources gpu=1 -j4 -n
+```
 
-* [Python Packaging & CLI](https://python-packaging.readthedocs.io/en/latest/command-line-scripts.html)
-* [GitHub workflow for PyPI](https://github.com/pypa/packaging.python.org/blob/main/source/guides/github-actions-ci-cd-sample/publish-to-test-pypi.yml)
+The wrapper writes an `execute.sh` with the full Snakemake command for reproducibility.
 
 ---
 
-## Upload to pyPi
+## Configuration
+
+### sim_config.yaml
+Defines complexes and mutations for the Snakemake pipeline.
+
+Expected structure (example):
+
+```yaml
+mutations:
+  - WT
+  - R65E
+complexes:
+  C1s_Gigastasin:
+    receptor: C1s
+    ligand: Gigastasin
+    pdb: /abs/path/to/complex.pdb
+    sdf: /abs/path/to/ligand.sdf   # required for protein_molecule mode
+```
+
+### md_config.yaml
+Defines MD protocol and system parameters (equilibration, forcefield, salt, temperature, recording interval, etc.).
+
+You can generate both configs with the Streamlit app:
 
 ```bash
-python -m build && pip install --upgrade .
-twine upload dist/*
-# Username: __token__
-# Password: PyPI token
+streamlit run src/squeezemd/streamlit/app.py
 ```
 
 ---
 
-## Prepare AMBER PDBs
+## Key CLI tools (installed entry points)
 
+### Preprocessing
+- `mutate` – create FoldX mutation files from ligand chain and mutation string.
 
-1. Prepare protein in Maestro
-   - Follow the Computational pharmacy preparation workflow
-2. Convert with `pdb4amber`:
-   >pdb4amber -i input.pdb -o input.amber.pdb
-3. Amber does change numbering of the residues. This can be fixed with pymol. - C1s / Gigastasin
-   Chain A: 1 - 122  -> same
-   Chain B: 438 - 685 -> 123 = + 315
-   Chain C: 422 - 437 -> 371 = +51
-- Helostasin / MASP2
-   Chain A: 1-92
-   Chain B: 107 -> 445 = + 338
-   Chain C: 93 -> 431 = + 338
+### MD
+- `run-md` – run OpenMM MD for a prepared structure.
+- `center-traj` – center/align H5MD trajectory and export DCD.
 
+### Trajectory analysis
+- `explore-trajectory` – RMSF, RMSD, B‑factors, and MD statistics plots.
+- `compute-rmsf` / `plot-rmsf` – aggregate RMSF across replicas.
+- `analyze-potential-energy` – ligand potential energy breakdown (small molecule).
 
-1. Example PyMOL commands:
+### Contact analysis
+- `compute-posco-contacts` – run PoSCo on selected frames.
+- `plot-contact-heatmap` / `plot-contact-barplot` – summarize contacts.
 
-   ```python
-   alter (chain B), resi=str(int(resi)+315)
-   alter (chain C), resi=str(int(resi)+51)
+### ProLIF fingerprints
+- `compute-proflif-fingerprints` – generate interaction fingerprints.
+- `analyze-proflif-fingerprints` – aggregate and plot fingerprints.
 
-   alter (chain B), resi=str(int(resi)+338)
-   alter (chain C), resi=str(int(resi)+338)
-   ```
+### Visualization
+- `visualize-interaction-surface` – generate PyMOL script, session, and PNG.
 
-## Further info:
+Most users should call these via the Snakemake workflow (`squeeze`) rather than running each script manually.
 
-- Compare with this pipeline: https://github.com/ci-lab-cz/streamd
+---
 
-# TODO
-- Rotabase path fix
-- Posco analysis in 1 job
-- Implement unhappy water
+## Output structure (high level)
+
+```
+<mode>/<complex>/<mutation>/<seed>/
+  MD/                     # raw and centered trajectories
+  po-sco/                 # PoSCo contact data
+  fingerprint/            # ProLIF outputs
+  analysis/               # RMSF/RMSD/Stats
+results/
+  alignment/
+  posco/
+  rmsf/
+  fingerprints/
+  interactionSurface/
+```
+
+---
+
+## External tools used
+
+squeezeMD integrates several external tools. Most are installed via the conda environment in [install/INSTALL.md](install/INSTALL.md):
+
+- OpenMM + OpenMMForceFields + OpenFF Toolkit
+- MDAnalysis + MDTraj
+- PoSCo (po‑sco)
+- FoldX (mutagenesis)
+- PLUMED (metadynamics)
+- PyMOL (visualization)
+- ProLIF (fingerprints)
+- Aquaduct (optional channel analysis)
+
+---
+
+## Demo
+
+There are demo folders under `demo/` for protein–protein workflows. From the repo root:
+
+```bash
+cd demo
+squeeze PPi --resources gpu=1 -j4 -n
+squeeze PPi --resources gpu=1 -j4
+```
+
+---
+
+## Notes
+
+- The Snakemake pipeline expects `config/sim_config.yaml` and `config/md_config.yaml` in the working directory.
+- GPU execution is preferred; CPU fallback is supported but slower.
+- Some analysis scripts assume chain A is the ligand and chain B/C are receptor chains.
+
+---
+
+## License
+
+MIT
