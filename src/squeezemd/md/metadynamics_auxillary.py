@@ -93,7 +93,7 @@ def add_metadynamics_forces_centerofmass(params, system, args, T=300):
     """
     print("temperature", T)
     # Metadynamics params
-    sigma = params['simulation']['metadynamics']['SIGMA']
+    sigma = params['simulation']['metadynamics']['SIGMA_COM']
     height = params['simulation']['metadynamics']['HEIGHT']
     pace = params['simulation']['metadynamics']['PACE']
     stride = params['simulation']['metadynamics']['STRIDE']

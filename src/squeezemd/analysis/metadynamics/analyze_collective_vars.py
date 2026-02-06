@@ -32,12 +32,12 @@ def main():
     args = parse_arguments()
 
     df = pd.read_csv(args.colvar, sep='\s+', comment="#",
-                     names=['time', 'd1', 'c1'])
+                     names=['time', 'd1'])   # ['time', 'd1', 'c1']
     
     print("Loaded COLVAR with columns:", df.columns.tolist())
     print(df.head())
 
-    plt.subplot(2, 1, 1)
+    #plt.subplot(2, 1, 1)
     # Plot CV vs time
     plt.plot(df['time'], df['d1'])
     plt.xlabel("Time (ps)")
@@ -45,6 +45,7 @@ def main():
     plt.title("Collective Variable center of mass vs Time")
     plt.grid(True)
 
+    """
     plt.subplot(2, 1, 2)
     # Plot CV vs time
     plt.plot(df['time'], df['c1'])
@@ -52,6 +53,7 @@ def main():
     plt.ylabel("Contacts")
     plt.title("Collective Variable: Number of contacts vs Time")
     plt.grid(True)
+    """
 
     plt.tight_layout()
     plt.savefig(args.colvar_fig)

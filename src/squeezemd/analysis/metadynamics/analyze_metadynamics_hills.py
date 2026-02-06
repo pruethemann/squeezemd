@@ -64,7 +64,9 @@ def main():
     args = parse_args()
 
     # Read FES
-    df = pd.read_csv(args.fes, sep='\s+', comment="#", header=None, names=['d1', 'c1','F' ,'der_d1', 'der_c1'])
+    df = pd.read_csv(args.fes, sep='\s+', comment="#", header=None, names=['d1', 'F' ,'der_d1'])
+
+    # ['d1', 'c1','F' ,'der_d1', 'der_c1']
 
     """
     d1: first CV: COM distance in nm
@@ -75,15 +77,17 @@ def main():
 
     Use gradients to find transition states
     """
-    plt.subplot(2, 1, 1)
+    #plt.subplot(2, 1, 1)
     sns.lineplot(data=df,
                  x='d1',
                  y='F')
     
+    """
     plt.subplot(2, 1, 2)
     sns.lineplot(data=df,
                  x='c1',
                  y='F')
+    """
     
     plt.savefig(args.freeenergy)
     plt.close()
