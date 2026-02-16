@@ -14,7 +14,13 @@ Designed for solvated protein(-protein) complexes, with a separate path
 for protein–small‑molecule systems using OpenFF parameters.
 """
 
-import argparse, os
+import argparse
+import os
+
+# Avoid HDF5 lock failures (errno=11) on networked/shared filesystems
+# such as Dropbox/NFS mounts during trajectory writing.
+os.environ.setdefault("HDF5_USE_FILE_LOCKING", "FALSE")
+
 from openmm import app, OpenMMException, Platform, LangevinMiddleIntegrator, MonteCarloBarostat, CustomExternalForce
 from openmm.unit import kilojoule_per_mole, nanometers, femtoseconds, kelvin, molar, picoseconds, atmospheres
 from openmmforcefields.generators import SystemGenerator
