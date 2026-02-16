@@ -20,8 +20,9 @@ dependencies:
   - openff-toolkit==0.18          # small molecule forcefield
   - snakemake-minimal>=9.16.3       # Automatic workflow engine
   - prolif>=2.1.0                  # Interaction fingerprint
-  - pandas>=3.0.0                  # Data science
+  - pandas==2.3.3                  # Data science
   - pyarrow==21.0.0                 # Data handling
+  - mdanalysis==2.10.0
   - mdtraj==1.11.1                  # For centering protein in water box
   - cuda-toolkit==12.9      # Cudatoolkit. 09-25: Version 12.9 (V 13 is not supported yet by Openmm)
   - seaborn==0.13.2                 # visualisation

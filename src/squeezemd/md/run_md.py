@@ -21,7 +21,7 @@ from openmmforcefields.generators import SystemGenerator
 from openff.toolkit.topology import Molecule
 import mdtraj
 from ..helper_functions import import_yaml
-from .metadynamics_auxillary import add_metadynamics_forces_centerofmass, add_metadynamics_forces_centerofmass_contacts, save_active_forces
+from .metadynamics_auxillary import add_metadynamics_forces_centerofmass_contacts #, save_active_forces
 
 def add_positional_restraints(system, topology, positions, k=10.0, flexible_resids={}, verbose=False, flexible_ligand=True):
     """
@@ -291,7 +291,7 @@ def simulate(args, params):
 
     if args.mode == 'metadynamics':
         print(f'\n=== Stage 4: Initiate Metadynamics')
-        simulation.system = add_metadynamics_forces_centerofmass(params, simulation.system, args, T)
+        simulation.system = add_metadynamics_forces_centerofmass_contacts(params, simulation.system, args, T)
         simulation.context.reinitialize(preserveState=True)  # keep positions/velocities
 
     # ---------------------

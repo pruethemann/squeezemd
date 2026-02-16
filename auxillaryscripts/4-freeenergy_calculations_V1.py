@@ -6,11 +6,17 @@ import matplotlib.pyplot as plt
 
 # Relevant data paths
 
-P_22 = "/home/peter/caracara/Squeeze/P-22_SAR_meta_L556/"
+P_20 = "/home/peter/caracara/Squeeze/P-20_SAR_meta_L55R/"
+P_19 = "/home/peter/caracara/Squeeze/P-19_SAR_metadynamics/"
 
-first = path.join(P_22, "metadynamics/C1s_Gigastasin/**/**/metadynamics/fes.dat")
+first = path.join(P_19, "metadynamics/C1s_Gigastasin/**/**/metadynamics/fes.dat")
+second = path.join(P_20, "metadynamics/C1s_Gigastasin/**/**/metadynamics/fes.dat")
+energy_data_1 = glob(first)
+energy_data_2 = glob(second)
 
-energy_data = glob(first)
+energy_data_1.extend(energy_data_2)
+
+energy_data = energy_data_1
 
 data = []
 
@@ -21,10 +27,14 @@ for fes in energy_data:
     seed = fes.split('/')[-3]
     mutation = fes.split('/')[-4]
     id = fes.split('/')[-3]
+    if 'P-20' in fes:
+        id = "P-20"
+    else:
+        id = "P-19"
 
     df['seed'] = seed
     df['mutation'] = mutation
-    df['id'] = 'P_22'
+    df['id'] = id
     
     data.append(df)
 
@@ -36,22 +46,20 @@ data.to_parquet('energy.parquet')
 print(data)
 sims = data.sim.unique()
 
-print(data)
-
 data_filtered = data[(data.mutation == 'WT')]
 for sim in sims:
     sns.lineplot(data=data_filtered[data_filtered.sim==sim],
                 x='d1',
-                y='F')
+                y='F',
+                color="black")
 
-plt.savefig("WT.png")
 plt.show()
 
 data_filtered = data[(data.mutation == 'L55R')]
 for sim in sims:
     sns.lineplot(data=data_filtered[data_filtered.sim==sim],
                 x='d1',
-                y='F')
+                y='F',
+                color="red")  
 
-plt.savefig("L55R.png")
 plt.show()

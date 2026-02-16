@@ -133,3 +133,6 @@ delete.csv
 *.log
 
 *.parquet
+*.png
+*.V2.py
+*.V1.py

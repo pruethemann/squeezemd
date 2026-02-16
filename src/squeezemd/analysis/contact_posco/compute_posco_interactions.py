@@ -15,96 +15,96 @@ import pandas as pd
 def parse_lipophilic(parts, sequence):
     """Parse a PoSCo lipophilic interaction line into a dict."""
         
-        interaction_info = parts[0].split()
-        donor_acceptor = parts[1].strip().split()
+    interaction_info = parts[0].split()
+    donor_acceptor = parts[1].strip().split()
 
-        ligand_atom = donor_acceptor[0]
-        ligand_resname = donor_acceptor[1]
-        ligand_resid = int(donor_acceptor[2])
+    ligand_atom = donor_acceptor[0]
+    ligand_resname = donor_acceptor[1]
+    ligand_resid = int(donor_acceptor[2])
 
-        receptor_atom = donor_acceptor[-3]
-        receptor_resname = donor_acceptor[-2]
-        receptor_resid = int(donor_acceptor[-1])
+    receptor_atom = donor_acceptor[-3]
+    receptor_resname = donor_acceptor[-2]
+    receptor_resid = int(donor_acceptor[-1])
 
-        # if any of the conditions holds, swap everything
-        should_swap = (
-            (ligand_resname == 'HOH' and sequence.loc[(receptor_resid, receptor_resname)]['protein'] == 'lig')  or
-            (receptor_resname == 'HOH' and sequence.loc[(ligand_resid, ligand_resname)]['protein'] == 'rec')    or
-            (sequence.loc[(ligand_resid, ligand_resname)]['protein'] == 'rec')
-        )
+    # if any of the conditions holds, swap everything
+    should_swap = (
+        (ligand_resname == 'HOH' and sequence.loc[(receptor_resid, receptor_resname)]['protein'] == 'lig')  or
+        (receptor_resname == 'HOH' and sequence.loc[(ligand_resid, ligand_resname)]['protein'] == 'rec')    or
+        (sequence.loc[(ligand_resid, ligand_resname)]['protein'] == 'rec')
+    )
 
-        if should_swap:
-        # swap ligand ↔ receptor
-            (ligand_resid, receptor_resid) = (receptor_resid, ligand_resid)
-            (ligand_resname, receptor_resname) = (receptor_resname,ligand_resname)
-            (ligand_atom, receptor_atom) = (receptor_atom, ligand_atom)
+    if should_swap:
+    # swap ligand ↔ receptor
+        (ligand_resid, receptor_resid) = (receptor_resid, ligand_resid)
+        (ligand_resname, receptor_resname) = (receptor_resname,ligand_resname)
+        (ligand_atom, receptor_atom) = (receptor_atom, ligand_atom)
 
-        distance = float(interaction_info[2].split("=")[1])
-        energy = float(interaction_info[3].split("=")[1])
+    distance = float(interaction_info[2].split("=")[1])
+    energy = float(interaction_info[3].split("=")[1])
 
-        interaction = {
-            "Interaction Type": 'lipophilic',
-            "Distance (r)": distance,
-            "Energy (e)": energy,
-            'receptor_resname' : receptor_resname,
-            'receptor_resid' : receptor_resid,
-            'ligand_resname' : ligand_resname,
-            'ligand_resid' : ligand_resid,
-            'receptor_atom' : receptor_atom,
-            'ligand_atom' : ligand_atom,
-        }
+    interaction = {
+        "Interaction Type": 'lipophilic',
+        "Distance (r)": distance,
+        "Energy (e)": energy,
+        'receptor_resname' : receptor_resname,
+        'receptor_resid' : receptor_resid,
+        'ligand_resname' : ligand_resname,
+        'ligand_resid' : ligand_resid,
+        'receptor_atom' : receptor_atom,
+        'ligand_atom' : ligand_atom,
+    }
 
-        return interaction
+    return interaction
 
 
 def parse_hbonds(parts, sequence):
     """Parse a PoSCo H‑bond interaction line into a dict."""
 
-        interaction_info = parts[0].split()
-        donor_acceptor = parts[1].strip().split()
+    interaction_info = parts[0].split()
+    donor_acceptor = parts[1].strip().split()
 
-        ligand_atom = donor_acceptor[0]
-        ligand_resname = donor_acceptor[1]
-        ligand_resid = int(donor_acceptor[2])
+    ligand_atom = donor_acceptor[0]
+    ligand_resname = donor_acceptor[1]
+    ligand_resid = int(donor_acceptor[2])
 
-        receptor_atom = donor_acceptor[-3]
-        receptor_resname = donor_acceptor[-2]
-        receptor_resid = int(donor_acceptor[-1])
+    receptor_atom = donor_acceptor[-3]
+    receptor_resname = donor_acceptor[-2]
+    receptor_resid = int(donor_acceptor[-1])
 
-        should_swap = (
-            (ligand_resname == 'HOH' and sequence.loc[(receptor_resid, receptor_resname)]['protein'] == 'lig')  or
-            (receptor_resname == 'HOH' and sequence.loc[(ligand_resid, ligand_resname)]['protein'] == 'rec')    or
-            (sequence.loc[(ligand_resid, ligand_resname)]['protein'] == 'rec')
-        )
+    should_swap = (
+        (ligand_resname == 'HOH' and sequence.loc[(receptor_resid, receptor_resname)]['protein'] == 'lig')  or
+        (receptor_resname == 'HOH' and sequence.loc[(ligand_resid, ligand_resname)]['protein'] == 'rec')    or
+        (sequence.loc[(ligand_resid, ligand_resname)]['protein'] == 'rec')
+    )
 
-        if should_swap:
-        # swap ligand ↔ receptor
-            (ligand_resid, receptor_resid) = (receptor_resid, ligand_resid)
-            (ligand_resname, receptor_resname) = (receptor_resname,ligand_resname)
-            (ligand_atom, receptor_atom) = (receptor_atom, ligand_atom)
+    if should_swap:
+    # swap ligand ↔ receptor
+        (ligand_resid, receptor_resid) = (receptor_resid, ligand_resid)
+        (ligand_resname, receptor_resname) = (receptor_resname,ligand_resname)
+        (ligand_atom, receptor_atom) = (receptor_atom, ligand_atom)
 
-        distance = float(interaction_info[2].split("=")[1])
-        angle = float(interaction_info[3].split("=")[1])
-        energy = float(interaction_info[4].split("=")[1])
+    distance = float(interaction_info[2].split("=")[1])
+    angle = float(interaction_info[3].split("=")[1])
+    energy = float(interaction_info[4].split("=")[1])
 
-        # Include salt bridge data
-        marked =  "marked as salt-bridge" in parts[2]
+    # Include salt bridge data
+    marked =  "marked as salt-bridge" in parts[2]
 
-        interaction = {
-            "Interaction Type": 'H-bond',
-            "Distance (r)": distance,
-            "Angle (a)": angle,
-            "Energy (e)": energy,
-            'receptor_atom' : receptor_atom,
-            'receptor_resname' : receptor_resname,
-            'receptor_resid' : receptor_resid,
-            'ligand_atom' : ligand_atom,
-            'ligand_resname' : ligand_resname,
-            'ligand_resid' : ligand_resid,
-            "Marked as Salt-Bridge": marked
-        }
+    interaction = {
+        "Interaction Type": 'H-bond',
+        "Distance (r)": distance,
+        "Angle (a)": angle,
+        "Energy (e)": energy,
+        'receptor_atom' : receptor_atom,
+        'receptor_resname' : receptor_resname,
+        'receptor_resid' : receptor_resid,
+        'ligand_atom' : ligand_atom,
+        'ligand_resname' : ligand_resname,
+        'ligand_resid' : ligand_resid,
+        "Marked as Salt-Bridge": marked
+    }
 
-        return interaction
+    return interaction
 
 # Parse the input data into a pandas DataFrame
 def parse_posco(posco_output, metadata, frame_id, sequence_parquet):
