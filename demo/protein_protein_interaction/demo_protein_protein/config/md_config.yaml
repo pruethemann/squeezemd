@@ -1,4 +1,4 @@
-qsimulation:
+simulation:
   replicates: 1
   time_ns: 0.1
   recording_interval_ps: 0.1            
@@ -7,9 +7,9 @@ qsimulation:
 
   equilibration:
     protein_k: 10
-    NVT_heating: 5000 # 10 ps for each T
-    NPT_equilibration: 50000 # 100 ps for 2 steps
-    NPT_unrestrained: 100000 # 200 ps
+    NVT_heating: 1 # 10 ps for each T
+    NPT_equilibration: 1 # 100 ps for 2 steps
+    NPT_unrestrained: 1 # 200 ps
 
   # Forcefield settings
   forcefield:
@@ -32,10 +32,13 @@ qsimulation:
     constraint_tolerance: 0.0001 # 1e-5 high accuarcy for energy 1e-4: recommanded for amber
     friction_ps: 1.0
 
-  metadynamics: 
-        CV: COM
-        SIGMA_COM: 0.2    # 0.1-0.5 nm. The width of each Gaussian hill deposited in the free-energy landscape.
-        SIGMA_CONTACTS: 2.0
-        HEIGHT: 0.03  # 0.1–1.0 kJ/mol. The amplitude (energy) of each Gaussian hill
-        PACE: 1000     # 100-2000. Frequency of applying hill
-        STRIDE: 50    # How often values of your collective variables are written to the COLVAR file.
+  metadynamics:
+    SIGMA_COM: 0.05
+    SIGMA_CONTACTS: 8
+    CONTACT_R0: 0.45
+    CONTACT_NN: 6
+    CONTACT_ATOM_MODE: ca # options: ca, heavy, backbone, all
+    CONTACT_MAX_ATOMS_PER_PARTNER: 120
+    HEIGHT: 0.03
+    PACE: 5000
+    STRIDE: 200

@@ -1,5 +1,21 @@
 # metadynamics_auxillary.py
 
+"""
+Import observation
+
+lig = u.select_atoms("(chainID A) and name CA")
+print(lig)
+
+This will print the atom numbers which pdb numbering. Taking this number for pymol gives the CA (1 based)
+
+lig.indices
+This will however give numbers which are -1 (0 based)
+
+lig.ids
+Those are 1 based: used for plumed and pymol
+
+"""
+
 from openmmplumed import PlumedForce
 import os
 from openmm.unit import kelvin
@@ -121,7 +137,7 @@ def extract_atom_indices(
         max_atoms_per_partner=contact_max_atoms_per_partner,
     )
 
-    # PLUMED atom indexing starts at 1
+    # PLUMED atom indexing is 1-based and corresponds to the .ids attribute in MDAnalysis AtomGroups, which is what we want for both PLUMED and PyMOL.
     lig_plumed_backbone = ",".join(map(str, lig_backbone.indices + 1))
     rec_plumed_backbone = ",".join(map(str, rec_backbone.indices + 1))
     lig_plumed_contacts = ",".join(map(str, lig_contacts.indices + 1))
@@ -186,17 +202,21 @@ def select_interface_contact_atoms(
     min_lig = distances.min(axis=1)
     min_rec = distances.min(axis=0)
 
+    # Only take distances within a generous cutoff to avoid keeping too many atoms for large systems.
     interface_cutoff_a = float(interface_cutoff_nm) * 10.0
     lig_mask = min_lig <= interface_cutoff_a
     rec_mask = min_rec <= interface_cutoff_a
     lig_interface = lig_mode[lig_mask]
     rec_interface = rec_mode[rec_mask]
 
+    # If no atoms pass the cutoff, take the closest ones up to the max_atoms_per_partner limit.
+    # Happens if no real complex formed during equilibration or if cutoff is too tight. This ensures the CVs are always defined.
     if lig_interface.n_atoms == 0:
         lig_interface = lig_mode[np.sort(np.argsort(min_lig)[: min(max_atoms_per_partner, lig_mode.n_atoms)])]
     if rec_interface.n_atoms == 0:
         rec_interface = rec_mode[np.sort(np.argsort(min_rec)[: min(max_atoms_per_partner, rec_mode.n_atoms)])]
 
+    # Cap the number of atoms by the smallest minimum distance to avoid exceeding the max_atoms_per_partner limit.
     if lig_mask.any():
         lig_interface = _cap_by_smallest_min_distance(lig_interface, min_lig[lig_mask], max_atoms_per_partner)
     else:

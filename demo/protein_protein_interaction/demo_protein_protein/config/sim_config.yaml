@@ -1,6 +1,5 @@
 mutations:
       - WT
-      - R65E
 
 complexes:
   C1s_Gigastasin:
@@ -8,7 +7,3 @@ complexes:
     ligand: Gigastasin
     pdb: pdb/C1s-BD001.pdb
 
-  MASP2_Gigastasin:
-    receptor: MASP2
-    ligand: Gigastasin
-    pdb: pdb/C1s-BD001.pdb

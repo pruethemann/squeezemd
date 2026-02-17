@@ -136,3 +136,5 @@ delete.csv
 *.png
 *.V2.py
 *.V1.py
+
+deprecated/

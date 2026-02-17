@@ -6,7 +6,7 @@ import matplotlib.pyplot as plt
 
 # Relevant data paths
 
-P_22 = "/home/peter/caracara/Squeeze/P-22_SAR_meta_L556/"
+P_22 = "/home/peter/caracara/Squeeze/P-25_SAR_meta_L55R_contacts/"
 
 first = path.join(P_22, "metadynamics/C1s_Gigastasin/**/**/metadynamics/fes.dat")
 
@@ -17,7 +17,9 @@ data = []
 filter = ['WT', 'L55R']
 
 for fes in energy_data:
-    df = pd.read_csv(fes, sep='\s+', comment="#", header=None, names=['d1', 'F' ,'der_d1'])
+    names_1CV = ['d1', 'F' ,'der_d1']
+    columns_2CV = ['d1', 'c1','F' ,'der_d1', 'der_c1']
+    df = pd.read_csv(fes, sep='\s+', comment="#", header=None, names=columns_2CV)
     seed = fes.split('/')[-3]
     mutation = fes.split('/')[-4]
     id = fes.split('/')[-3]
@@ -42,6 +44,10 @@ data_filtered = data[(data.mutation == 'WT')]
 for sim in sims:
     sns.lineplot(data=data_filtered[data_filtered.sim==sim],
                 x='d1',
+                y='F')
+    
+    sns.lineplot(data=data_filtered[data_filtered.sim==sim],
+                x='c1',
                 y='F')
 
 plt.savefig("WT.png")
