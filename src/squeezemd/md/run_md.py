@@ -326,7 +326,7 @@ def simulate(args, params):
     # Stage 5: Production
     # ---------------------
     print(f'\n=== Stage 5: Production run ({params['simulation']['time_ns']} ns) ===')
-    recordInterval = int(params['simulation']['recording_interval_ps'] * 1000 / params['simulation']['time_ns'])
+    recordInterval = int(params['simulation']['recording_interval_ps'] * 1000 / params['simulation']['dt_fs'])
     total_steps=params['simulation']['time_ns'] * 1e6 / dt_fs
     
     HDF5Reporter = mdtraj.reporters.HDF5Reporter(args.traj, recordInterval)
