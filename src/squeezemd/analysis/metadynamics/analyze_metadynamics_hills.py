@@ -66,10 +66,15 @@ import seaborn as sns
 def main():
     args = parse_args()
 
-    # Read FES
-    df = pd.read_csv(args.fes, sep='\s+', comment="#", header=None, names=['d1', 'F' ,'der_d1'])
-
-    # ['d1', 'c1','F' ,'der_d1', 'der_c1']
+    df = pd.read_csv(args.fes, sep=r'\s+', comment="#", header=None)
+    n_cols = df.shape[1]
+    if n_cols >= 5:
+        df = df.iloc[:, :5]
+        df.columns = ['d1', 'c1', 'F', 'der_d1', 'der_c1']
+    elif n_cols == 3:
+        df.columns = ['d1', 'F', 'der_d1']
+    else:
+        raise ValueError(f"Unexpected FES format with {n_cols} columns in {args.fes}")
 
     """
     d1: first CV: COM distance in nm
@@ -80,17 +85,19 @@ def main():
 
     Use gradients to find transition states
     """
-    #plt.subplot(2, 1, 1)
-    sns.lineplot(data=df,
-                 x='d1',
-                 y='F')
-    
-    """
-    plt.subplot(2, 1, 2)
-    sns.lineplot(data=df,
-                 x='c1',
-                 y='F')
-    """
+    if 'c1' in df.columns:
+        heatmap = df.pivot_table(index='c1', columns='d1', values='F', aggfunc='mean')
+        sns.heatmap(heatmap.sort_index().sort_index(axis=1), cmap='viridis')
+        plt.xlabel('d1 (COM distance)')
+        plt.ylabel('c1 (contacts)')
+        plt.title('Free Energy Surface (2D)')
+    else:
+        sns.lineplot(data=df,
+                     x='d1',
+                     y='F')
+        plt.xlabel('d1 (collective variable)')
+        plt.ylabel('Free Energy')
+        plt.title('Free Energy Surface (1D)')
     
     plt.savefig(args.freeenergy)
     plt.close()

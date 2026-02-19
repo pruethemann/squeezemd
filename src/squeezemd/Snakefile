@@ -179,7 +179,7 @@ rule md_metadynamics:
                   --md_settings {input.md_settings} \
                   --seed {wildcards.seed} \
                   --stats {output.stats} \
-                  --metadynamics_hill {output.metadynamics_hill} \
+                  --metadynamics_hills {output.metadynamics_hill} \
                   --metadynamics_colvar {output.metadynamics_colvar} \
                   --mode metadynamics
         """

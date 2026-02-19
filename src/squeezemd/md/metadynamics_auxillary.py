@@ -36,8 +36,8 @@ def add_metadynamics_forces_centerofmass_contacts(params, system, args, T=300):
     print("temperature", T)
 
     meta = params["simulation"]["metadynamics"]
-    sigma_com = meta["SIGMA_COM"]                 # nm
-    sigma_contacts = meta["SIGMA_CONTACTS"]       # dimensionless (contacts)
+    sigma_com = float(meta.get("SIGMA_COM", meta.get("SIGMA", 0.2)))
+    sigma_contacts = float(meta.get("SIGMA_CONTACTS", 8.0))
     height = meta["HEIGHT"]
     pace = meta["PACE"]
     stride = meta["STRIDE"]

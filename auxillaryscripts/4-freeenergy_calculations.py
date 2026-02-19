@@ -6,7 +6,7 @@ import matplotlib.pyplot as plt
 
 # Relevant data paths
 
-P_22 = "/home/peter/caracara/Squeeze/P-25_SAR_meta_L55R_contacts/"
+P_22 = "/home/peter/caracara/Squeeze/P-26_harsher"
 
 first = path.join(P_22, "metadynamics/C1s_Gigastasin/**/**/metadynamics/fes.dat")
 
