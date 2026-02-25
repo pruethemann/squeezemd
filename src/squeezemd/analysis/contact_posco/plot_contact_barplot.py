@@ -2,173 +2,118 @@
 
 """Plot PoSCo interaction energy barplots by residue."""
 
-import os
 import argparse
-import pathlib as path
+from pathlib import Path
 import pandas as pd
-import numpy as np
 from matplotlib import pyplot as plt
-import seaborn as sns
-from glob import glob
 
-def parse_arguments():
-    """Parse CLI arguments for barplot generation."""
+
+INTERACTION_TYPES = ["total", "H-bond", "lipophilic", "Salt bridge"]
+INTERACTION_STYLES = {
+    "total": ("grey", "Total interaction energy"),
+    "H-bond": ("dodgerblue", "H-bond interaction energy"),
+    "lipophilic": ("darkorange", "Lipophilic interaction energy"),
+    "Salt bridge": ("seagreen", "Salt bridge interaction energy"),
+}
+
+
+def parse_arguments() -> argparse.Namespace:
     parser = argparse.ArgumentParser()
-
-    #LINUX PATHS
-    # Input
-    parser.add_argument("-i", "--input", required=False, help="Define interaction input file, .parquet or .csv", default="/home/iman/caracara/MD/squeeze_MD/S-01_H08_MASP2_30ns/results/posco/posco_interactions.parquet")
-
-    # Output
-    parser.add_argument("-l", "--ligand_interaction", required=False, help="Define ligand analysis output file/directory, .svg", default="lig_barplot.svg")
-    parser.add_argument("-r", "--receptor_interaction", required=False, help="Define receptor analysis output file/directory, .svg", default="rec_barplot.svg")
-
+    parser.add_argument("-i","--input",required=False,help="Define interaction input file, .parquet or .csv",default="results/posco/posco_interactions.parquet",)
+    parser.add_argument("-l","--ligand_interaction",required=False,help="Define ligand analysis output file, .svg",default="lig_barplot.svg")
+    parser.add_argument("-r","--receptor_interaction",required=False,help="Define receptor analysis output file, .svg",default="rec_barplot.svg")
     return parser.parse_args()
 
-def import_sequence_range(seq_parquet:os.path, protein:str):
-    """Load residue range (min/max) for ligand or receptor from sequence parquet."""
 
-    seq_df = pd.read_parquet(seq_parquet).reset_index()
-    seq_df = seq_df[(seq_df['protein'] == protein)]
-    
-    return (seq_df.resid.min(), seq_df.resid.max())
+def load_data(input_path: str) -> pd.DataFrame:
+    input_file = Path(input_path)
+    df = pd.read_parquet(input_file)
+    # Exclude water-mediated interactions # TODO: consider keeping these and adding a separate category for them
+    return df[(df["receptor_resname"] != "HOH") & (df["ligand_resname"] != "HOH")].copy()
 
-def interaction_data_aggregation(interaction_partner, interaction_type, df_filtered):
-    """"Filter, aggregate and pivot"""
 
-    # filter for each interaction type
-    if interaction_type == "H-bond":
-        df_interaction = df_filtered[(df_filtered['Interaction Type'] == interaction_type) &
-                                     (df_filtered['Marked as Salt-Bridge'] == 0)]
-    elif interaction_type == "lipophilic":
-        df_interaction = df_filtered[(df_filtered['Interaction Type'] == interaction_type)]
-    elif interaction_type == "Salt bridge":
-        df_interaction = df_filtered[(df_filtered['Marked as Salt-Bridge'] == 1)]
-    else:
-        df_interaction = df_filtered
-
-    
-    # TODO: Sequence source is global; consider passing path explicitly
-    seq_path = glob(f"sequence.parquet")
-
-    # based on "observed" interaction partner
-    try:
-        seq_range = import_sequence_range(seq_path[0], interaction_partner[:3])
-        seq_range = range(seq_range[0], seq_range[1])
-    except Exception:
-        raise Exception("Error: Interaction partner not found.")
-    
-    resid = f'{interaction_partner}_resid'
-
-    # number of unique seeds for manual calculation of mean energy over seeds
-    n_frames = len(df_interaction.frame.unique())
-    n_seeds = len(df_interaction.seed.unique())
-
-    # data wrangling/aggregating for desired values, leaving frames
-    frame_avg = df_interaction.groupby([resid, "seed"])['Energy (e)'].sum().reset_index()
-    frame_avg["Energy (e)"] = frame_avg["Energy (e)"].div(n_frames)
-
-    # data wrangling/aggregating for desired values, leaving seeds
-    seed_avg = frame_avg.groupby([resid])['Energy (e)'].sum().reset_index()
-    seed_avg["Energy (e)"] = seed_avg["Energy (e)"].div(n_seeds)
-    seed_avg.rename(columns={"Energy (e)": "mean"}, inplace=True)
-
-    seed_sd = frame_avg.groupby([resid])['Energy (e)'].std().reset_index()
-    seed_sd.rename(columns={"Energy (e)": "sd"}, inplace=True)
-
-    combined = pd.merge(seed_avg, seed_sd, on=resid, how="outer")
-    
-    all_resid = pd.DataFrame({resid: seq_range})
-    final = pd.merge(combined, all_resid, on=resid, how="left")
-
-    # get maximum binding energy for cbar value limit
-    emax = seed_avg["mean"].min()
-    
-    return final, emax
-
-def plot_interactions(interaction_type, interaction_partner, mutation, plot_data, emax):
-    """Render barplots for total and per‑interaction energies."""
-    # plotting params based on interaction type
-    # TODO: make vmax dynamic based on max interaction energy
+def select_interaction_type(df: pd.DataFrame, interaction_type: str) -> pd.DataFrame:
     if interaction_type == "total":
-        interaction_color = "grey"
-        interaction_label = f'Total interaction Energy (kcal/mol) ({mutation})'
-    elif interaction_type == "H-bond":
-        interaction_color = "dodgerblue"
-        interaction_label = f'H-bond Energy (kcal/mol) ({mutation})'
-    elif interaction_type == "lipophilic":
-        interaction_color = "darkorange"
-        interaction_label = 'Hydrophobic interaction Energy (kcal/mol) ({mutation})'
-    elif interaction_type == "Salt bridge":
-        interaction_color = "seagreen"
-        interaction_label = 'Salt Bridge interaction Energy (kcal/mol) ({mutation})'
-    else:
-        raise Exception("ERROR: Martin introduced a new interaction type")
+        return df
+    if interaction_type == "H-bond":
+        return df[(df["Interaction Type"] == "H-bond") & (df["Marked as Salt-Bridge"] == 0)]
+    if interaction_type == "lipophilic":
+        return df[df["Interaction Type"] == "lipophilic"]
+    if interaction_type == "Salt bridge":
+        return df[df["Marked as Salt-Bridge"] == 1]
+    raise ValueError(f"Unsupported interaction type: {interaction_type}")
 
 
-    # TODO: Sequence source is global; consider passing path explicitly
-    seq_path = glob(f"sequence.parquet")
+def aggregate_partner_energy(df: pd.DataFrame, interaction_partner: str, interaction_type: str) -> pd.DataFrame:
+    resid_col = f"{interaction_partner}_resid"
+    filtered = select_interaction_type(df, interaction_type)
+    if filtered.empty:
+        return pd.DataFrame(columns=[resid_col, "mean", "sd"])
 
-    seq_range = import_sequence_range(seq_path[0], interaction_partner[:3])
-    plot_range = range(seq_range[0], seq_range[1], 2)
-
-    resid = f'{interaction_partner}_resid'
-
-    plt.bar(x=plot_data[resid],
-            height=plot_data["mean"],
-            yerr=plot_data["sd"],
-            color=interaction_color,
-            )
-    
-    plt.title(interaction_label)
-    #plt.xlabel(plot_data["ligand_resid"])
-    plt.xticks(plot_range, fontsize=10)
-    
-    plt.ylabel('Mean Interaction Energy (kcal/mol)')
-    #plt.yticks(np.linspace(0, emax-1, 10), fontsize=10)
-    plt.axhline(y=0, color="black", linewidth=0.8)
-    #plt.ylim(interaction_min, 0)
+    frame_count = max(filtered["frame"].nunique(), 1)
+    per_seed = (
+        filtered.groupby([resid_col, "seed"], as_index=False)["Energy (e)"]
+        .sum()
+        .assign(seed_energy=lambda x: x["Energy (e)"] / frame_count)
+    )
+    out = (
+        per_seed.groupby(resid_col, as_index=False)["seed_energy"]
+        .agg(mean="mean", sd="std")
+        .fillna({"sd": 0.0})
+        .sort_values(resid_col)
+    )
+    return out
 
 
+def plot_partner(df: pd.DataFrame, interaction_partner: str, complex_name: str, mutation: str, output_file: Path) -> None:
+    resid_col = f"{interaction_partner}_resid"
+    fig, axes = plt.subplots(4, 1, figsize=(14, 22), sharex=True)
 
-def main():
-    # Get all arguments
+    for axis, interaction_type in zip(axes, INTERACTION_TYPES):
+        data = aggregate_partner_energy(df, interaction_partner, interaction_type)
+
+        # DEBUG
+        data.to_csv(f"debug_{complex_name}_{mutation}_{interaction_type}_{interaction_partner}.csv", index=False)
+
+        color, label = INTERACTION_STYLES[interaction_type]
+        if data.empty:
+            axis.text(0.5, 0.5, "No data", ha="center", va="center", transform=axis.transAxes)
+        else:
+            axis.bar(data[resid_col], data["mean"], yerr=data["sd"], color=color)
+        axis.axhline(y=0, color="black", linewidth=0.8)
+        axis.set_ylabel("Energy (kcal/mol)")
+        axis.set_title(f"{label} | {complex_name} | {mutation}")
+
+    axes[-1].set_xlabel(f"{interaction_partner.capitalize()} residue")
+    fig.tight_layout()
+    output_file.parent.mkdir(parents=True, exist_ok=True)
+    fig.savefig(output_file)
+    plt.close(fig)
+
+
+def build_output_path(base_output: str, complex_name: str, mutation: str) -> Path:
+    """
+    TODO: replace with snakemake symatic
+    """
+    base = Path(base_output)
+    stem = base.stem
+    suffix = base.suffix or ".svg"
+    safe_complex = str(complex_name).replace("/", "_").replace(" ", "_")
+    safe_mutation = str(mutation).replace("/", "_").replace(" ", "_")
+    return base.with_name(f"{stem}_{safe_complex}_{safe_mutation}{suffix}")
+
+
+def main() -> None:
     args = parse_arguments()
+    df = load_data(args.input)
 
-    # 1. Data import
-    try:
-        df = pd.read_parquet(args.input)
-        print("File successfully read as .parquet")
-    except Exception as parquet_error:
-        raise ValueError("Failed to read file")
-    
-    # 2. Data cleaning 
-    # TODO: Perform a water analysis...?
-    df_filtered = df[(df['receptor_resname'] != 'HOH') & (df['ligand_resname'] != 'HOH')]
+    # Loop through each complex/mutation group and generate plots for ligand and receptor interactions
+    for (complex_name, mutation), group_df in df.groupby(["name", "mutation"], dropna=False):
+        lig_output = build_output_path(args.ligand_interaction, complex_name, mutation)
+        rec_output = build_output_path(args.receptor_interaction, complex_name, mutation)
+        plot_partner(group_df, "ligand", str(complex_name), str(mutation), lig_output)
+        plot_partner(group_df, "receptor", str(complex_name), str(mutation), rec_output)
 
-    # Iterate over mutations
-    mutations = df_filtered.mutation.unique()
-
-    for mutation in mutations:
-
-        data = df_filtered[df_filtered.mutation == mutation]
-
-        # 3. Data visualisation
-        figure_files = [args.ligand_interaction, args.receptor_interaction]
-        for fig_file, interaction_partner in zip(figure_files, ["ligand", "receptor"]):
-            plt.figure(figsize=(15, 30))
-            for i,interaction_type in enumerate(["total", 'H-bond', 'lipophilic', "Salt bridge"]): # , 'Marked as Salt-Bridge'
-                final, energy_max = interaction_data_aggregation(interaction_partner, interaction_type, data)
-                plt.subplot(4, 1, i+1)
-                plot_interactions(interaction_type,interaction_partner, mutation, final, energy_max)
-
-            plt.tight_layout()
-            if mutation == 'WT':
-                plt.savefig(fig_file)
-            else:
-                plt.savefig(f'{fig_file[:-4]}_{mutation}.svg')
-
-            plt.close()
 
 if __name__ == "__main__":
     main()

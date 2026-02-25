@@ -8,7 +8,7 @@ format expected by FoldX BuildModel.
 """
 
 import argparse
-from Helper import save_file, extract_ligand_sequence
+from ..helper_functions import save_file, extract_ligand_sequence
 
 def parse_arguments():
     """
