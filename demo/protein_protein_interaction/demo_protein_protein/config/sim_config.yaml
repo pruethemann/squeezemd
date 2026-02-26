@@ -1,9 +1,16 @@
 mutations:
       - WT
+      - L55R
 
 complexes:
   C1s_Gigastasin:
     receptor: C1s
     ligand: Gigastasin
-    pdb: pdb/C1s-BD001.pdb
+    pdb: pdb/C1s-Gigastasin.pdb
+
+
+  MASP2_Gigastasin:
+    receptor: MASP2
+    ligand: Gigastasin
+    pdb: pdb/MASP2-Gigastasin.pdb
 

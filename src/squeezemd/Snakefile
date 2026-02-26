@@ -52,9 +52,9 @@ rule protein_protein: # protein-protein interaction analysis
         'results/alignment/align.pse',
         #expand('{mode}/{complex}/{mutation}/{seed}/fingerprint/fingerprint.parquet',complex=COMPLEXES,mutation=mutations,seed=seeds,mode=mode),
         #'results/posco/lig_heatmap.svg',
-        'results/posco/lig_barplot.svg',
+        expand('results/posco/lig_barplot_{complex}_{mutation}.svg', complex=COMPLEXES, mutation=mutations),
         'results/rmsf/rmsf.svg',
-        expand('results/interactionSurface/{complex}.{mutation}.interaction.pdb', complex=COMPLEXES, mutation=mutations),
+        #expand('results/interactionSurface/{complex}.{mutation}.interaction.pdb', complex=COMPLEXES, mutation=mutations),
 
 rule metadynamics:
     input:
@@ -119,6 +119,7 @@ rule md_protein_protein:
         traj=temp('protein_protein/{complex}/{mutation}/{seed}/MD/trajectory_raw.h5'),
         stats='protein_protein/{complex}/{mutation}/{seed}/MD/mdstats.csv'
     resources: gpu=1
+    retries: 3          # sometimes runs fail due GPU allocation issues, so we allow for some retries
     priority: 3
     shell:
         """
@@ -144,6 +145,7 @@ rule md_protein_molecule:
         stats='protein_molecule/{complex}/{mutation}/{seed}/MD/mdstats.csv',
     resources: gpu=1
     priority: 3
+    retries: 3 
     shell:
         """
         run-md --pdb {input.pdb} \
@@ -170,6 +172,7 @@ rule md_metadynamics:
         metadynamics_colvar='metadynamics/{complex}/{mutation}/{seed}/metadynamics/Colvar.dat'
     resources: gpu=1
     priority: 3
+    retries: 3
     shell:
         """
         run-md --pdb {input.pdb} \
@@ -381,17 +384,15 @@ rule plot_contacts_heatmap:
         "plot-contact-heatmap --input {input.data} --ligand_interaction {output.lig_heatmap} --receptor_interaction {output.rec_heatmap}"
 
 
-rule plot_contacts_barplot:             # TODO: does not work for mutations of differnt complexes yet!!
+rule plot_contacts_barplot:
     input:
-        'results/posco/posco_interactions.parquet',  
+        'results/posco/posco_interactions.parquet'
     output:
-        lig_barplot='results/posco/lig_barplot.svg',
-        rec_barplot='results/posco/rec_barplot.svg',
+        lig_barplot = expand('results/posco/lig_barplot_{complex}_{mutation}.svg', complex=COMPLEXES, mutation=mutations),
+        rec_barplot = expand('results/posco/rec_barplot_{complex}_{mutation}.svg', complex=COMPLEXES, mutation=mutations)
     shell:
         """
-        plot-contact-barplot --input {input} \
-                             --ligand_interaction {output.lig_barplot} \
-                             --receptor_interaction {output.rec_barplot}
+        plot-contact-barplot --input {input}
         """
 
 rule ana_prolif_contacts:

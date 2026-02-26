@@ -6,6 +6,7 @@ import argparse
 from pathlib import Path
 import pandas as pd
 from matplotlib import pyplot as plt
+from os import path
 
 
 INTERACTION_TYPES = ["total", "H-bond", "lipophilic", "Salt bridge"]
@@ -20,8 +21,6 @@ INTERACTION_STYLES = {
 def parse_arguments() -> argparse.Namespace:
     parser = argparse.ArgumentParser()
     parser.add_argument("-i","--input",required=False,help="Define interaction input file, .parquet or .csv",default="results/posco/posco_interactions.parquet",)
-    parser.add_argument("-l","--ligand_interaction",required=False,help="Define ligand analysis output file, .svg",default="lig_barplot.svg")
-    parser.add_argument("-r","--receptor_interaction",required=False,help="Define receptor analysis output file, .svg",default="rec_barplot.svg")
     return parser.parse_args()
 
 
@@ -51,17 +50,10 @@ def aggregate_partner_energy(df: pd.DataFrame, interaction_partner: str, interac
         return pd.DataFrame(columns=[resid_col, "mean", "sd"])
 
     frame_count = max(filtered["frame"].nunique(), 1)
-    per_seed = (
-        filtered.groupby([resid_col, "seed"], as_index=False)["Energy (e)"]
-        .sum()
-        .assign(seed_energy=lambda x: x["Energy (e)"] / frame_count)
-    )
-    out = (
-        per_seed.groupby(resid_col, as_index=False)["seed_energy"]
-        .agg(mean="mean", sd="std")
-        .fillna({"sd": 0.0})
-        .sort_values(resid_col)
-    )
+    # Note: don't group by mean beacuse we want to sum energies across residues for each seed before averaging across seeds, to avoid underestimating the energy of residues that have multiple interactions. This is a manual implementation of a groupby with nested aggregation to achieve this.
+    per_seed = (filtered.groupby([resid_col, "seed"], as_index=False)["Energy (e)"].sum().assign(seed_energy=lambda x: x["Energy (e)"] / frame_count))
+    # Now we can group by residue to get the mean and standard deviation across seeds / replicates
+    out = (per_seed.groupby(resid_col, as_index=False)["seed_energy"].agg(mean="mean", sd="std").fillna({"sd": 0.0}).sort_values(resid_col))
     return out
 
 
@@ -73,7 +65,7 @@ def plot_partner(df: pd.DataFrame, interaction_partner: str, complex_name: str, 
         data = aggregate_partner_energy(df, interaction_partner, interaction_type)
 
         # DEBUG
-        data.to_csv(f"debug_{complex_name}_{mutation}_{interaction_type}_{interaction_partner}.csv", index=False)
+        #data.to_csv(f"debug_{complex_name}_{mutation}_{interaction_type}_{interaction_partner}.csv", index=False)
 
         color, label = INTERACTION_STYLES[interaction_type]
         if data.empty:
@@ -86,21 +78,9 @@ def plot_partner(df: pd.DataFrame, interaction_partner: str, complex_name: str, 
 
     axes[-1].set_xlabel(f"{interaction_partner.capitalize()} residue")
     fig.tight_layout()
-    output_file.parent.mkdir(parents=True, exist_ok=True)
+    #output_file.parent.mkdir(parents=True, exist_ok=True)
     fig.savefig(output_file)
     plt.close(fig)
-
-
-def build_output_path(base_output: str, complex_name: str, mutation: str) -> Path:
-    """
-    TODO: replace with snakemake symatic
-    """
-    base = Path(base_output)
-    stem = base.stem
-    suffix = base.suffix or ".svg"
-    safe_complex = str(complex_name).replace("/", "_").replace(" ", "_")
-    safe_mutation = str(mutation).replace("/", "_").replace(" ", "_")
-    return base.with_name(f"{stem}_{safe_complex}_{safe_mutation}{suffix}")
 
 
 def main() -> None:
@@ -109,8 +89,8 @@ def main() -> None:
 
     # Loop through each complex/mutation group and generate plots for ligand and receptor interactions
     for (complex_name, mutation), group_df in df.groupby(["name", "mutation"], dropna=False):
-        lig_output = build_output_path(args.ligand_interaction, complex_name, mutation)
-        rec_output = build_output_path(args.receptor_interaction, complex_name, mutation)
+        lig_output = path.join('results', 'posco', f'lig_barplot_{complex_name}_{mutation}.svg')
+        rec_output = path.join('results', 'posco', f'rec_barplot_{complex_name}_{mutation}.svg')
         plot_partner(group_df, "ligand", str(complex_name), str(mutation), lig_output)
         plot_partner(group_df, "receptor", str(complex_name), str(mutation), rec_output)
 

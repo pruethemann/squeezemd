@@ -8,9 +8,24 @@ metadata (complex, mutation, seed, frame).
 
 import argparse, os
 from ...helper_functions import remap_MDAnalysis, execute # Helper functions for execution and MDAnalysis remapping
-import MDAnalysis as mda             # MDAnalysis for atom selection and structure manipulation
 import openmm.app as app
 import pandas as pd
+
+import warnings
+
+warnings.filterwarnings(
+    "ignore",
+    category=DeprecationWarning,
+    message=r"DCDReader currently makes independent timesteps"
+)
+
+warnings.filterwarnings(
+    "ignore",
+    category=UserWarning,
+    message=r"Found no information for attr: '.*' Using default value of '.*'"
+)
+
+import MDAnalysis as mda
 
 def parse_lipophilic(parts, sequence):
     """Parse a PoSCo lipophilic interaction line into a dict."""
@@ -71,6 +86,10 @@ def parse_hbonds(parts, sequence):
     receptor_resname = donor_acceptor[-2]
     receptor_resid = int(donor_acceptor[-1])
 
+    #print(sequence)
+
+    # TODO: That is only necessary because in posco I can't differeniate between ligand and receptors
+    # TODO. Do this swap only once
     should_swap = (
         (ligand_resname == 'HOH' and sequence.loc[(receptor_resid, receptor_resname)]['protein'] == 'lig')  or
         (receptor_resname == 'HOH' and sequence.loc[(ligand_resid, ligand_resname)]['protein'] == 'rec')    or
@@ -107,7 +126,7 @@ def parse_hbonds(parts, sequence):
     return interaction
 
 # Parse the input data into a pandas DataFrame
-def parse_posco(posco_output, metadata, frame_id, sequence_parquet):
+def parse_posco(posco_output, metadata, frame_id, sequence):
     """
     parse the posco text file and extract relevant interaction data and save
     as parquet.
@@ -121,9 +140,6 @@ def parse_posco(posco_output, metadata, frame_id, sequence_parquet):
 
     metadata['target'] = metadata['complex'].split('_')[0]
     metadata['ligand'] = metadata['complex'].split('_')[1]
-
-    # Import the sequence information for ligand and receptor
-    sequence = pd.read_parquet(sequence_parquet)
 
     # In rare cases the same resname and resid can exist in rec and lig.
     # Keep the first occurrence to avoid ambiguity.
@@ -155,7 +171,7 @@ def parse_posco(posco_output, metadata, frame_id, sequence_parquet):
 
     return data
 
-def extract_sequence(ligand, receptor, sequence_file):
+def extract_sequence(ligand, receptor):
     """
     Extract the amino acid sequence from the structure for the ligand and receptor and saves it as parquet.
     """
@@ -175,9 +191,11 @@ def extract_sequence(ligand, receptor, sequence_file):
 
     seq = pd.concat([seq_ligand, seq_receptor])
     seq = seq.set_index(['resid', 'resname'])
-    seq.to_parquet(sequence_file)
 
-def extract_binding_surface(u, sequence_path, t=8):
+    return seq
+    #seq.to_parquet(sequence_file)
+
+def extract_binding_surface(u, t=8):
     """
     Extracts the ligand (segid A or X), receptor, and all complete water molecules within t Angstrom
     from the binding surface.
@@ -197,7 +215,7 @@ def extract_binding_surface(u, sequence_path, t=8):
     receptor = u.select_atoms(f'not segid {ligand_segid} and protein')
 
     # Extract and save sequences information for posco
-    extract_sequence(ligand, receptor, sequence_path)
+    sequence = extract_sequence(ligand, receptor)
 
     # Select water molecules within t Å of ligand and receptor
     water_binding_site = u.select_atoms(f'resname HOH and (around {t} segid {ligand_segid}) and (around {t} (not segid {ligand_segid} and protein))')
@@ -212,7 +230,7 @@ def extract_binding_surface(u, sequence_path, t=8):
     complete_water = complete_water_residues.atoms
 
     # Combine all selections
-    return (ligand, receptor + complete_water)
+    return (ligand, receptor + complete_water, sequence)
 
 def parse_arguments():
     """
@@ -256,6 +274,9 @@ def main():
     # Define residues and chains according to pdb
     u = remap_MDAnalysis(u, topo)
 
+    # Make sure masses and types are correct
+    u.guess_TopologyAttrs(to_guess=["masses", "types"])
+
     posco_interactions = []
 
     for i in range(args.number_frames):
@@ -264,11 +285,12 @@ def main():
 
         # Extract protein and water in binding surface
         print(f"Processing frame {i}: {ts.frame}")
-        (ligand, receptor) = extract_binding_surface(u, 'sequence.parquet')
+
+        (ligand, receptor, sequence) = extract_binding_surface(u)
 
         # Save ligand and receptor files separatly
-        lig_path = f'{i}_lig_{prefix}.pdb'
-        rec_path = f'{i}_rec_{prefix}.pdb'
+        lig_path = f'.{i}_lig_{prefix}.pdb'
+        rec_path = f'.{i}_rec_{prefix}.pdb'
 
         ligand.write(lig_path)
         receptor.write(rec_path)
@@ -279,7 +301,7 @@ def main():
         execute(cmd)
 
         # 3. Parse interactions into a single parquet table
-        posco_interaction = parse_posco(posco_result, metadata, i, 'sequence.parquet')
+        posco_interaction = parse_posco(posco_result, metadata, i, sequence)
         posco_interactions.append(posco_interaction)
 
         # Only for the last frame perform extensive posco analysis and save
