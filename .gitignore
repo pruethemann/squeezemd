@@ -138,3 +138,9 @@ delete.csv
 *.V1.py
 
 deprecated/
+
+*.csv
+
+*V1.py
+*V2.py
+*V3.py

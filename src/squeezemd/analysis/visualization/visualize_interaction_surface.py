@@ -6,12 +6,16 @@ those energies into the B‑factor column, and generates a PyMOL script and
 session to visualize interaction surfaces.
 """
 
+import os
+# Disable OpenCL to prevent segmentation faults
+os.environ['PYOPENCL_CTX'] = ''
+os.environ['OPENCL_VENDOR_PATH'] = '/dev/null'
+
 import pandas as pd
 import argparse
 import MDAnalysis as mda
 import seaborn as sns
 import matplotlib.pyplot as plt
-import os
 from importlib.resources import files
 
 plt.style.use('ggplot')
@@ -164,28 +168,28 @@ def main():
     #data_receptor = interactions_filtered.groupby(['name', 'mutation', 'receptor_resid']).mean(numeric_only=True).reset_index()
 
     # Aggregate per‑residue energy across frames and seeds
-    data_ligand = interactions.groupby(['name', 'mutation', 'ligand_resid'])['Energy (e)'].sum().reset_index()
+    data_ligand = interactions_filtered.groupby('ligand_resid')['Energy (e)'].sum().reset_index()
     data_ligand["Energy (e)"] = data_ligand["Energy (e)"].div(n_frames * n_seeds)
 
-    data_receptor = interactions.groupby(['name', 'mutation', 'receptor_resid'])['Energy (e)'].sum().reset_index()
+    data_receptor = interactions_filtered.groupby('receptor_resid')['Energy (e)'].sum().reset_index()
     data_receptor["Energy (e)"] = data_receptor["Energy (e)"].div(n_frames * n_seeds)
     
     # Only consider strong interactions for labeling
     ENERGY_THRESHOLD = -0.8
-    data_ligand = data_ligand[data_ligand['Energy (e)'] < ENERGY_THRESHOLD]
+    data_ligand_strong = data_ligand[data_ligand['Energy (e)'] < ENERGY_THRESHOLD]
 
     # create a string in pymol
-    ligand_resids = ','.join(map(str, data_ligand))
+    ligand_resids = ','.join(map(str, data_ligand_strong['ligand_resid']))
     receptor_resids = ','.join(map(str, data_receptor[data_receptor['Energy (e)']  < ENERGY_THRESHOLD]['receptor_resid']))
 
     # Define output paths. TODO Improve
-    dir = os.path.join('results', 'interactionSurface')
+    dir = os.path.join('results', 'posco')
     interaction_pdb = os.path.join(dir, f'{complex}.{mutation}.interaction.pdb')
     pymol_out = os.path.join(dir, f'{complex}.{mutation}.final.pse')
     pymol_script = os.path.join(dir, f'{complex}.{mutation}.pml')
     output_png = os.path.join(dir, f'{complex}.{mutation}.png')
 
-    # Set the interaction intensities
+    # Set the interaction intensities (use full data, not filtered)
     set_residue_interaction_intensity(pdb, data_ligand, data_receptor, interaction_pdb)
 
     # create a custom pymol script to visualize the relevant interactions
