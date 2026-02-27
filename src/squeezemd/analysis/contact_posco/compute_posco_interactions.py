@@ -14,9 +14,10 @@ import openmm.app as app
 import pandas as pd
 
 import warnings
-
 warnings.filterwarnings("ignore",category=DeprecationWarning,message=r"DCDReader currently makes independent timesteps")
 warnings.filterwarnings("ignore",category=UserWarning,message=r"Found no information for attr: '.*' Using default value of '.*'")
+warnings.filterwarnings("ignore",message="Element information missing for some atoms.*",category=UserWarning)
+warnings.filterwarnings("ignore",message="For absent elements, atomtype has been  set to 'X'.*",category=UserWarning)
 import MDAnalysis as mda
 
 def parse_lipophilic(parts, sequence):
@@ -63,7 +64,6 @@ def parse_lipophilic(parts, sequence):
 
     return interaction
 
-
 def parse_hbonds(parts, sequence):
     """Parse a PoSCo H‑bond interaction line into a dict."""
 
@@ -77,8 +77,6 @@ def parse_hbonds(parts, sequence):
     receptor_atom = donor_acceptor[-3]
     receptor_resname = donor_acceptor[-2]
     receptor_resid = int(donor_acceptor[-1])
-
-    #print(sequence)
 
     # TODO: That is only necessary because in posco I can't differeniate between ligand and receptors
     # TODO. Do this swap only once
@@ -224,7 +222,6 @@ def extract_binding_surface(u, t=8):
     return (ligand, receptor + complete_water, sequence)
 
 
-
 def _process_frame(args_tuple):
     """Worker: process a single frame index. Runs in separate process."""
     i, args, metadata, prefix = args_tuple
@@ -274,9 +271,7 @@ def _process_frame(args_tuple):
                     os.remove(p)
             except Exception:
                 pass
-    
-
-
+ 
     return df
 
 def parse_arguments():
@@ -319,11 +314,11 @@ def main():
     topo = app.PDBxFile(args.topo)
     u = mda.Universe(topo, args.traj, in_memory=False)
 
+    # Make sure masses and types are correct
+    u.guess_TopologyAttrs(to_guess=["masses", "types", "elements"])
+
     # Define residues and chains according to pdb
     u = remap_MDAnalysis(u, topo)
-
-    # Make sure masses and types are correct
-    u.guess_TopologyAttrs(to_guess=["masses", "types"])
 
     # Parallel processing of frames
     to_process = [(i, args, metadata, prefix) for i in range(args.number_frames)]
@@ -332,7 +327,7 @@ def main():
         results = pool.map(_process_frame, to_process)
 
     # concat results and write parquet
-    posco_interactions = pd.concat(results, ignore_index=True) if results else pd.DataFrame()
+    posco_interactions = pd.concat(results, ignore_index=True)
     posco_interactions.to_parquet(args.posco_parquet)
 
 if __name__ == '__main__':
