@@ -28,6 +28,8 @@ dependencies:
   - seaborn==0.13.2                 # visualisation
   - plotly==6.5.0                  # For trajectory analysis (will be depracted soon)
   - pymol-open-source==3.1.0       # Open source version of pymol (conda-forge)
+  - coin-or-cbc==2.10.12
+  - pulp==2.8.0
   - pip
   - pip:
         - json2html         # Html report

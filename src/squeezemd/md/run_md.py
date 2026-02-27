@@ -120,7 +120,7 @@ def create_model_smallmolecule(modeller, salt_concentration, params, sdf):
     # Add ligand to modell
     modeller.add(ligand_topology, ligand_positions)
 
-    modeller.addHydrogens(generator.forcefield)       # TODO: Check whether His protonation states are changed
+    modeller.addHydrogens(generator.forcefield, pH=7.4)       # TODO: Check whether His protonation states are changed
     modeller.addExtraParticles(generator.forcefield)          # Add dummy positions for orbitals (OPC, TIP4)
 
     # Add solvent
@@ -149,7 +149,7 @@ def create_model_ppi(modeller, salt_concentration, params):
     print(f'Initializing ForceField: {protein_forcefield} + {water_model}')
     forcefield = app.ForceField(protein_forcefield, water_model)
 
-    modeller.addHydrogens(forcefield)       # TODO: Check whether His protonation states are changed
+    modeller.addHydrogens(forcefield, pH=7.4)       # TODO: Check whether His protonation states are changed
     modeller.addExtraParticles(forcefield)  # Required for tip4p (orbital)
 
     # Add solvent
