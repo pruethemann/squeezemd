@@ -6,25 +6,17 @@ executes PoSCo, and consolidates interactions into a parquet table with
 metadata (complex, mutation, seed, frame).
 """
 
+import multiprocessing
 import argparse, os
+import tempfile
 from ...helper_functions import remap_MDAnalysis, execute # Helper functions for execution and MDAnalysis remapping
 import openmm.app as app
 import pandas as pd
 
 import warnings
 
-warnings.filterwarnings(
-    "ignore",
-    category=DeprecationWarning,
-    message=r"DCDReader currently makes independent timesteps"
-)
-
-warnings.filterwarnings(
-    "ignore",
-    category=UserWarning,
-    message=r"Found no information for attr: '.*' Using default value of '.*'"
-)
-
+warnings.filterwarnings("ignore",category=DeprecationWarning,message=r"DCDReader currently makes independent timesteps")
+warnings.filterwarnings("ignore",category=UserWarning,message=r"Found no information for attr: '.*' Using default value of '.*'")
 import MDAnalysis as mda
 
 def parse_lipophilic(parts, sequence):
@@ -193,7 +185,6 @@ def extract_sequence(ligand, receptor):
     seq = seq.set_index(['resid', 'resname'])
 
     return seq
-    #seq.to_parquet(sequence_file)
 
 def extract_binding_surface(u, t=8):
     """
@@ -232,6 +223,62 @@ def extract_binding_surface(u, t=8):
     # Combine all selections
     return (ligand, receptor + complete_water, sequence)
 
+
+
+def _process_frame(args_tuple):
+    """Worker: process a single frame index. Runs in separate process."""
+    i, args, metadata, prefix = args_tuple
+
+    topo_path = args.topo
+    traj_path = args.traj
+
+    # Recreate Universe in worker process
+    topo = app.PDBxFile(topo_path)
+    u = mda.Universe(topo, traj_path, in_memory=False)
+
+    # remap and ensure topology attrs
+    u = remap_MDAnalysis(u, topo)
+    u.guess_TopologyAttrs(to_guess=["masses", "types"])
+
+    # Select the requested frame (last frames like original: -i-1)
+    ts = u.trajectory[-i - 1]
+    print(f"Processing frame {i}: {ts.frame}")
+
+    # Extract selections & sequence
+    (ligand, receptor, sequence) = extract_binding_surface(u)
+
+    # Use unique tmp names per frame (safe across processes)
+    lig_path = tempfile.mktemp(prefix=f".{i}_lig_{prefix}_", suffix=".pdb")
+    rec_path = tempfile.mktemp(prefix=f".{i}_rec_{prefix}_", suffix=".pdb")
+
+    try:
+        ligand.write(lig_path)
+        receptor.write(rec_path)
+
+        posco_result = tempfile.mktemp(prefix=f"{i}_posco_{prefix}_", suffix=".txt")
+        cmd = f"po-sco {rec_path} {lig_path} -b  > {posco_result}"
+        execute(cmd)
+
+        df = parse_posco(posco_result, metadata, i, sequence)
+
+        # Only to this for the last frame
+        if i == 0:
+            cmd = f"po-sco {rec_path} {lig_path}  > {args.posco_interaction}"
+            execute(cmd)
+
+    finally:
+        # cleanup (ignore missing files)
+        for p in (lig_path, rec_path, posco_result):
+            try:
+                if os.path.exists(p):
+                    os.remove(p)
+            except Exception:
+                pass
+    
+
+
+    return df
+
 def parse_arguments():
     """
     Parse command-line arguments for the script.
@@ -249,6 +296,7 @@ def parse_arguments():
     parser.add_argument('--complex', required=False, help='', default='C1s_Gigastasin')
     parser.add_argument('--mutation', required=False, help='', default='R65E')
     parser.add_argument('--seed', type=int,required=False, help='', default=222)
+    parser.add_argument('--threads', type=int,required=False, help='Number of threads for parallel processing', default=4)
 
     # Output
     parser.add_argument('--posco_interaction', required=False, help='', default='posco.txt')
@@ -267,7 +315,7 @@ def main():
 
     prefix = f'{args.complex}_{args.mutation}_{args.seed}' # used for tmp file paths
 
-    # Import Trajectory
+    # Import Trajectory (kept here for quick checks; worker will recreate its own Universe)
     topo = app.PDBxFile(args.topo)
     u = mda.Universe(topo, args.traj, in_memory=False)
 
@@ -277,44 +325,14 @@ def main():
     # Make sure masses and types are correct
     u.guess_TopologyAttrs(to_guess=["masses", "types"])
 
-    posco_interactions = []
+    # Parallel processing of frames
+    to_process = [(i, args, metadata, prefix) for i in range(args.number_frames)]
 
-    for i in range(args.number_frames):
-        # 1. Extract ligand and receptor for this frame
-        ts = u.trajectory[-i - 1]
+    with multiprocessing.Pool(processes=args.threads) as pool:
+        results = pool.map(_process_frame, to_process)
 
-        # Extract protein and water in binding surface
-        print(f"Processing frame {i}: {ts.frame}")
-
-        (ligand, receptor, sequence) = extract_binding_surface(u)
-
-        # Save ligand and receptor files separatly
-        lig_path = f'.{i}_lig_{prefix}.pdb'
-        rec_path = f'.{i}_rec_{prefix}.pdb'
-
-        ligand.write(lig_path)
-        receptor.write(rec_path)
-
-        # 2. Perform PoSCo
-        posco_result = f'{i}_posco_{prefix}.txt'
-        cmd = f"po-sco {rec_path} {lig_path} -b  > {posco_result}"
-        execute(cmd)
-
-        # 3. Parse interactions into a single parquet table
-        posco_interaction = parse_posco(posco_result, metadata, i, sequence)
-        posco_interactions.append(posco_interaction)
-
-        # Only for the last frame perform extensive posco analysis and save
-        if i == 0:
-            cmd = f"po-sco {rec_path} {lig_path}  > {args.posco_interaction}"
-            execute(cmd)
-
-        # Clean up
-        os.remove(rec_path)
-        os.remove(lig_path)
-        os.remove(posco_result)
-
-    posco_interactions = pd.concat(posco_interactions)
+    # concat results and write parquet
+    posco_interactions = pd.concat(results, ignore_index=True) if results else pd.DataFrame()
     posco_interactions.to_parquet(args.posco_parquet)
 
 if __name__ == '__main__':
