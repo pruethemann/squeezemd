@@ -113,6 +113,60 @@ def add_metadynamics_forces_centerofmass_contacts(params, system, args, T=300):
     return system
 
 
+def extract_atom_indices_small_molecule(
+    pdf_file: os.path,
+    contact_atom_mode: str = "ca",
+    contact_interface_cutoff_nm: float = 0.8,
+    contact_max_atoms_per_partner: int = 120,
+):
+    """Extract ligand/receptor atom indices plus compact interface contact subsets for PLUMED."""
+    u = mda.Universe(pdf_file)
+
+    # Figure out whether its protein protein interaction (ligand is chain A) or small molecule ligand (ligand is chain X)
+
+    # TODO: Implement if statment which checks for protein molecule or protein protein interaction
+    ligand_resname = 'UNK' 
+  
+    rec = u.select_atoms('segid A')
+    lig = u.select_atoms('not segid A and not water')   
+
+    print("ligand", lig)
+    print("rec", rec)
+
+    import sys
+    sys.exit()
+
+    lig_backbone = u.select_atoms(f'(not segid A) and backbone and not water')
+    rec_backbone = u.select_atoms(f'segid A and backbone')
+
+    lig_contacts, rec_contacts = select_interface_contact_atoms(
+        u,
+        lig_sel=f"not segid A and not water",
+        rec_sel=f"segid A",
+        atom_mode=contact_atom_mode,
+        interface_cutoff_nm=contact_interface_cutoff_nm,
+        max_atoms_per_partner=contact_max_atoms_per_partner,
+    )
+
+    # PLUMED atom indexing is 1-based and corresponds to the .ids attribute in MDAnalysis AtomGroups, which is what we want for both PLUMED and PyMOL.
+    lig_plumed_backbone = ",".join(map(str, lig_backbone.indices + 1))
+    rec_plumed_backbone = ",".join(map(str, rec_backbone.indices + 1))
+    lig_plumed_contacts = ",".join(map(str, lig_contacts.indices + 1))
+    rec_plumed_contacts = ",".join(map(str, rec_contacts.indices + 1))
+
+    return {
+        "lig_backbone": lig_plumed_backbone,
+        "rec_backbone": rec_plumed_backbone,
+        "lig_contacts": lig_plumed_contacts,
+        "rec_contacts": rec_plumed_contacts,
+        "lig_contacts_count": int(lig_contacts.n_atoms),
+        "rec_contacts_count": int(rec_contacts.n_atoms),
+        "lig_min": int(lig.indices.min() + 1),
+        "lig_max": int(lig.indices.max() + 1),
+        "rec_min": int(rec.indices.min() + 1),
+        "rec_max": int(rec.indices.max() + 1),
+    }
+
 def extract_atom_indices(
     pdf_file: os.path,
     contact_atom_mode: str = "ca",
@@ -122,16 +176,22 @@ def extract_atom_indices(
     """Extract ligand/receptor atom indices plus compact interface contact subsets for PLUMED."""
     u = mda.Universe(pdf_file)
 
-    lig = u.select_atoms("chainID A")
-    rec = u.select_atoms("chainID B or chainID C")
+    # Figure out whether its protein protein interaction (ligand is chain A) or small molecule ligand (ligand is chain X)
 
-    lig_backbone = u.select_atoms("(chainID A) and backbone")
-    rec_backbone = u.select_atoms("((chainID B) or (chainID C)) and backbone")
+    # TODO: Implement if statment which checks for protein molecule or protein protein interaction
+    ligand_segid = 'A' 
+  
+    print(ligand_segid)
+    lig = u.select_atoms(f'segid {ligand_segid}')   
+    rec = u.select_atoms(f'not segid {ligand_segid} and protein')
+
+    lig_backbone = u.select_atoms(f'(segid {ligand_segid}) and backbone')
+    rec_backbone = u.select_atoms(f'not segid {ligand_segid} and protein and backbone')
 
     lig_contacts, rec_contacts = select_interface_contact_atoms(
         u,
-        lig_sel="chainID A",
-        rec_sel="chainID B or chainID C",
+        lig_sel=f"segid {ligand_segid}",
+        rec_sel=f"not segid {ligand_segid} and protein",
         atom_mode=contact_atom_mode,
         interface_cutoff_nm=contact_interface_cutoff_nm,
         max_atoms_per_partner=contact_max_atoms_per_partner,

@@ -10,7 +10,7 @@ import argparse, os
 from ...helper_functions import remap_MDAnalysis, execute # Helper functions for execution and MDAnalysis remapping
 import openmm.app as app
 import pandas as pd
-
+import MDAnalysis as mda
 import warnings
 
 warnings.filterwarnings(
@@ -25,7 +25,6 @@ warnings.filterwarnings(
     message=r"Found no information for attr: '.*' Using default value of '.*'"
 )
 
-import MDAnalysis as mda
 
 def parse_lipophilic(parts, sequence):
     """Parse a PoSCo lipophilic interaction line into a dict."""
@@ -203,13 +202,14 @@ def extract_binding_surface(u, t=8):
     X: small molecule ligand
     """
 
-    # Determine the ligand segid (A for protein ligand, X for small molecule)
-    ligand = u.select_atoms('segid A')
-    if len(ligand) == 0:        # For small molecule the chain ID is X
-        ligand = u.select_atoms('segid X')
+    # TODO: Implement if statment which checks for protein molecule or protein protein interaction
+    # check if a segid X exists, if not assume that it is a protein protein interaction and select segid A as ligand
+    if 'X' in u.segments.segids:
         ligand_segid = 'X'
-    else:
-        ligand_segid = 'A'
+    else:    
+        ligand_segid = 'A'       
+
+    ligand = u.select_atoms(f'segid {ligand_segid}')
 
     # Select ligand and receptor proteins
     receptor = u.select_atoms(f'not segid {ligand_segid} and protein')
@@ -313,6 +313,7 @@ def main():
         os.remove(rec_path)
         os.remove(lig_path)
         os.remove(posco_result)
+
 
     posco_interactions = pd.concat(posco_interactions)
     posco_interactions.to_parquet(args.posco_parquet)
