@@ -343,7 +343,8 @@ rule compute_posco_contacts:
         number_frames = n_frames
     output:
         posco_parquet = '{mode}/{complex}/{mutation}/{seed}/po-sco/posco_interaction.parquet',
-        posco_interaction = '{mode}/{complex}/{mutation}/{seed}/po-sco/posco_interaction.txt',
+        posco_interaction = '{mode}/{complex}/{mutation}/{seed}/po-sco/posco_interaction.txt'
+    threads: 4
     shell:
         """
         compute-posco-contacts  --topo {input.topo} \
@@ -353,7 +354,8 @@ rule compute_posco_contacts:
                                 --posco_interaction {output.posco_interaction} \
                                 --complex {wildcards.complex} \
                                 --mutation {wildcards.mutation} \
-                                --seed {wildcards.seed}
+                                --seed {wildcards.seed} \
+                                --threads {threads}
         """
 
 rule merge_posco_contact:
