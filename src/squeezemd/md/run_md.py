@@ -76,7 +76,8 @@ def energy_minimisation(simulation):
     """Run energy minimization and print energy difference."""
     e_before = simulation.context.getState(getEnergy=True).getPotentialEnergy()
     # TODO remove steps
-    simulation.minimizeEnergy()
+    # TODO remove
+    #simulation.minimizeEnergy()
     e_after = simulation.context.getState(getEnergy=True).getPotentialEnergy()
     print('Energy difference (minimization):', e_before - e_after)
 
@@ -203,9 +204,9 @@ def simulate(args, params):
     salt_concentration = params['simulation']['system']['salt_molar'] * molar
 
     # Create solvated system depending on whether ligand is small molecule or protein
-    if args.mode == 'protein_molecule':
+    if args.mode in ('protein_molecule', 'metadynamics_molecule'):
         system = create_model_smallmolecule(modeller, salt_concentration, params, args.sdf)
-    else: # PPi, metadynamics, protein
+    else: # md_metadynamics_ppi, md_protein_protein
         system = create_model_ppi(modeller, salt_concentration, params)
 
     # ---------------------
@@ -296,7 +297,7 @@ def simulate(args, params):
     # Stage 4: Metadynamics (optional)
     # ---------------------
 
-    if args.mode == 'metadynamics':
+    if args.mode in ('md_metadynamics_ppi', 'md_metadynamics_molecule'):
         print(f'\n=== Stage 4: Initiate Metadynamics')
         simulation.system = add_metadynamics_forces_centerofmass_contacts(params, simulation.system, args, T)
         simulation.context.reinitialize(preserveState=True)  # keep positions/velocities

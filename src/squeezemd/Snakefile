@@ -44,11 +44,12 @@ np.random.seed(seed)              # Ensure reproducibility
 seeds = np.random.randint(100, 1000, size=config['simulation']['replicates'])
 representative_seed = seeds[0] # First seeds is used as representation for surface interaction analysis
 
-mode = config.get('mode', 'protein_protein')
+mode = config.get('mode')
+print(mode)
 
 rule protein_protein: # protein-protein interaction analysis
     input:
-        expand('{mode}/{complex}/{mutation}/{seed}/po-sco/posco_interaction.parquet',complex=COMPLEXES,mutation=mutations,seed=seeds,mode=mode),
+        expand('protein_protein/{complex}/{mutation}/{seed}/po-sco/posco_interaction.parquet',complex=COMPLEXES,mutation=mutations,seed=seeds,mode=mode),
         'results/alignment/align.pse',
         #expand('{mode}/{complex}/{mutation}/{seed}/fingerprint/fingerprint.parquet',complex=COMPLEXES,mutation=mutations,seed=seeds,mode=mode),
         #'results/posco/lig_heatmap.svg',
@@ -56,25 +57,37 @@ rule protein_protein: # protein-protein interaction analysis
         'results/rmsf/rmsf.svg',
         expand('results/posco/{complex}.{mutation}.interaction.pdb', complex=COMPLEXES, mutation=mutations),
 
-rule metadynamics:
+rule protein_molecule:
     input:
-        expand('{mode}/{complex}/{mutation}/{seed}/po-sco/posco_interaction.parquet',complex=COMPLEXES,mutation=mutations,seed=seeds,mode=mode),
-        expand('metadynamics/{complex}/{mutation}/{seed}/metadynamics/fes.dat',complex=COMPLEXES, mutation=mutations, seed=seeds),
-        expand('metadynamics/{complex}/{mutation}/{seed}/metadynamics/freeenergy.png',complex=COMPLEXES, mutation=mutations, seed=seeds),
+        expand('protein_molecule/{complex}/{mutation}/{seed}/po-sco/posco_interaction.parquet',complex=COMPLEXES,mutation=mutations,seed=seeds,mode=mode),
+        expand('protein_molecule/{complex}/{mutation}/{seed}/MD/energy/potential_energy.parquet', complex=COMPLEXES, mutation=mutations, seed=seeds),    
+        'results/posco/posco_interactions.parquet',
+        'results/alignment/align.pse',
+        'results/rmsf/rmsf.svg',
+        #expand('molecule/{complex}/{mutation}/{seed}/aquaduct/aquaduct.pse',complex=COMPLEXES, mutation=mutations, seed=seeds)
+
+rule metadynamics_ppi:
+    input:
+        expand('metadynamics_ppi/{complex}/{mutation}/{seed}/po-sco/posco_interaction.parquet',complex=COMPLEXES,mutation=mutations,seed=seeds,mode=mode),
+        expand('metadynamics_ppi/{complex}/{mutation}/{seed}/metadynamics/fes.dat',complex=COMPLEXES, mutation=mutations, seed=seeds),
+        expand('metadynamics_ppi/{complex}/{mutation}/{seed}/metadynamics/freeenergy.png',complex=COMPLEXES, mutation=mutations, seed=seeds),
+        'results/alignment/align.pse',
+        #expand('metadynamics_ppi/{complex}/{mutation}/{seed}/fingerprint/fingerprint.parquet',complex=COMPLEXES,mutation=mutations,seed=seeds),
+        'results/rmsf/rmsf.svg',
+        expand('results/posco/{complex}.{mutation}.interaction.pdb', complex=COMPLEXES, mutation=mutations),
+        expand('results/posco/lig_barplot_{complex}_{mutation}.svg', complex=COMPLEXES, mutation=mutations),
+
+rule metadynamics_molecule:
+    input:
+        expand('metadynamics_molecule/{complex}/{mutation}/{seed}/po-sco/posco_interaction.parquet',complex=COMPLEXES,mutation=mutations,seed=seeds,mode=mode),
+        expand('metadynamics_molecule/{complex}/{mutation}/{seed}/metadynamics/fes.dat',complex=COMPLEXES, mutation=mutations, seed=seeds),
+        expand('metadynamics_molecule/{complex}/{mutation}/{seed}/metadynamics/freeenergy.png',complex=COMPLEXES, mutation=mutations, seed=seeds),
         'results/alignment/align.pse',
         #expand('metadynamics/{complex}/{mutation}/{seed}/fingerprint/fingerprint.parquet',complex=COMPLEXES,mutation=mutations,seed=seeds),
         'results/rmsf/rmsf.svg',
         expand('results/posco/{complex}.{mutation}.interaction.pdb', complex=COMPLEXES, mutation=mutations),
         expand('results/posco/lig_barplot_{complex}_{mutation}.svg', complex=COMPLEXES, mutation=mutations),
 
-rule protein_molecule:
-    input:
-        expand('{mode}/{complex}/{mutation}/{seed}/po-sco/posco_interaction.parquet',complex=COMPLEXES,mutation=mutations,seed=seeds,mode=mode),
-        expand('protein_molecule/{complex}/{mutation}/{seed}/MD/energy/potential_energy.parquet', complex=COMPLEXES, mutation=mutations, seed=seeds),    
-        'results/posco/posco_interactions.parquet',
-        'results/alignment/align.pse',
-        'results/rmsf/rmsf.svg',
-        #expand('molecule/{complex}/{mutation}/{seed}/aquaduct/aquaduct.pse',complex=COMPLEXES, mutation=mutations, seed=seeds)
 
 # Run a apo protein only
 rule protein:
@@ -107,6 +120,22 @@ rule prep_mutagenesis:
             mv {params.out_dir}/WT_1.pdb {output}
         fi
         """
+
+"""
+All MD targets:
+protein_protein
+protein_molecule
+metadynamics_ppi
+metadynamics_molecule
+
+
+
+All MD rules:
+md_protein_protein
+md_protein_molecule
+md_metadynamics_molecule
+md_metadynamics_ppi
+"""
 
 rule md_protein_protein:
     input:   
@@ -158,17 +187,17 @@ rule md_protein_molecule:
                   --mode protein_molecule
         """
 
-rule md_metadynamics:
+rule md_metadynamics_ppi:
     input:   
         md_settings=ancient(md_config),
-        pdb='metadynamics/{complex}/{mutation}/mutation.pdb',
+        pdb='metadynamics_ppi/{complex}/{mutation}/mutation.pdb',
     output:
-        equilibrated = 'metadynamics/{complex}/{mutation}/{seed}/MD/structure_equilibrated.pdb',
-        topo_cif = 'metadynamics/{complex}/{mutation}/{seed}/MD/structure_end.cif',
-        traj=temp('metadynamics/{complex}/{mutation}/{seed}/MD/trajectory_raw.h5'),
-        stats='metadynamics/{complex}/{mutation}/{seed}/MD/mdstats.csv',
-        metadynamics_hill='metadynamics/{complex}/{mutation}/{seed}/metadynamics/metadynamics_hill.txt',
-        metadynamics_colvar='metadynamics/{complex}/{mutation}/{seed}/metadynamics/Colvar.dat'
+        equilibrated = 'metadynamics_ppi/{complex}/{mutation}/{seed}/MD/structure_equilibrated.pdb',
+        topo_cif = 'metadynamics_ppi/{complex}/{mutation}/{seed}/MD/structure_end.cif',
+        traj=temp('metadynamics_ppi/{complex}/{mutation}/{seed}/MD/trajectory_raw.h5'),
+        stats='metadynamics_ppi/{complex}/{mutation}/{seed}/MD/mdstats.csv',
+        metadynamics_hill='metadynamics_ppi/{complex}/{mutation}/{seed}/metadynamics/metadynamics_hill.txt',
+        metadynamics_colvar='metadynamics_ppi/{complex}/{mutation}/{seed}/metadynamics/Colvar.dat'
     resources: gpu=1
     priority: 3
     retries: 3
@@ -183,8 +212,40 @@ rule md_metadynamics:
                   --stats {output.stats} \
                   --metadynamics_hills {output.metadynamics_hill} \
                   --metadynamics_colvar {output.metadynamics_colvar} \
-                  --mode metadynamics
+                  --mode metadynamics_ppi
         """
+
+
+rule md_metadynamics_molecule:
+    input:   
+        md_settings=ancient(md_config),
+        pdb='metadynamics_molecule/{complex}/{mutation}/mutation.pdb',
+        sdf=lambda wc: config["complexes"][wc.complex]["sdf"]
+    output:
+        equilibrated = 'metadynamics_molecule/{complex}/{mutation}/{seed}/MD/structure_equilibrated.pdb',
+        topo_cif = 'metadynamics_molecule/{complex}/{mutation}/{seed}/MD/structure_end.cif',
+        traj=temp('metadynamics_molecule/{complex}/{mutation}/{seed}/MD/trajectory_raw.h5'),
+        stats='metadynamics_molecule/{complex}/{mutation}/{seed}/MD/mdstats.csv',
+        metadynamics_hill='metadynamics_molecule/{complex}/{mutation}/{seed}/metadynamics/metadynamics_hill.txt',
+        metadynamics_colvar='metadynamics_molecule/{complex}/{mutation}/{seed}/metadynamics/Colvar.dat'
+    resources: gpu=1
+    priority: 3
+    retries: 3
+    shell:
+        """
+        run-md --pdb {input.pdb} \
+               --sdf {input.sdf} \
+                  --equilibrated {output.equilibrated} \
+                  --topo_cif {output.topo_cif} \
+                  --traj {output.traj} \
+                  --md_settings {input.md_settings} \
+                  --seed {wildcards.seed} \
+                  --stats {output.stats} \
+                  --metadynamics_hills {output.metadynamics_hill} \
+                  --metadynamics_colvar {output.metadynamics_colvar} \
+                  --mode metadynamics_molecule
+        """
+
 
 rule ana_potential_energy:
     input:
@@ -225,19 +286,19 @@ rule center_trajectory:
 
 rule metadynamics_run:
     input:   
-        'metadynamics/{complex}/{mutation}/{seed}/metadynamics/metadynamics_hill.txt'
+        '{mode}/{complex}/{mutation}/{seed}/metadynamics/metadynamics_hill.txt'
     output:
-        'metadynamics/{complex}/{mutation}/{seed}/metadynamics/fes.dat'
+        '{mode}/{complex}/{mutation}/{seed}/metadynamics/fes.dat'
     shell:
         "plumed sum_hills --hills {input} --outfile {output}"
 
 rule metadynamics_ana:
     input:
-        fes='metadynamics/{complex}/{mutation}/{seed}/metadynamics/fes.dat',
-        colvar='metadynamics/{complex}/{mutation}/{seed}/metadynamics/Colvar.dat',
+        fes='{mode}/{complex}/{mutation}/{seed}/metadynamics/fes.dat',
+        colvar='{mode}/{complex}/{mutation}/{seed}/metadynamics/Colvar.dat',
     output:
-        freeenergy='metadynamics/{complex}/{mutation}/{seed}/metadynamics/freeenergy.png',
-        colvar_fig='metadynamics/{complex}/{mutation}/{seed}/metadynamics/colvar.png',
+        freeenergy='{mode}/{complex}/{mutation}/{seed}/metadynamics/freeenergy.png',
+        colvar_fig='{mode}/{complex}/{mutation}/{seed}/metadynamics/colvar.png',
     shell:
         """
         analyze-collective-vars --colvar {input.colvar} --colvar_fig {output.colvar_fig} &&

@@ -118,9 +118,6 @@ def extract_atom_indices(pdf_file: os.path,contact_atom_mode: str = "ca",contact
     """Extract ligand/receptor atom indices plus compact interface contact subsets for PLUMED."""
     u = mda.Universe(pdf_file)
 
-    print("All segids in universe:", u.segments.segids)
-    print("All resnames (non-protein, non-water):", np.unique(u.select_atoms('not protein and not resname HOH SOL').resnames))
-
     # Detect small molecule by resname UNK (OpenFF always assigns this).
     # segid-based detection is unreliable because OpenMM does not guarantee chain IDs.
     is_small_molecule = u.select_atoms('resname UNK').n_atoms > 0
