@@ -75,9 +75,7 @@ def add_positional_restraints(system, topology, positions, k=10.0, flexible_resi
 def energy_minimisation(simulation):
     """Run energy minimization and print energy difference."""
     e_before = simulation.context.getState(getEnergy=True).getPotentialEnergy()
-    # TODO remove steps
-    # TODO remove
-    #simulation.minimizeEnergy()
+    simulation.minimizeEnergy()
     e_after = simulation.context.getState(getEnergy=True).getPotentialEnergy()
     print('Energy difference (minimization):', e_before - e_after)
 
@@ -297,7 +295,7 @@ def simulate(args, params):
     # Stage 4: Metadynamics (optional)
     # ---------------------
 
-    if args.mode in ('md_metadynamics_ppi', 'md_metadynamics_molecule'):
+    if args.mode in ('metadynamics_ppi', 'metadynamics_molecule'):
         print(f'\n=== Stage 4: Initiate Metadynamics')
         simulation.system = add_metadynamics_forces_centerofmass_contacts(params, simulation.system, args, T)
         simulation.context.reinitialize(preserveState=True)  # keep positions/velocities
