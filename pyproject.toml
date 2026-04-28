@@ -69,6 +69,7 @@ visualize-interaction-surface = "squeezemd.analysis.visualization.visualize_inte
 # Analysis metadynamics
 analyze-collective-vars = "squeezemd.analysis.metadynamics.analyze_collective_vars:main"
 analyze-metadynamics-hills = "squeezemd.analysis.metadynamics.analyze_metadynamics_hills:main"
+analyze-metadynamics-convergence = "squeezemd.analysis.metadynamics.analyze_metadynamics_convergence:main"
 
 
 [tool.ty]

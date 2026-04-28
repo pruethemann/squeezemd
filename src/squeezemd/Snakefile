@@ -71,6 +71,7 @@ rule metadynamics_ppi:
         expand('metadynamics_ppi/{complex}/{mutation}/{seed}/po-sco/posco_interaction.parquet',complex=COMPLEXES,mutation=mutations,seed=seeds,mode=mode),
         expand('metadynamics_ppi/{complex}/{mutation}/{seed}/metadynamics/fes.dat',complex=COMPLEXES, mutation=mutations, seed=seeds),
         expand('metadynamics_ppi/{complex}/{mutation}/{seed}/metadynamics/freeenergy.png',complex=COMPLEXES, mutation=mutations, seed=seeds),
+        expand('metadynamics_ppi/{complex}/{mutation}/{seed}/metadynamics/convergence.png',complex=COMPLEXES, mutation=mutations, seed=seeds),
         'results/alignment/align.pse',
         #expand('metadynamics_ppi/{complex}/{mutation}/{seed}/fingerprint/fingerprint.parquet',complex=COMPLEXES,mutation=mutations,seed=seeds),
         'results/rmsf/rmsf.svg',
@@ -82,6 +83,7 @@ rule metadynamics_molecule:
         expand('metadynamics_molecule/{complex}/{mutation}/{seed}/po-sco/posco_interaction.parquet',complex=COMPLEXES,mutation=mutations,seed=seeds,mode=mode),
         expand('metadynamics_molecule/{complex}/{mutation}/{seed}/metadynamics/fes.dat',complex=COMPLEXES, mutation=mutations, seed=seeds),
         expand('metadynamics_molecule/{complex}/{mutation}/{seed}/metadynamics/freeenergy.png',complex=COMPLEXES, mutation=mutations, seed=seeds),
+        expand('metadynamics_molecule/{complex}/{mutation}/{seed}/metadynamics/convergence.png',complex=COMPLEXES, mutation=mutations, seed=seeds),
         'results/alignment/align.pse',
         #expand('metadynamics/{complex}/{mutation}/{seed}/fingerprint/fingerprint.parquet',complex=COMPLEXES,mutation=mutations,seed=seeds),
         'results/rmsf/rmsf.svg',
@@ -291,6 +293,17 @@ rule metadynamics_run:
         '{mode}/{complex}/{mutation}/{seed}/metadynamics/fes.dat'
     shell:
         "plumed sum_hills --hills {input} --outfile {output}"
+
+rule metadynamics_convergence:
+    input:
+        hills='{mode}/{complex}/{mutation}/{seed}/metadynamics/metadynamics_hill.txt'
+    output:
+        convergence='{mode}/{complex}/{mutation}/{seed}/metadynamics/convergence.png'
+    shell:
+        """
+        analyze-metadynamics-convergence --hills {input.hills} \
+                                         --convergence {output.convergence}
+        """
 
 rule metadynamics_ana:
     input:
