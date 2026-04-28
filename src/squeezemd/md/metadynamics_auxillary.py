@@ -118,24 +118,39 @@ def extract_atom_indices(pdf_file: os.path,contact_atom_mode: str = "ca",contact
     """Extract ligand/receptor atom indices plus compact interface contact subsets for PLUMED."""
     u = mda.Universe(pdf_file)
 
-    # Figure out whether its protein protein interaction (ligand is chain A) or small molecule ligand (ligand is chain X)
+    print("All segids in universe:", u.segments.segids)
+    print("All resnames (non-protein, non-water):", np.unique(u.select_atoms('not protein and not resname HOH SOL').resnames))
 
-    if 'X' in u.segments.segids:
-        ligand_segid = 'X'
-    else:   # Protein protein interaction. lig is chain 'A'
-        ligand_segid = 'A'
+    # Detect small molecule by resname UNK (OpenFF always assigns this).
+    # segid-based detection is unreliable because OpenMM does not guarantee chain IDs.
+    is_small_molecule = u.select_atoms('resname UNK').n_atoms > 0
 
-    lig = u.select_atoms(f'segid {ligand_segid}')   
-    rec = u.select_atoms(f'not segid {ligand_segid} and protein')
+    if is_small_molecule:
+        lig_sel = 'resname UNK'
+        rec_sel = 'protein'
+        # Small molecules have no backbone or CA atoms; use heavy atoms for COM
+        lig_backbone_sel = 'resname UNK and not name H*'
+        lig_contact_mode = 'heavy'
+    else:  # Protein-protein interaction: ligand is chain A
+        lig_sel = 'segid A'
+        rec_sel = 'not segid A and protein'
+        lig_backbone_sel = 'segid A and backbone'
+        lig_contact_mode = contact_atom_mode
 
-    lig_backbone = u.select_atoms(f'(segid {ligand_segid}) and backbone')
-    rec_backbone = u.select_atoms(f'not segid {ligand_segid} and protein and backbone')
+    lig = u.select_atoms(lig_sel)
+    rec = u.select_atoms(rec_sel)
+
+    print(f"Ligand selection '{lig_sel}': {lig.n_atoms} atoms")
+    print(f"Receptor selection '{rec_sel}': {rec.n_atoms} atoms")
+
+    lig_backbone = u.select_atoms(lig_backbone_sel)
+    rec_backbone = u.select_atoms(f'({rec_sel}) and backbone')
 
     lig_contacts, rec_contacts = select_interface_contact_atoms(
         u,
-        lig_sel=f"segid {ligand_segid}",
-        rec_sel=f"not segid {ligand_segid} and protein",
-        atom_mode=contact_atom_mode,
+        lig_sel=lig_sel,
+        rec_sel=rec_sel,
+        atom_mode=lig_contact_mode,
         interface_cutoff_nm=contact_interface_cutoff_nm,
         max_atoms_per_partner=contact_max_atoms_per_partner,
     )
@@ -200,6 +215,14 @@ def select_interface_contact_atoms(
     if lig_mode.n_atoms == 0 or rec_mode.n_atoms == 0:
         lig_mode = u.select_atoms(lig_sel)
         rec_mode = u.select_atoms(rec_sel)
+
+    if lig_mode.n_atoms == 0 or rec_mode.n_atoms == 0:
+        raise ValueError(
+            f"Ligand or receptor atom group is empty after all fallbacks.\n"
+            f"  lig_sel='{lig_sel}' → {lig_mode.n_atoms} atoms\n"
+            f"  rec_sel='{rec_sel}' → {rec_mode.n_atoms} atoms\n"
+            f"  atom_mode='{atom_mode}'"
+        )
 
     distances = mda.lib.distances.distance_array(lig_mode.positions, rec_mode.positions)
     min_lig = distances.min(axis=1)
