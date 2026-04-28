@@ -87,7 +87,7 @@ def compute_convergence(hills_path: str, fractions: list[float], bound_cutoff_nm
                 "--outfile", fes_path,
                 "--stride", str(stride),
                 "--mintozero",
-                "--kt", 2.479
+                "--kt", "2.479"
             ]
             result = subprocess.run(cmd, capture_output=True, text=True)
             if result.returncode != 0:
