@@ -329,48 +329,8 @@ def main():
     with multiprocessing.Pool(processes=args.threads) as pool:
         results = pool.map(_process_frame, to_process)
 
-<<<<<<< HEAD
-    for i in range(args.number_frames):
-        # 1. Extract ligand and receptor for this frame
-        ts = u.trajectory[-i - 1]
-
-        # Extract protein and water in binding surface
-        print(f"Processing frame {i}: {ts.frame}")
-
-        (ligand, receptor, sequence) = extract_binding_surface(u)
-
-        # Save ligand and receptor files separatly
-        lig_path = f'.{i}_lig_{prefix}.pdb'
-        rec_path = f'.{i}_rec_{prefix}.pdb'
-
-        ligand.write(lig_path)
-        receptor.write(rec_path)
-
-        # 2. Perform PoSCo
-        posco_result = f'{i}_posco_{prefix}.txt'
-        cmd = f"po-sco {rec_path} {lig_path} -b  > {posco_result}"
-        execute(cmd)
-
-        # 3. Parse interactions into a single parquet table
-        posco_interaction = parse_posco(posco_result, metadata, i, sequence)
-        posco_interactions.append(posco_interaction)
-
-        # Only for the last frame perform extensive posco analysis and save
-        if i == 0:
-            cmd = f"po-sco {rec_path} {lig_path}  > {args.posco_interaction}"
-            execute(cmd)
-
-        # Clean up
-        os.remove(rec_path)
-        os.remove(lig_path)
-        os.remove(posco_result)
-
-
-    posco_interactions = pd.concat(posco_interactions)
-=======
     # concat results and write parquet
     posco_interactions = pd.concat(results, ignore_index=True)
->>>>>>> ae3c8735db6c63ef04097dc2c47dcb357b3ccd91
     posco_interactions.to_parquet(args.posco_parquet)
 
 if __name__ == '__main__':
