@@ -297,7 +297,7 @@ def simulate(args, params):
 
     if args.mode in ('metadynamics_ppi', 'metadynamics_molecule'):
         print(f'\n=== Stage 4: Initiate Metadynamics')
-        simulation.system = add_metadynamics_forces_centerofmass_contacts(params, simulation.system, args, T)
+        simulation.system = add_metadynamics_forces_classical(params, simulation.system, args, T)
         simulation.context.reinitialize(preserveState=True)  # keep positions/velocities
 
     # ---------------------

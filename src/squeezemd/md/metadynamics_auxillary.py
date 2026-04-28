@@ -23,7 +23,103 @@ import MDAnalysis as mda
 import numpy as np
 
 
-def add_metadynamics_forces_centerofmass_contacts(params, system, args, T=300):
+def add_metadynamics_forces_welltempered(params, system, args, T=300):
+    """
+    Plain metadynamics with 2 CVs:
+      CV1: COM distance between ligand and receptor (nm)
+      CV2: Interface contacts (dimensionless coordination number)
+
+    Notes:
+    - This is meant to prevent "cheap" dissociation pathways where only a floppy terminus peels off.
+    - For performance, contacts are computed on BACKBONE atoms by default (editable below).
+    """
+    print("temperature", T)
+
+    meta = params["simulation"]["metadynamics"]
+    sigma_com = float(meta.get("SIGMA_COM", meta.get("SIGMA", 0.2)))
+    sigma_contacts = float(meta.get("SIGMA_CONTACTS", 8.0))
+    height = meta["HEIGHT"]
+    pace = meta["PACE"]
+    stride = meta["STRIDE"]
+    biasfactor = float(meta.get("BIASFACTOR", 10.0)) # 10-20 for small molecule 5-15 for ppi # TODO make this tunable
+
+
+    # Smooth contact switching function parameters
+    # R_0 in nm (0.45 nm ~ 4.5 Å is a common start); NN controls steepness
+    r0 = meta.get("CONTACT_R0", 0.45)
+    nn = meta.get("CONTACT_NN", 6)
+    contact_atom_mode = meta.get("CONTACT_ATOM_MODE", "ca")
+    contact_interface_cutoff = meta.get("CONTACT_INTERFACE_CUTOFF", 0.8)
+    contact_max_atoms = int(meta.get("CONTACT_MAX_ATOMS_PER_PARTNER", 120))
+
+    # Output files
+    hills_path = os.path.abspath(args.metadynamics_hills)
+    colvar_path = os.path.abspath(args.metadynamics_colvar)
+
+    # Atom indices (you already have this helper)
+    idx = extract_atom_indices(
+        args.equilibrated,
+        contact_atom_mode=contact_atom_mode,
+        contact_interface_cutoff_nm=contact_interface_cutoff,
+        contact_max_atoms_per_partner=contact_max_atoms,
+    )
+
+    # ---- Choose groups for COM and contacts ----
+    # COM: keep your backbone-based COM (fast)
+    # Contacts: by default also backbone-only to reduce cost (can be made heavier below)
+    #
+    # If you want *more sensitive* contacts, switch grp_lig_cnt/grp_rec_cnt to all atoms
+    # or heavy atoms (recommended only if performance is ok).
+    #
+    # IMPORTANT: MDAnalysis "backbone" includes N,CA,C,O. If your N-terminus is the issue,
+    # contacts CV (c1) will force interface breakage rather than just peeling.
+    script = f"""
+            # Optional but helpful for residue/chain info (not strictly required for GROUP-based CVs)
+            MOLINFO STRUCTURE={args.equilibrated}
+
+            # Keep molecules whole across PBC
+            WHOLEMOLECULES ENTITY0={idx['lig_min']}-{idx['lig_max']} ENTITY1={idx['rec_min']}-{idx['rec_max']}
+
+            # --- Groups for COM (backbone only, already precomputed as explicit atom lists) ---
+            grp_lig_com: GROUP ATOMS={idx['lig_backbone']}
+            grp_rec_com: GROUP ATOMS={idx['rec_backbone']}
+
+            lig: COM ATOMS=grp_lig_com
+            rec: COM ATOMS=grp_rec_com
+            d1: DISTANCE ATOMS=lig,rec NOPBC
+
+            # --- Groups for CONTACTS ---
+            # Interface-focused subsets to keep contact CV cheap for protein-protein systems.
+            grp_lig_cnt: GROUP ATOMS={idx['lig_contacts']}
+            grp_rec_cnt: GROUP ATOMS={idx['rec_contacts']}
+
+            # CV2: Smooth coordination number (interface contacts)
+            c1: COORDINATION GROUPA=grp_lig_cnt GROUPB=grp_rec_cnt R_0={r0} NN={nn} MM=0
+
+            # Plain metadynamics bias on both CVs
+            METAD ARG=d1,c1 SIGMA={sigma_com},{sigma_contacts} HEIGHT={height} PACE={pace} FILE={hills_path}
+
+            METAD ARG=d1,c1 SIGMA={sigma_com},{sigma_contacts} HEIGHT={height} PACE={pace} \
+            BIASFACTOR={biasfactor} TEMP={T} FILE={hills_path}
+            
+
+            # Output CVs
+            PRINT ARG=d1,c1 STRIDE={stride} FILE={colvar_path}
+            """
+
+    plumed = PlumedForce(script)
+    plumed.setTemperature(T * kelvin)
+    system.addForce(plumed)
+    print(
+        "Metadynamics contact groups:",
+        f"lig={idx['lig_contacts_count']} atoms, rec={idx['rec_contacts_count']} atoms",
+        f"(mode={contact_atom_mode}, cutoff={contact_interface_cutoff} nm, cap={contact_max_atoms})",
+    )
+    print("Metadynamics variables added: d1 (COM distance) + c1 (contacts)")
+    return system
+
+
+def add_metadynamics_forces_classical(params, system, args, T=300):
     """
     Plain metadynamics with 2 CVs:
       CV1: COM distance between ligand and receptor (nm)
