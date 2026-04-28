@@ -302,7 +302,7 @@ def simulate(args, params):
         simulation.context.reinitialize(preserveState=True)  # keep positions/velocities
 
     # ---------------------
-    # Stage 5: Rigidify receptor except flexible binding pocket (optional)
+    # Stage 5: Rigidify receptor except flexible binding pocket (optional). Has been used for Zyius project
     # ---------------------
 
     # Define tapering schedule for restraints (kcal/mol/Å²)
