@@ -2,7 +2,7 @@
 # posco and foldX is installed via the script install_bins_linux.sh
 
 # How to install via conda:
-# conda env create -f environment.yml
+# conda env create -f environment_pin.yml
 
 name: squeeze
 
@@ -14,17 +14,17 @@ channels:
 
 dependencies:
   - python>=3.12                  # 09-25: Python 13 not supported yet
-  - openmm==8.4.0
+  - openmm==8.4
   - openmm-plumed==2.1
-  - openmmforcefields==0.16       #   
+  - openmmforcefields==0.15.1       #   
   - openff-toolkit==0.18          # small molecule forcefield
-  - snakemake-minimal==9.20       # Automatic workflow engine
-  - prolif==2.1.0                  # Interaction fingerprint
+  - snakemake-minimal>=9.16.3       # Automatic workflow engine
+  - prolif>=2.1.0                  # Interaction fingerprint
   - pandas==2.3.3                  # Data science
   - pyarrow==21.0.0                 # Data handling
   - mdanalysis==2.10.0
   - mdtraj==1.11.1                  # For centering protein in water box
-  - cuda-toolkit>=13      # Cudatoolkit. 09-25: Version 12.9 (V 13 is not supported yet by Openmm)
+  - cuda-toolkit==12.9      # Cudatoolkit. 09-25: Version 12.9 (V 13 is not supported yet by Openmm)
   - seaborn==0.13.2                 # visualisation
   - plotly==6.5.0                  # For trajectory analysis (will be depracted soon)
   - pymol-open-source==3.1.0       # Open source version of pymol (conda-forge)

@@ -182,6 +182,12 @@ def save_pdb(simulation, pdb_file:os.path):
     with open(pdb_file, "w") as f:
         app.PDBFile.writeFile(simulation.topology, positions,f, keepIds=True)
 
+from openmm import CustomCentroidBondForce, Platform, XmlSerializer, unit
+
+
+
+
+
 def simulate(args, params):
     """
     Set up and start the simulation
@@ -297,8 +303,9 @@ def simulate(args, params):
 
     if args.mode in ('metadynamics_ppi', 'metadynamics_molecule'):
         print(f'\n=== Stage 4: Initiate Metadynamics')
-        simulation.system = add_metadynamics_forces_welltempered(params, simulation.system, args, T)
-        simulation.context.reinitialize(preserveState=True)  # keep positions/velocities
+        #simulation.system = add_metadynamics_forces_welltempered(params, simulation.system, args, T)
+        #simulation.context.reinitialize(preserveState=True)  # keep positions/velocities
+        set_collective_variable()
 
     # ---------------------
     # Stage 5: Rigidify receptor except flexible binding pocket (optional). Has been used for Zyius project

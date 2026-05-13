@@ -149,7 +149,7 @@ rule md_protein_protein:
         traj=temp('protein_protein/{complex}/{mutation}/{seed}/MD/trajectory_raw.h5'),
         stats='protein_protein/{complex}/{mutation}/{seed}/MD/mdstats.csv'
     resources: gpu=1
-    retries: 3          # sometimes runs fail due GPU allocation issues, so we allow for some retries
+    retries: 1          # sometimes runs fail due GPU allocation issues, so we allow for some retries
     priority: 3
     shell:
         """
@@ -175,7 +175,7 @@ rule md_protein_molecule:
         stats='protein_molecule/{complex}/{mutation}/{seed}/MD/mdstats.csv',
     resources: gpu=1
     priority: 3
-    retries: 3 
+    retries: 1 
     shell:
         """
         run-md --pdb {input.pdb} \
@@ -202,7 +202,7 @@ rule md_metadynamics_ppi:
         metadynamics_colvar='metadynamics_ppi/{complex}/{mutation}/{seed}/metadynamics/Colvar.dat'
     resources: gpu=1
     priority: 3
-    retries: 3
+    retries: 1
     shell:
         """
         run-md --pdb {input.pdb} \
@@ -232,7 +232,7 @@ rule md_metadynamics_molecule:
         metadynamics_colvar='metadynamics_molecule/{complex}/{mutation}/{seed}/metadynamics/Colvar.dat'
     resources: gpu=1
     priority: 3
-    retries: 3
+    retries: 1
     shell:
         """
         run-md --pdb {input.pdb} \
