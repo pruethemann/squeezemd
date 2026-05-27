@@ -24,7 +24,7 @@ config_md = import_yaml(md_config_file)
 config.update(config_md)        # Merge simulation and md params together
 
 # 3. Figure out if test situation (optional)
-md_config = setup_testrun(config)
+(md_config, config) = setup_testrun(config)
 
 mode = config.get('mode')
 mutations = config['mutations']

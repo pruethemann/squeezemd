@@ -104,6 +104,5 @@ squeezemd = ["resources/*.yaml","md/*.py", "Snakefile", "resources/pymol_templat
 
 [tool.setuptools.data-files]
 "bin" = ["scripts/squeeze",
-        "scripts/squeeze_test",
         "src/squeezemd/analysis/visualization/visualize_aligned_structures.py"]
 

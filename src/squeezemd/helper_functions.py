@@ -9,6 +9,7 @@ for MDAnalysis/OpenMM interoperability.
 
 import subprocess
 import os
+from importlib.resources import files
 import MDAnalysis as mda
 import pandas as pd
 import yaml
@@ -45,21 +46,22 @@ def update_md_overview(config):
     print(md_overview)
 
 
-
 def setup_testrun(config):
-    if 'test' in config:
+    if 'debug' in config and config['debug']:
         print("ATTENTION: This is a testrun")
-        test_md_config = files("squeezemd").joinpath("resources/md_test_config.yaml")
+        test_md_config = files("squeezemd").joinpath("resources", "md_test_config.yaml")
         md_test = import_yaml(test_md_config)
         config = config_deep_update(config, md_test)
+
+        # Clear all ligand entries for the test run
+        config['ligands'] = config['ligands'][0:3]
+
         save_yaml(config, 'config/md_test_config.yaml')
 
-        return 'config/md_test_config.yaml'
-    
+        return ('config/md_test_config.yaml', config)
 
     print("Production run")
-    return 'config/md_config.yaml'
-
+    return ('config/md_config.yaml', config)
 
 
 def config_deep_update(base: dict, override: dict) -> dict:

@@ -15,20 +15,10 @@ elif [ "$1" = "continue" ]; then
     ./execute.sh
     
 else
-    # use PPi and molecule as alias
-    mode="$1"
-
-    if [ "$mode" == "PPi" ]; then
-        mode="protein_protein"
-    fi
-
-    if [ "$mode" == "molecule" ]; then
-        mode="protein_molecule"
-    fi
-
-    # replace $1 in "$@" with the mapped value
-    shift
-    set -- "$mode" "$@"
+    # Read mode from sim_config.yaml
+    mode=$(python3 -c "import yaml; cfg=yaml.safe_load(open('config/sim_config.yaml')); print(cfg['mode'])")
+    gp=$(python3 -c "import yaml; cfg=yaml.safe_load(open('config/sim_config.yaml')); print(cfg['gpu'])")
+    cpu=$(python3 -c "import yaml; cfg=yaml.safe_load(open('config/sim_config.yaml')); print(cfg['cpu'])")
 
     # Execute snakemake with all provided arguments
     # Find Snakefile from active environment
@@ -36,7 +26,9 @@ else
     echo $CONDA_BASE_PATH
 
     SNAKEFILE=$(python3 -c 'from importlib.resources import files; print(files("squeezemd").joinpath("Snakefile"))')
-    snakemake_cmd="snakemake --use-conda -s "$SNAKEFILE" "$@" --config mode="$mode""
+    snakemake_cmd="snakemake --use-conda -s $SNAKEFILE $mode --resources gpu=$gp --cores $cpu $@"
+
+    echo $snakemake_cmd
 
     # save command
     echo -e "#!/bin/bash\n$snakemake_cmd" > execute.sh

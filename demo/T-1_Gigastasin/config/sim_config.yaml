@@ -2,6 +2,10 @@ ID: T-1
 name: Test_C1s_Gigastasin
 comment: Classical Testrun for protein protein interactions
 
+cpu: 4
+gpu: 1
+debug: True
+
 mutations:
   - WT
 
