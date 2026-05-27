@@ -4,7 +4,7 @@
 import sys, os, yaml
 import numpy as np
 from importlib.resources import files
-from helper_functions import config_deep_update, save_yaml, import_yaml
+from helper_functions import config_deep_update, save_yaml, import_yaml, update_md_overview, setup_testrun
 import sysconfig
 from pathlib import Path
 
@@ -15,28 +15,36 @@ from pathlib import Path
 
 # Merge three different config sources
 # 1. Import simulation config
-configfile: os.path.join('config', 'sim_config.yaml') 
+md_config_file = os.path.join('config','md_config.yaml')
+sim_config_file = os.path.join('config', 'sim_config.yaml')
+configfile: sim_config_file
 
 # 2. Import and merge Molecular dynamics config
-config_md = import_yaml('config/md_config.yaml')
+config_md = import_yaml(md_config_file)
 config.update(config_md)        # Merge simulation and md params together
 
-#  test situation
-if 'test' in config:
-    print("ATTENTION: This is a testrun")
-    test_md_config = files("squeezemd").joinpath("resources/md_test_config.yaml")
-    md_test = import_yaml(test_md_config)
-    config = config_deep_update(config, md_test)
-    save_yaml(config, 'config/md_test_config.yaml')
+# 3. Figure out if test situation (optional)
+md_config = setup_testrun(config)
 
-    md_config = 'config/md_test_config.yaml'
-else: # Production run
-    print("Production run")
-    md_config = 'config/md_config.yaml'
-
-COMPLEXES = list(config.get("complexes").keys())
+mode = config.get('mode')
 mutations = config['mutations']
 n_frames = config['simulation']['number_frames']
+print(mode)
+"""
+All modes:
+protein_protein
+protein_molecule
+metadynamics_ppi
+metadynamics_molecule
+"""
+
+# 4. Generate complexes depending on PPi or small molecules
+RECEPTORS = list(config['receptors'].keys())
+LIGANDS = config['ligands']
+
+
+# 4. Save key MD settings in a overview list
+update_md_overview(config)
 
 # Seed generation
 seed = config.get('seed', 23)
@@ -44,81 +52,81 @@ np.random.seed(seed)              # Ensure reproducibility
 seeds = np.random.randint(100, 1000, size=config['simulation']['replicates'])
 representative_seed = seeds[0] # First seeds is used as representation for surface interaction analysis
 
-mode = config.get('mode')
-print(mode)
+wildcard_constraints:
+    receptor="[^_/]+"
 
 rule protein_protein: # protein-protein interaction analysis
     input:
-        expand('protein_protein/{complex}/{mutation}/{seed}/po-sco/posco_interaction.parquet',complex=COMPLEXES,mutation=mutations,seed=seeds,mode=mode),
+        expand('protein_protein/{receptor}_{ligand}/{mutation}/{seed}/po-sco/posco_interaction.parquet',receptor=RECEPTORS,ligand=LIGANDS,mutation=mutations,seed=seeds,mode=mode),
         'results/alignment/align.pse',
-        #expand('{mode}/{complex}/{mutation}/{seed}/fingerprint/fingerprint.parquet',complex=COMPLEXES,mutation=mutations,seed=seeds,mode=mode),
+        #expand('{mode}/{receptor}_{ligand}/{mutation}/{seed}/fingerprint/fingerprint.parquet',receptor=RECEPTORS,ligand=LIGANDS,mutation=mutations,seed=seeds,mode=mode),
         #'results/posco/lig_heatmap.svg',
-        expand('results/posco/lig_barplot_{complex}_{mutation}.svg', complex=COMPLEXES, mutation=mutations),
+        expand('results/posco/lig_barplot_{receptor}_{ligand}_{mutation}.svg', receptor=RECEPTORS, ligand=LIGANDS, mutation=mutations),
         'results/rmsf/rmsf.svg',
-        expand('results/posco/{complex}.{mutation}.interaction.pdb', complex=COMPLEXES, mutation=mutations),
+        expand('results/posco/{receptor}_{ligand}.{mutation}.interaction.pdb', receptor=RECEPTORS, ligand=LIGANDS, mutation=mutations),
 
 rule protein_molecule:
     input:
-        expand('protein_molecule/{complex}/{mutation}/{seed}/po-sco/posco_interaction.parquet',complex=COMPLEXES,mutation=mutations,seed=seeds,mode=mode),
-        expand('protein_molecule/{complex}/{mutation}/{seed}/MD/energy/potential_energy.parquet', complex=COMPLEXES, mutation=mutations, seed=seeds),    
+        expand('protein_molecule/{receptor}_{ligand}/{mutation}/{seed}/po-sco/posco_interaction.parquet',receptor=RECEPTORS,ligand=LIGANDS,mutation=mutations,seed=seeds,mode=mode),
+        expand('protein_molecule/{receptor}_{ligand}/{mutation}/{seed}/MD/energy/potential_energy.parquet', receptor=RECEPTORS, ligand=LIGANDS, mutation=mutations, seed=seeds),    
         'results/posco/posco_interactions.parquet',
         'results/alignment/align.pse',
         'results/rmsf/rmsf.svg',
-        #expand('molecule/{complex}/{mutation}/{seed}/aquaduct/aquaduct.pse',complex=COMPLEXES, mutation=mutations, seed=seeds)
+        #expand('molecule/{receptor}_{ligand}/{mutation}/{seed}/aquaduct/aquaduct.pse',receptor=RECEPTORS, ligand=LIGANDS, mutation=mutations, seed=seeds)
 
 rule metadynamics_ppi:
     input:
-        expand('metadynamics_ppi/{complex}/{mutation}/{seed}/po-sco/posco_interaction.parquet',complex=COMPLEXES,mutation=mutations,seed=seeds,mode=mode),
-        expand('metadynamics_ppi/{complex}/{mutation}/{seed}/metadynamics/fes.dat',complex=COMPLEXES, mutation=mutations, seed=seeds),
-        expand('metadynamics_ppi/{complex}/{mutation}/{seed}/metadynamics/freeenergy.png',complex=COMPLEXES, mutation=mutations, seed=seeds),
-        expand('metadynamics_ppi/{complex}/{mutation}/{seed}/metadynamics/convergence.png',complex=COMPLEXES, mutation=mutations, seed=seeds),
+        expand('metadynamics_ppi/{receptor}_{ligand}/{mutation}/{seed}/po-sco/posco_interaction.parquet',receptor=RECEPTORS,ligand=LIGANDS,mutation=mutations,seed=seeds,mode=mode),
+        expand('metadynamics_ppi/{receptor}_{ligand}/{mutation}/{seed}/metadynamics/fes.dat',receptor=RECEPTORS, ligand=LIGANDS, mutation=mutations, seed=seeds),
+        expand('metadynamics_ppi/{receptor}_{ligand}/{mutation}/{seed}/metadynamics/freeenergy.png',receptor=RECEPTORS, ligand=LIGANDS, mutation=mutations, seed=seeds),
+        expand('metadynamics_ppi/{receptor}_{ligand}/{mutation}/{seed}/metadynamics/convergence.png',receptor=RECEPTORS, ligand=LIGANDS, mutation=mutations, seed=seeds),
         'results/alignment/align.pse',
-        #expand('metadynamics_ppi/{complex}/{mutation}/{seed}/fingerprint/fingerprint.parquet',complex=COMPLEXES,mutation=mutations,seed=seeds),
+        #expand('metadynamics_ppi/{receptor}_{ligand}/{mutation}/{seed}/fingerprint/fingerprint.parquet',receptor=RECEPTORS,ligand=LIGANDS,mutation=mutations,seed=seeds),
         'results/rmsf/rmsf.svg',
-        expand('results/posco/{complex}.{mutation}.interaction.pdb', complex=COMPLEXES, mutation=mutations),
-        expand('results/posco/lig_barplot_{complex}_{mutation}.svg', complex=COMPLEXES, mutation=mutations),
+        expand('results/posco/{receptor}_{ligand}.{mutation}.interaction.pdb', receptor=RECEPTORS, ligand=LIGANDS, mutation=mutations),
+        expand('results/posco/lig_barplot_{receptor}_{ligand}_{mutation}.svg', receptor=RECEPTORS, ligand=LIGANDS, mutation=mutations),
 
 rule metadynamics_molecule:
     input:
-        expand('metadynamics_molecule/{complex}/{mutation}/{seed}/po-sco/posco_interaction.parquet',complex=COMPLEXES,mutation=mutations,seed=seeds,mode=mode),
-        expand('metadynamics_molecule/{complex}/{mutation}/{seed}/metadynamics/fes.dat',complex=COMPLEXES, mutation=mutations, seed=seeds),
-        expand('metadynamics_molecule/{complex}/{mutation}/{seed}/metadynamics/freeenergy.png',complex=COMPLEXES, mutation=mutations, seed=seeds),
-        expand('metadynamics_molecule/{complex}/{mutation}/{seed}/metadynamics/convergence.png',complex=COMPLEXES, mutation=mutations, seed=seeds),
+        expand('metadynamics_molecule/{receptor}_{ligand}/{mutation}/{seed}/po-sco/posco_interaction.parquet',receptor=RECEPTORS,ligand=LIGANDS,mutation=mutations,seed=seeds,mode=mode),
+        expand('metadynamics_molecule/{receptor}_{ligand}/{mutation}/{seed}/metadynamics/fes.dat',receptor=RECEPTORS, ligand=LIGANDS, mutation=mutations, seed=seeds),
+        expand('metadynamics_molecule/{receptor}_{ligand}/{mutation}/{seed}/metadynamics/freeenergy.png',receptor=RECEPTORS, ligand=LIGANDS, mutation=mutations, seed=seeds),
+        expand('metadynamics_molecule/{receptor}_{ligand}/{mutation}/{seed}/metadynamics/convergence.png',receptor=RECEPTORS, ligand=LIGANDS, mutation=mutations, seed=seeds),
         'results/alignment/align.pse',
-        #expand('metadynamics/{complex}/{mutation}/{seed}/fingerprint/fingerprint.parquet',complex=COMPLEXES,mutation=mutations,seed=seeds),
+        #expand('metadynamics/{receptor}_{ligand}/{mutation}/{seed}/fingerprint/fingerprint.parquet',receptor=RECEPTORS,ligand=LIGANDS,mutation=mutations,seed=seeds),
         'results/rmsf/rmsf.svg',
-        expand('results/posco/{complex}.{mutation}.interaction.pdb', complex=COMPLEXES, mutation=mutations),
-        expand('results/posco/lig_barplot_{complex}_{mutation}.svg', complex=COMPLEXES, mutation=mutations),
+        expand('results/posco/{receptor}_{ligand}.{mutation}.interaction.pdb', receptor=RECEPTORS, ligand=LIGANDS, mutation=mutations),
+        expand('results/posco/lig_barplot_{receptor}_{ligand}_{mutation}.svg', receptor=RECEPTORS, ligand=LIGANDS, mutation=mutations),
 
 
 # Run a apo protein only
 rule protein:
     input:
-        expand('protein/{complex}/{mutation}/{seed}/MD/center/trajectory_centered.dcd', complex=COMPLEXES, mutation=mutations, seed=seeds),
-        expand('protein/{complex}/{mutation}/{seed}/analysis/RMSF.html', complex=COMPLEXES, mutation=mutations, seed=seeds),
-        expand('protein/{complex}/{mutation}/{seed}/aquaduct/aquaduct.pse',complex=COMPLEXES, mutation=mutations, seed=seeds)
+        expand('protein/{receptor}_{ligand}/{mutation}/{seed}/MD/center/trajectory_centered.dcd', receptor=RECEPTORS, ligand=LIGANDS, mutation=mutations, seed=seeds),
+        expand('protein/{receptor}_{ligand}/{mutation}/{seed}/analysis/RMSF.html', receptor=RECEPTORS, ligand=LIGANDS, mutation=mutations, seed=seeds),
+        expand('protein/{receptor}_{ligand}/{mutation}/{seed}/aquaduct/aquaduct.pse',receptor=RECEPTORS, ligand=LIGANDS, mutation=mutations, seed=seeds)
 
 rule prep_mutagenesis:
     input:
         md_config,
         'config/sim_config.yaml'
     output:
-        '{mode}/{complex}/{mutation}/mutation.pdb'
+        '{mode}/{receptor}_{ligand}/{mutation}/mutation.pdb'
     params:
-        out_dir=directory('{mode}/{complex}/{mutation}'),
+        out_dir=directory('{mode}/{receptor}_{ligand}/{mutation}'),
         foldX='foldx_20261231',
-        pdb=lambda wc: config["complexes"][wc.complex]["pdb"]
+        pdb=lambda wc: config["receptors"][wc.receptor]["pdb"]
     log:
-        '{mode}/{complex}/{mutation}/mutation.log'
+        '{mode}/{receptor}_{ligand}/{mutation}/mutation.log'
     shell:
         """
         if [[ {wildcards.mutation} = WT ]]
         then    # No mutagenesis
             cp {params.pdb} {output}
         else    # Mutate
-            mutate --mutation {wildcards.mutation} --ligand {params.pdb} --output {wildcards.mode}/{wildcards.complex}/{wildcards.mutation}/mutant_file.txt
+            mutate --mutation {wildcards.mutation} --ligand {params.pdb} --output {wildcards.mode}/{wildcards.receptor}_{wildcards.ligand}/{wildcards.mutation}/mutant_file.txt
             cp {params.pdb} {params.out_dir}/WT.pdb
-            {params.foldX} --command=BuildModel --pdb-dir="{params.out_dir}" --pdb=WT.pdb --mutant-file={wildcards.mode}/{wildcards.complex}/{wildcards.mutation}/mutant_file.txt --output-dir="{params.out_dir}" --rotabaseLocation ~/tools/foldX/foldx_Linux/rotabase.txt > {log} || true
+            {params.foldX} --command=BuildModel --pdb-dir="{params.out_dir}" --pdb=WT.pdb --mutant-file={wildcards.mode}/{wildcards.receptor}_{wildcards.ligand}/{wildcards.mutation}/mutant_file.txt --output-dir="{params.out_dir}" --rotabaseLocation ~/tools/foldX/foldx_Linux/rotabase.txt > {log} || true
             mv {params.out_dir}/WT_1.pdb {output}
         fi
         """
@@ -142,12 +150,12 @@ md_metadynamics_ppi
 rule md_protein_protein:
     input:   
         md_settings=ancient(md_config),
-        pdb='protein_protein/{complex}/{mutation}/mutation.pdb',
+        pdb='protein_protein/{receptor}_{ligand}/{mutation}/mutation.pdb',
     output:
-        equilibrated='protein_protein/{complex}/{mutation}/{seed}/MD/structure_equilibrated.pdb',
-        topo_cif='protein_protein/{complex}/{mutation}/{seed}/MD/structure_end.cif',
-        traj=temp('protein_protein/{complex}/{mutation}/{seed}/MD/trajectory_raw.h5'),
-        stats='protein_protein/{complex}/{mutation}/{seed}/MD/mdstats.csv'
+        equilibrated='protein_protein/{receptor}_{ligand}/{mutation}/{seed}/MD/structure_equilibrated.pdb',
+        topo_cif='protein_protein/{receptor}_{ligand}/{mutation}/{seed}/MD/structure_end.cif',
+        traj=temp('protein_protein/{receptor}_{ligand}/{mutation}/{seed}/MD/trajectory_raw.h5'),
+        stats='protein_protein/{receptor}_{ligand}/{mutation}/{seed}/MD/mdstats.csv'
     resources: gpu=1
     retries: 1          # sometimes runs fail due GPU allocation issues, so we allow for some retries
     priority: 3
@@ -166,13 +174,13 @@ rule md_protein_protein:
 rule md_protein_molecule:
     input:   
         md_settings=ancient(md_config),
-        pdb='protein_molecule/{complex}/{mutation}/mutation.pdb',
-        sdf=lambda wc: config["complexes"][wc.complex]["sdf"]
+        pdb='protein_molecule/{receptor}_{ligand}/{mutation}/mutation.pdb',
+        sdf=lambda wc: f"{config['receptors'][wc.receptor].get('sdf_dir', 'ligands/')}{wc.ligand}.sdf"
     output:
-        equilibrated='protein_molecule/{complex}/{mutation}/{seed}/MD/structure_equilibrated.pdb',
-        topo_cif='protein_molecule/{complex}/{mutation}/{seed}/MD/structure_end.cif',
-        traj=temp('protein_molecule/{complex}/{mutation}/{seed}/MD/trajectory_raw.h5'),
-        stats='protein_molecule/{complex}/{mutation}/{seed}/MD/mdstats.csv',
+        equilibrated='protein_molecule/{receptor}_{ligand}/{mutation}/{seed}/MD/structure_equilibrated.pdb',
+        topo_cif='protein_molecule/{receptor}_{ligand}/{mutation}/{seed}/MD/structure_end.cif',
+        traj=temp('protein_molecule/{receptor}_{ligand}/{mutation}/{seed}/MD/trajectory_raw.h5'),
+        stats='protein_molecule/{receptor}_{ligand}/{mutation}/{seed}/MD/mdstats.csv',
     resources: gpu=1
     priority: 3
     retries: 1 
@@ -192,14 +200,14 @@ rule md_protein_molecule:
 rule md_metadynamics_ppi:
     input:   
         md_settings=ancient(md_config),
-        pdb='metadynamics_ppi/{complex}/{mutation}/mutation.pdb',
+        pdb='metadynamics_ppi/{receptor}_{ligand}/{mutation}/mutation.pdb',
     output:
-        equilibrated = 'metadynamics_ppi/{complex}/{mutation}/{seed}/MD/structure_equilibrated.pdb',
-        topo_cif = 'metadynamics_ppi/{complex}/{mutation}/{seed}/MD/structure_end.cif',
-        traj=temp('metadynamics_ppi/{complex}/{mutation}/{seed}/MD/trajectory_raw.h5'),
-        stats='metadynamics_ppi/{complex}/{mutation}/{seed}/MD/mdstats.csv',
-        metadynamics_hill='metadynamics_ppi/{complex}/{mutation}/{seed}/metadynamics/metadynamics_hill.txt',
-        metadynamics_colvar='metadynamics_ppi/{complex}/{mutation}/{seed}/metadynamics/Colvar.dat'
+        equilibrated = 'metadynamics_ppi/{receptor}_{ligand}/{mutation}/{seed}/MD/structure_equilibrated.pdb',
+        topo_cif = 'metadynamics_ppi/{receptor}_{ligand}/{mutation}/{seed}/MD/structure_end.cif',
+        traj=temp('metadynamics_ppi/{receptor}_{ligand}/{mutation}/{seed}/MD/trajectory_raw.h5'),
+        stats='metadynamics_ppi/{receptor}_{ligand}/{mutation}/{seed}/MD/mdstats.csv',
+        metadynamics_hill='metadynamics_ppi/{receptor}_{ligand}/{mutation}/{seed}/metadynamics/metadynamics_hill.txt',
+        metadynamics_colvar='metadynamics_ppi/{receptor}_{ligand}/{mutation}/{seed}/metadynamics/Colvar.dat'
     resources: gpu=1
     priority: 3
     retries: 1
@@ -221,15 +229,15 @@ rule md_metadynamics_ppi:
 rule md_metadynamics_molecule:
     input:   
         md_settings=ancient(md_config),
-        pdb='metadynamics_molecule/{complex}/{mutation}/mutation.pdb',
-        sdf=lambda wc: config["complexes"][wc.complex]["sdf"]
+        pdb='metadynamics_molecule/{receptor}_{ligand}/{mutation}/mutation.pdb',
+        sdf=lambda wc: f"{config['receptors'][wc.receptor].get('sdf_dir', 'ligands/')}{wc.ligand}.sdf"
     output:
-        equilibrated = 'metadynamics_molecule/{complex}/{mutation}/{seed}/MD/structure_equilibrated.pdb',
-        topo_cif = 'metadynamics_molecule/{complex}/{mutation}/{seed}/MD/structure_end.cif',
-        traj=temp('metadynamics_molecule/{complex}/{mutation}/{seed}/MD/trajectory_raw.h5'),
-        stats='metadynamics_molecule/{complex}/{mutation}/{seed}/MD/mdstats.csv',
-        metadynamics_hill='metadynamics_molecule/{complex}/{mutation}/{seed}/metadynamics/metadynamics_hill.txt',
-        metadynamics_colvar='metadynamics_molecule/{complex}/{mutation}/{seed}/metadynamics/Colvar.dat'
+        equilibrated = 'metadynamics_molecule/{receptor}_{ligand}/{mutation}/{seed}/MD/structure_equilibrated.pdb',
+        topo_cif = 'metadynamics_molecule/{receptor}_{ligand}/{mutation}/{seed}/MD/structure_end.cif',
+        traj=temp('metadynamics_molecule/{receptor}_{ligand}/{mutation}/{seed}/MD/trajectory_raw.h5'),
+        stats='metadynamics_molecule/{receptor}_{ligand}/{mutation}/{seed}/MD/mdstats.csv',
+        metadynamics_hill='metadynamics_molecule/{receptor}_{ligand}/{mutation}/{seed}/metadynamics/metadynamics_hill.txt',
+        metadynamics_colvar='metadynamics_molecule/{receptor}_{ligand}/{mutation}/{seed}/metadynamics/Colvar.dat'
     resources: gpu=1
     priority: 3
     retries: 1
@@ -251,12 +259,12 @@ rule md_metadynamics_molecule:
 
 rule ana_potential_energy:
     input:
-        topo='protein_molecule/{complex}/{mutation}/{seed}/MD/structure_equilibrated.pdb',
-        traj='protein_molecule/{complex}/{mutation}/{seed}/MD/trajectory_raw.h5',           
+        topo='protein_molecule/{receptor}_{ligand}/{mutation}/{seed}/MD/structure_equilibrated.pdb',
+        traj='protein_molecule/{receptor}_{ligand}/{mutation}/{seed}/MD/trajectory_raw.h5',           
         md_config=ancient(md_config),
-        sdf=lambda wc: config["complexes"][wc.complex]["sdf"]
+        sdf=lambda wc: f"{config['receptors'][wc.receptor].get('sdf_dir', 'ligands/')}{wc.ligand}.sdf"
     output:
-        'protein_molecule/{complex}/{mutation}/{seed}/MD/energy/potential_energy.parquet',
+        'protein_molecule/{receptor}_{ligand}/{mutation}/{seed}/MD/energy/potential_energy.parquet',
     resources: gpu=1
     priority: 3
     shell:
@@ -270,12 +278,12 @@ rule ana_potential_energy:
 
 rule center_trajectory:
     input:
-        topo='{mode}/{complex}/{mutation}/{seed}/MD/structure_end.cif',
-        traj='{mode}/{complex}/{mutation}/{seed}/MD/trajectory_raw.h5'
+        topo='{mode}/{receptor}_{ligand}/{mutation}/{seed}/MD/structure_end.cif',
+        traj='{mode}/{receptor}_{ligand}/{mutation}/{seed}/MD/trajectory_raw.h5'
     output:
-        topo_center='{mode}/{complex}/{mutation}/{seed}/MD/center/structure_end_center_{seed}.pdb',
-        traj_center='{mode}/{complex}/{mutation}/{seed}/MD/center/trajectory_centered.dcd',
-        traj_center_h5='{mode}/{complex}/{mutation}/{seed}/MD/center/trajectory_centered.h5'
+        topo_center='{mode}/{receptor}_{ligand}/{mutation}/{seed}/MD/center/structure_end_center_{seed}.pdb',
+        traj_center='{mode}/{receptor}_{ligand}/{mutation}/{seed}/MD/center/trajectory_centered.dcd',
+        traj_center_h5='{mode}/{receptor}_{ligand}/{mutation}/{seed}/MD/center/trajectory_centered.h5'
     priority: 3
     shell:
         """
@@ -288,17 +296,17 @@ rule center_trajectory:
 
 rule metadynamics_run:
     input:   
-        '{mode}/{complex}/{mutation}/{seed}/metadynamics/metadynamics_hill.txt'
+        '{mode}/{receptor}_{ligand}/{mutation}/{seed}/metadynamics/metadynamics_hill.txt'
     output:
-        '{mode}/{complex}/{mutation}/{seed}/metadynamics/fes.dat'
+        '{mode}/{receptor}_{ligand}/{mutation}/{seed}/metadynamics/fes.dat'
     shell:
         "plumed sum_hills --hills {input} --outfile {output}"
 
 rule metadynamics_convergence:
     input:
-        hills='{mode}/{complex}/{mutation}/{seed}/metadynamics/metadynamics_hill.txt'
+        hills='{mode}/{receptor}_{ligand}/{mutation}/{seed}/metadynamics/metadynamics_hill.txt'
     output:
-        convergence='{mode}/{complex}/{mutation}/{seed}/metadynamics/convergence.png'
+        convergence='{mode}/{receptor}_{ligand}/{mutation}/{seed}/metadynamics/convergence.png'
     shell:
         """
         analyze-metadynamics-convergence --hills {input.hills} \
@@ -307,11 +315,11 @@ rule metadynamics_convergence:
 
 rule metadynamics_ana:
     input:
-        fes='{mode}/{complex}/{mutation}/{seed}/metadynamics/fes.dat',
-        colvar='{mode}/{complex}/{mutation}/{seed}/metadynamics/Colvar.dat',
+        fes='{mode}/{receptor}_{ligand}/{mutation}/{seed}/metadynamics/fes.dat',
+        colvar='{mode}/{receptor}_{ligand}/{mutation}/{seed}/metadynamics/Colvar.dat',
     output:
-        freeenergy='{mode}/{complex}/{mutation}/{seed}/metadynamics/freeenergy.png',
-        colvar_fig='{mode}/{complex}/{mutation}/{seed}/metadynamics/colvar.png',
+        freeenergy='{mode}/{receptor}_{ligand}/{mutation}/{seed}/metadynamics/freeenergy.png',
+        colvar_fig='{mode}/{receptor}_{ligand}/{mutation}/{seed}/metadynamics/colvar.png',
     shell:
         """
         analyze-collective-vars --colvar {input.colvar} --colvar_fig {output.colvar_fig} &&
@@ -323,7 +331,7 @@ visualize_alignment_pymol = str(Path(sysconfig.get_path("scripts")) / "visualize
 # TODO: Path is fragile
 rule visualize_structure_alignment:
     input:
-        expand('{mode}/{complex}/{mutation}/{seed}/MD/center/structure_end_center_{seed}.pdb',complex=COMPLEXES, mutation=mutations, seed=seeds, mode=mode),
+        expand('{mode}/{receptor}_{ligand}/{mutation}/{seed}/MD/center/structure_end_center_{seed}.pdb',receptor=RECEPTORS, ligand=LIGANDS, mutation=mutations, seed=seeds, mode=mode),
     output:
         'results/alignment/align.pse'
     params: 
@@ -333,15 +341,15 @@ rule visualize_structure_alignment:
 
 rule ana_aquaduct:
     input:
-        topo_center = '{mode}/{complex}/{mutation}/{seed}/MD/center/structure_end_center_{seed}.pdb',
-        traj_center='{mode}/{complex}/{mutation}/{seed}/MD/center/trajectory_centered.dcd',
+        topo_center = '{mode}/{receptor}_{ligand}/{mutation}/{seed}/MD/center/structure_end_center_{seed}.pdb',
+        traj_center='{mode}/{receptor}_{ligand}/{mutation}/{seed}/MD/center/trajectory_centered.dcd',
         aquaduct_template='config/TEMPLATE_aquaduct.txt',
     output:
-        aquaduct='{mode}/{complex}/{mutation}/{seed}/aquaduct/aquaduct.txt',
-        aquaduct_folder=directory('{mode}/{complex}/{mutation}/{seed}/aquaduct/'),
-        pymol_cmd='{mode}/{complex}/{mutation}/{seed}/aquaduct/6_visualize_results.py',
+        aquaduct='{mode}/{receptor}_{ligand}/{mutation}/{seed}/aquaduct/aquaduct.txt',
+        aquaduct_folder=directory('{mode}/{receptor}_{ligand}/{mutation}/{seed}/aquaduct/'),
+        pymol_cmd='{mode}/{receptor}_{ligand}/{mutation}/{seed}/aquaduct/6_visualize_results.py',
     params:
-        directory('{mode}/{complex}/{mutation}/{seed}')
+        directory('{mode}/{receptor}_{ligand}/{mutation}/{seed}')
     conda: "aquaduct"
     shell:
         """
@@ -352,25 +360,25 @@ rule ana_aquaduct:
 
 rule ana_aquaduct_pymol:
     input:
-        '{mode}/{complex}/{mutation}/{seed}/aquaduct/6_visualize_results.py',
+        '{mode}/{receptor}_{ligand}/{mutation}/{seed}/aquaduct/6_visualize_results.py',
     output:
-        '{mode}/{complex}/{mutation}/{seed}/aquaduct/aquaduct.pse',
+        '{mode}/{receptor}_{ligand}/{mutation}/{seed}/aquaduct/aquaduct.pse',
     params:
-        directory('{complex}/{mutation}/{seed}')
+        directory('{receptor}_{ligand}/{mutation}/{seed}')
     shell:
         "python3 {input} --save-session {output}"
 
 rule ana_trajectory_descriptive:
     input:
-        topo='{mode}/{complex}/{mutation}/{seed}/MD/structure_end.cif',
-        traj='{mode}/{complex}/{mutation}/{seed}/MD/center/trajectory_centered.dcd',
-        stats='{mode}/{complex}/{mutation}/{seed}/MD/mdstats.csv'
+        topo='{mode}/{receptor}_{ligand}/{mutation}/{seed}/MD/structure_end.cif',
+        traj='{mode}/{receptor}_{ligand}/{mutation}/{seed}/MD/center/trajectory_centered.dcd',
+        stats='{mode}/{receptor}_{ligand}/{mutation}/{seed}/MD/mdstats.csv'
     output:
-        rmsf= report('{mode}/{complex}/{mutation}/{seed}/analysis/RMSF.html',caption="resources/RMSF.rst",category="RMSF",labels={"Complex": "{complex}", "Mutation": "{mutation}"}),
-        rmsd= report('{mode}/{complex}/{mutation}/{seed}/analysis/RMSD.svg',caption="resoucrs/RMSF.rst",category="RMSD",labels={"Complex": "{complex}", "Mutation": "{mutation}"}),
-        rmsd_raw= '{mode}/{complex}/{mutation}/{seed}/analysis/RMSD.csv',
-        bfactors='{mode}/{complex}/{mutation}/{seed}/analysis/bfactors.pdb',
-        stats='{mode}/{complex}/{mutation}/{seed}/analysis/Stats.svg',
+        rmsf= report('{mode}/{receptor}_{ligand}/{mutation}/{seed}/analysis/RMSF.html',caption="resources/RMSF.rst",category="RMSF",labels={"Complex": "{receptor}_{ligand}", "Mutation": "{mutation}"}),
+        rmsd= report('{mode}/{receptor}_{ligand}/{mutation}/{seed}/analysis/RMSD.svg',caption="resoucrs/RMSF.rst",category="RMSD",labels={"Complex": "{receptor}_{ligand}", "Mutation": "{mutation}"}),
+        rmsd_raw= '{mode}/{receptor}_{ligand}/{mutation}/{seed}/analysis/RMSD.csv',
+        bfactors='{mode}/{receptor}_{ligand}/{mutation}/{seed}/analysis/bfactors.pdb',
+        stats='{mode}/{receptor}_{ligand}/{mutation}/{seed}/analysis/Stats.svg',
     params:
         number_frames = n_frames
     shell:
@@ -387,8 +395,8 @@ rule ana_trajectory_descriptive:
 
 rule ana_rmsf:
     input:
-        topo = expand('{mode}/{complex}/{mutation}/{seed}/MD/structure_end.cif',complex=COMPLEXES, mutation=mutations, seed=seeds, mode=mode),
-        traj = expand('{mode}/{complex}/{mutation}/{seed}/MD/center/trajectory_centered.dcd',  complex=COMPLEXES, mutation=mutations, seed=seeds, mode=mode), 
+        topo = expand('{mode}/{receptor}_{ligand}/{mutation}/{seed}/MD/structure_end.cif',receptor=RECEPTORS, ligand=LIGANDS, mutation=mutations, seed=seeds, mode=mode),
+        traj = expand('{mode}/{receptor}_{ligand}/{mutation}/{seed}/MD/center/trajectory_centered.dcd',  receptor=RECEPTORS, ligand=LIGANDS, mutation=mutations, seed=seeds, mode=mode), 
     output:
         'results/rmsf/rmsf.parquet'
     shell:
@@ -411,13 +419,13 @@ rule plot_rmsf:
 
 rule compute_posco_contacts:
     input:
-        topo='{mode}/{complex}/{mutation}/{seed}/MD/structure_end.cif',
-        traj='{mode}/{complex}/{mutation}/{seed}/MD/center/trajectory_centered.dcd'
+        topo='{mode}/{receptor}_{ligand}/{mutation}/{seed}/MD/structure_end.cif',
+        traj='{mode}/{receptor}_{ligand}/{mutation}/{seed}/MD/center/trajectory_centered.dcd'
     params:
         number_frames = n_frames
     output:
-        posco_parquet = '{mode}/{complex}/{mutation}/{seed}/po-sco/posco_interaction.parquet',
-        posco_interaction = '{mode}/{complex}/{mutation}/{seed}/po-sco/posco_interaction.txt'
+        posco_parquet = '{mode}/{receptor}_{ligand}/{mutation}/{seed}/po-sco/posco_interaction.parquet',
+        posco_interaction = '{mode}/{receptor}_{ligand}/{mutation}/{seed}/po-sco/posco_interaction.txt'
     threads: 4
     shell:
         """
@@ -426,7 +434,7 @@ rule compute_posco_contacts:
                                 --number_frames {params.number_frames} \
                                 --posco_parquet {output.posco_parquet} \
                                 --posco_interaction {output.posco_interaction} \
-                                --complex {wildcards.complex} \
+                                --complex {wildcards.receptor}_{wildcards.ligand} \
                                 --mutation {wildcards.mutation} \
                                 --seed {wildcards.seed} \
                                 --threads {threads}
@@ -434,7 +442,7 @@ rule compute_posco_contacts:
 
 rule merge_posco_contact:
     input:
-        expand('{mode}/{complex}/{mutation}/{seed}/po-sco/posco_interaction.parquet', complex=COMPLEXES, mutation=mutations, seed=seeds, mode= mode),
+        expand('{mode}/{receptor}_{ligand}/{mutation}/{seed}/po-sco/posco_interaction.parquet', receptor=RECEPTORS, ligand=LIGANDS, mutation=mutations, seed=seeds, mode= mode),
     output:
         'results/posco/posco_interactions.parquet'
     run:
@@ -463,8 +471,8 @@ rule plot_contacts_barplot:
     input:
         'results/posco/posco_interactions.parquet'
     output:
-        lig_barplot = expand('results/posco/lig_barplot_{complex}_{mutation}.svg', complex=COMPLEXES, mutation=mutations),
-        rec_barplot = expand('results/posco/rec_barplot_{complex}_{mutation}.svg', complex=COMPLEXES, mutation=mutations)
+        lig_barplot = expand('results/posco/lig_barplot_{receptor}_{ligand}_{mutation}.svg', receptor=RECEPTORS, ligand=LIGANDS, mutation=mutations),
+        rec_barplot = expand('results/posco/rec_barplot_{receptor}_{ligand}_{mutation}.svg', receptor=RECEPTORS, ligand=LIGANDS, mutation=mutations)
     shell:
         """
         plot-contact-barplot --input {input}
@@ -472,10 +480,10 @@ rule plot_contacts_barplot:
 
 rule ana_prolif_contacts:
     input:
-        topo='{mode}/{complex}/{mutation}/{seed}/MD/structure_end.cif',
-        traj='{mode}/{complex}/{mutation}/{seed}/MD/center/trajectory_centered.dcd',
+        topo='{mode}/{receptor}_{ligand}/{mutation}/{seed}/MD/structure_end.cif',
+        traj='{mode}/{receptor}_{ligand}/{mutation}/{seed}/MD/center/trajectory_centered.dcd',
     output:
-        report('{mode}/{complex}/{mutation}/{seed}/fingerprint/fingerprint.parquet', labels=({"Name": "Interaction Analysis Prolif", "Type": "List"}),caption="resources/RMSF.rst",category="Interaction Fingerprint")
+        report('{mode}/{receptor}_{ligand}/{mutation}/{seed}/fingerprint/fingerprint.parquet', labels=({"Name": "Interaction Analysis Prolif", "Type": "List"}),caption="resources/RMSF.rst",category="Interaction Fingerprint")
     params:
         number_frames = n_frames
     threads: 4
@@ -486,14 +494,14 @@ rule ana_prolif_contacts:
                                        --output {output} \
                                        --n_frames {params.number_frames} \
                                        --threads {threads} \
-                                       --complex {wildcards.complex} \
+                                       --complex {wildcards.receptor}_{wildcards.ligand} \
                                        --mutation {wildcards.mutation} \
                                        --seed {wildcards.seed}
         """
 
 rule plot_prolif_contacts:
     input:
-        fingerprints=expand('{mode}/{complex}/{mutation}/{seed}/fingerprint/fingerprint.parquet', complex=COMPLEXES, mutation=mutations, seed=seeds, mode=mode),
+        fingerprints=expand('{mode}/{receptor}_{ligand}/{mutation}/{seed}/fingerprint/fingerprint.parquet', receptor=RECEPTORS, ligand=LIGANDS, mutation=mutations, seed=seeds, mode=mode),
     output:
         interactions = report('results/fingerprints/interactions.parquet',labels=({"Name": "Interaction Analysis Prolif", "Type": "List"}),caption="resources/RMSF.rst",category="Interaction Fingerprint"),
         figure = report('results/fingerprints/fingerprints.html',labels=({"Name": "Interaction Analysis Prolif", "Type": "Plot"}),caption="resources/RMSF.rst",category="Interaction Fingerprint"),
@@ -509,13 +517,13 @@ rule plot_prolif_contacts:
 
 rule visualize_interaction_surface:
     input:
-        final_frame = f'{mode}/{{complex}}/{{mutation}}/{representative_seed}/MD/center/structure_end_center_{representative_seed}.pdb',
+        final_frame = f'{mode}/{{receptor}}_{{ligand}}/{{mutation}}/{representative_seed}/MD/center/structure_end_center_{representative_seed}.pdb',
         interactions= 'results/posco/posco_interactions.parquet',
     output:
-        bfactor_pdbs = 'results/posco/{complex}.{mutation}.interaction.pdb',
-        pymol_cmd = 'results/posco/{complex}.{mutation}.pml',
-        pymol = report('results/posco/{complex}.{mutation}.final.pse',caption="resources/RMSF.rst",category="PyMol",labels=({"Complex": "{complex}", "Mutation": "{mutation}", "Type": "PyMol"})),
-        surface= report('results/posco/{complex}.{mutation}.png',caption="resources/RMSF.rst",category="PyMol", labels=({"Complex": "{complex}", "Mutation": "{mutation}", "Type": "Image"}))
+        bfactor_pdbs = 'results/posco/{receptor}_{ligand}.{mutation}.interaction.pdb',
+        pymol_cmd = 'results/posco/{receptor}_{ligand}.{mutation}.pml',
+        pymol = report('results/posco/{receptor}_{ligand}.{mutation}.final.pse',caption="resources/RMSF.rst",category="PyMol",labels=({"Complex": "{receptor}_{ligand}", "Mutation": "{mutation}", "Type": "PyMol"})),
+        surface= report('results/posco/{receptor}_{ligand}.{mutation}.png',caption="resources/RMSF.rst",category="PyMol", labels=({"Complex": "{receptor}_{ligand}", "Mutation": "{mutation}", "Type": "Image"}))
     params:
         representative_seed = seeds[0],
     shell:
@@ -524,7 +532,7 @@ rule visualize_interaction_surface:
                                       --interactions {input.interactions} \
                                       --seed {params.representative_seed} \
                                       --mutation {wildcards.mutation} \
-                                      --complex {wildcards.complex}
+                                      --complex {wildcards.receptor}_{wildcards.ligand}
         pymol -cQ {output.pymol_cmd}
         """
 

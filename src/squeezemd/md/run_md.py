@@ -303,9 +303,9 @@ def simulate(args, params):
 
     if args.mode in ('metadynamics_ppi', 'metadynamics_molecule'):
         print(f'\n=== Stage 4: Initiate Metadynamics')
-        #simulation.system = add_metadynamics_forces_welltempered(params, simulation.system, args, T)
-        #simulation.context.reinitialize(preserveState=True)  # keep positions/velocities
-        set_collective_variable()
+        simulation.system = add_metadynamics_forces_welltempered(params, simulation.system, args, T)
+        simulation.context.reinitialize(preserveState=True)  # keep positions/velocities
+        #set_collective_variable()
 
     # ---------------------
     # Stage 5: Rigidify receptor except flexible binding pocket (optional). Has been used for Zyius project

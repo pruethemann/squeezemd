@@ -1,0 +1,12 @@
+ID: T-1
+name: Test_C1s_Gigastasin
+comment: Classical Testrun for protein protein interactions
+
+mutations:
+  - WT
+
+receptors:
+    C1s:
+      pdb: pdb/13_C1s-BD001.pdb
+
+ligands:

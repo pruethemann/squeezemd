@@ -1,0 +1,543 @@
+# Snakemake workflow for squeezeMD
+# Orchestrates mutation prep, MD runs, and post‑analysis steps.
+
+import sys, os, yaml
+import numpy as np
+from importlib.resources import files
+from helper_functions import config_deep_update, save_yaml, import_yaml, update_md_overview, generate_complexes, setup_testrun
+import sysconfig
+from pathlib import Path
+
+
+############################
+# Config handling          #
+############################
+
+# Merge three different config sources
+# 1. Import simulation config
+md_config_file = os.path.join('config','md_config.yaml')
+sim_config_file = os.path.join('config', 'sim_config.yaml')
+configfile: sim_config_file
+
+# 2. Import and merge Molecular dynamics config
+config_md = import_yaml(md_config_file)
+config.update(config_md)        # Merge simulation and md params together
+
+# 3. Figure out if test situation (optional)
+md_config = setup_testrun(config)
+
+mode = config.get('mode')
+mutations = config['mutations']
+n_frames = config['simulation']['number_frames']
+print(mode)
+"""
+All modes:
+protein_protein
+protein_molecule
+metadynamics_ppi
+metadynamics_molecule
+"""
+
+# 4. Generate complexes depending on PPi or small molecules
+if 'molecule' in mode: 
+    COMPLEXES = generate_complexes(config)
+else: # in PPi the complexes are already defined
+    COMPLEXES = list(config.get("complexes").keys())
+
+
+# 4. Save key MD settings in a overview list
+update_md_overview(config)
+
+# Seed generation
+seed = config.get('seed', 23)
+np.random.seed(seed)              # Ensure reproducibility
+seeds = np.random.randint(100, 1000, size=config['simulation']['replicates'])
+representative_seed = seeds[0] # First seeds is used as representation for surface interaction analysis
+
+rule protein_protein: # protein-protein interaction analysis
+    input:
+        expand('protein_protein/{complex}/{mutation}/{seed}/po-sco/posco_interaction.parquet',complex=COMPLEXES,mutation=mutations,seed=seeds,mode=mode),
+        'results/alignment/align.pse',
+        #expand('{mode}/{complex}/{mutation}/{seed}/fingerprint/fingerprint.parquet',complex=COMPLEXES,mutation=mutations,seed=seeds,mode=mode),
+        #'results/posco/lig_heatmap.svg',
+        expand('results/posco/lig_barplot_{complex}_{mutation}.svg', complex=COMPLEXES, mutation=mutations),
+        'results/rmsf/rmsf.svg',
+        expand('results/posco/{complex}.{mutation}.interaction.pdb', complex=COMPLEXES, mutation=mutations),
+
+rule protein_molecule:
+    input:
+        expand('protein_molecule/{complex}/{mutation}/{seed}/po-sco/posco_interaction.parquet',complex=COMPLEXES,mutation=mutations,seed=seeds,mode=mode),
+        expand('protein_molecule/{complex}/{mutation}/{seed}/MD/energy/potential_energy.parquet', complex=COMPLEXES, mutation=mutations, seed=seeds),    
+        'results/posco/posco_interactions.parquet',
+        'results/alignment/align.pse',
+        'results/rmsf/rmsf.svg',
+        #expand('molecule/{complex}/{mutation}/{seed}/aquaduct/aquaduct.pse',complex=COMPLEXES, mutation=mutations, seed=seeds)
+
+rule metadynamics_ppi:
+    input:
+        expand('metadynamics_ppi/{complex}/{mutation}/{seed}/po-sco/posco_interaction.parquet',complex=COMPLEXES,mutation=mutations,seed=seeds,mode=mode),
+        expand('metadynamics_ppi/{complex}/{mutation}/{seed}/metadynamics/fes.dat',complex=COMPLEXES, mutation=mutations, seed=seeds),
+        expand('metadynamics_ppi/{complex}/{mutation}/{seed}/metadynamics/freeenergy.png',complex=COMPLEXES, mutation=mutations, seed=seeds),
+        expand('metadynamics_ppi/{complex}/{mutation}/{seed}/metadynamics/convergence.png',complex=COMPLEXES, mutation=mutations, seed=seeds),
+        'results/alignment/align.pse',
+        #expand('metadynamics_ppi/{complex}/{mutation}/{seed}/fingerprint/fingerprint.parquet',complex=COMPLEXES,mutation=mutations,seed=seeds),
+        'results/rmsf/rmsf.svg',
+        expand('results/posco/{complex}.{mutation}.interaction.pdb', complex=COMPLEXES, mutation=mutations),
+        expand('results/posco/lig_barplot_{complex}_{mutation}.svg', complex=COMPLEXES, mutation=mutations),
+
+rule metadynamics_molecule:
+    input:
+        expand('metadynamics_molecule/{complex}/{mutation}/{seed}/po-sco/posco_interaction.parquet',complex=COMPLEXES,mutation=mutations,seed=seeds,mode=mode),
+        expand('metadynamics_molecule/{complex}/{mutation}/{seed}/metadynamics/fes.dat',complex=COMPLEXES, mutation=mutations, seed=seeds),
+        expand('metadynamics_molecule/{complex}/{mutation}/{seed}/metadynamics/freeenergy.png',complex=COMPLEXES, mutation=mutations, seed=seeds),
+        expand('metadynamics_molecule/{complex}/{mutation}/{seed}/metadynamics/convergence.png',complex=COMPLEXES, mutation=mutations, seed=seeds),
+        'results/alignment/align.pse',
+        #expand('metadynamics/{complex}/{mutation}/{seed}/fingerprint/fingerprint.parquet',complex=COMPLEXES,mutation=mutations,seed=seeds),
+        'results/rmsf/rmsf.svg',
+        expand('results/posco/{complex}.{mutation}.interaction.pdb', complex=COMPLEXES, mutation=mutations),
+        expand('results/posco/lig_barplot_{complex}_{mutation}.svg', complex=COMPLEXES, mutation=mutations),
+
+
+# Run a apo protein only
+rule protein:
+    input:
+        expand('protein/{complex}/{mutation}/{seed}/MD/center/trajectory_centered.dcd', complex=COMPLEXES, mutation=mutations, seed=seeds),
+        expand('protein/{complex}/{mutation}/{seed}/analysis/RMSF.html', complex=COMPLEXES, mutation=mutations, seed=seeds),
+        expand('protein/{complex}/{mutation}/{seed}/aquaduct/aquaduct.pse',complex=COMPLEXES, mutation=mutations, seed=seeds)
+
+rule prep_mutagenesis:
+    input:
+        md_config,
+        'config/sim_config.yaml'
+    output:
+        '{mode}/{complex}/{mutation}/mutation.pdb'
+    params:
+        out_dir=directory('{mode}/{complex}/{mutation}'),
+        foldX='foldx_20261231',
+        pdb=lambda wc: config["complexes"][wc.complex]["pdb"]
+    log:
+        '{mode}/{complex}/{mutation}/mutation.log'
+    shell:
+        """
+        if [[ {wildcards.mutation} = WT ]]
+        then    # No mutagenesis
+            cp {params.pdb} {output}
+        else    # Mutate
+            mutate --mutation {wildcards.mutation} --ligand {params.pdb} --output {wildcards.mode}/{wildcards.complex}/{wildcards.mutation}/mutant_file.txt
+            cp {params.pdb} {params.out_dir}/WT.pdb
+            {params.foldX} --command=BuildModel --pdb-dir="{params.out_dir}" --pdb=WT.pdb --mutant-file={wildcards.mode}/{wildcards.complex}/{wildcards.mutation}/mutant_file.txt --output-dir="{params.out_dir}" --rotabaseLocation ~/tools/foldX/foldx_Linux/rotabase.txt > {log} || true
+            mv {params.out_dir}/WT_1.pdb {output}
+        fi
+        """
+
+"""
+All MD targets:
+protein_protein
+protein_molecule
+metadynamics_ppi
+metadynamics_molecule
+
+
+
+All MD rules:
+md_protein_protein
+md_protein_molecule
+md_metadynamics_molecule
+md_metadynamics_ppi
+"""
+
+rule md_protein_protein:
+    input:   
+        md_settings=ancient(md_config),
+        pdb='protein_protein/{complex}/{mutation}/mutation.pdb',
+    output:
+        equilibrated='protein_protein/{complex}/{mutation}/{seed}/MD/structure_equilibrated.pdb',
+        topo_cif='protein_protein/{complex}/{mutation}/{seed}/MD/structure_end.cif',
+        traj=temp('protein_protein/{complex}/{mutation}/{seed}/MD/trajectory_raw.h5'),
+        stats='protein_protein/{complex}/{mutation}/{seed}/MD/mdstats.csv'
+    resources: gpu=1
+    retries: 1          # sometimes runs fail due GPU allocation issues, so we allow for some retries
+    priority: 3
+    shell:
+        """
+        run-md --pdb {input.pdb} \
+                  --equilibrated {output.equilibrated} \
+                  --topo_cif {output.topo_cif} \
+                  --traj {output.traj} \
+                  --md_settings {input.md_settings} \
+                  --seed {wildcards.seed} \
+                  --stats {output.stats} \
+                  --mode protein_protein
+        """
+
+rule md_protein_molecule:
+    input:   
+        md_settings=ancient(md_config),
+        pdb='protein_molecule/{complex}/{mutation}/mutation.pdb',
+        sdf=lambda wc: config["complexes"][wc.complex]["sdf"]
+    output:
+        equilibrated='protein_molecule/{complex}/{mutation}/{seed}/MD/structure_equilibrated.pdb',
+        topo_cif='protein_molecule/{complex}/{mutation}/{seed}/MD/structure_end.cif',
+        traj=temp('protein_molecule/{complex}/{mutation}/{seed}/MD/trajectory_raw.h5'),
+        stats='protein_molecule/{complex}/{mutation}/{seed}/MD/mdstats.csv',
+    resources: gpu=1
+    priority: 3
+    retries: 1 
+    shell:
+        """
+        run-md --pdb {input.pdb} \
+                  --equilibrated {output.equilibrated} \
+                  --topo_cif {output.topo_cif} \
+                  --traj {output.traj} \
+                  --md_settings {input.md_settings} \
+                  --seed {wildcards.seed} \
+                  --stats {output.stats} \
+                  --sdf {input.sdf} \
+                  --mode protein_molecule
+        """
+
+rule md_metadynamics_ppi:
+    input:   
+        md_settings=ancient(md_config),
+        pdb='metadynamics_ppi/{complex}/{mutation}/mutation.pdb',
+    output:
+        equilibrated = 'metadynamics_ppi/{complex}/{mutation}/{seed}/MD/structure_equilibrated.pdb',
+        topo_cif = 'metadynamics_ppi/{complex}/{mutation}/{seed}/MD/structure_end.cif',
+        traj=temp('metadynamics_ppi/{complex}/{mutation}/{seed}/MD/trajectory_raw.h5'),
+        stats='metadynamics_ppi/{complex}/{mutation}/{seed}/MD/mdstats.csv',
+        metadynamics_hill='metadynamics_ppi/{complex}/{mutation}/{seed}/metadynamics/metadynamics_hill.txt',
+        metadynamics_colvar='metadynamics_ppi/{complex}/{mutation}/{seed}/metadynamics/Colvar.dat'
+    resources: gpu=1
+    priority: 3
+    retries: 1
+    shell:
+        """
+        run-md --pdb {input.pdb} \
+                  --equilibrated {output.equilibrated} \
+                  --topo_cif {output.topo_cif} \
+                  --traj {output.traj} \
+                  --md_settings {input.md_settings} \
+                  --seed {wildcards.seed} \
+                  --stats {output.stats} \
+                  --metadynamics_hills {output.metadynamics_hill} \
+                  --metadynamics_colvar {output.metadynamics_colvar} \
+                  --mode metadynamics_ppi
+        """
+
+
+rule md_metadynamics_molecule:
+    input:   
+        md_settings=ancient(md_config),
+        pdb='metadynamics_molecule/{complex}/{mutation}/mutation.pdb',
+        sdf=lambda wc: config["complexes"][wc.complex]["sdf"]
+    output:
+        equilibrated = 'metadynamics_molecule/{complex}/{mutation}/{seed}/MD/structure_equilibrated.pdb',
+        topo_cif = 'metadynamics_molecule/{complex}/{mutation}/{seed}/MD/structure_end.cif',
+        traj=temp('metadynamics_molecule/{complex}/{mutation}/{seed}/MD/trajectory_raw.h5'),
+        stats='metadynamics_molecule/{complex}/{mutation}/{seed}/MD/mdstats.csv',
+        metadynamics_hill='metadynamics_molecule/{complex}/{mutation}/{seed}/metadynamics/metadynamics_hill.txt',
+        metadynamics_colvar='metadynamics_molecule/{complex}/{mutation}/{seed}/metadynamics/Colvar.dat'
+    resources: gpu=1
+    priority: 3
+    retries: 1
+    shell:
+        """
+        run-md --pdb {input.pdb} \
+               --sdf {input.sdf} \
+                  --equilibrated {output.equilibrated} \
+                  --topo_cif {output.topo_cif} \
+                  --traj {output.traj} \
+                  --md_settings {input.md_settings} \
+                  --seed {wildcards.seed} \
+                  --stats {output.stats} \
+                  --metadynamics_hills {output.metadynamics_hill} \
+                  --metadynamics_colvar {output.metadynamics_colvar} \
+                  --mode metadynamics_molecule
+        """
+
+
+rule ana_potential_energy:
+    input:
+        topo='protein_molecule/{complex}/{mutation}/{seed}/MD/structure_equilibrated.pdb',
+        traj='protein_molecule/{complex}/{mutation}/{seed}/MD/trajectory_raw.h5',           
+        md_config=ancient(md_config),
+        # TODO: that's indeed a problem!!!
+        sdf=lambda wc: config["complexes"][wc.complex]["sdf"]
+    output:
+        'protein_molecule/{complex}/{mutation}/{seed}/MD/energy/potential_energy.parquet',
+    resources: gpu=1
+    priority: 3
+    shell:
+        """
+        analyze-potential-energy --topo {input.topo} \
+                                    --traj {input.traj} \
+                                    --config {input.md_config} \
+                                    --sdf {input.sdf} \
+                                    --energy {output}
+        """
+
+rule center_trajectory:
+    input:
+        topo='{mode}/{complex}/{mutation}/{seed}/MD/structure_end.cif',
+        traj='{mode}/{complex}/{mutation}/{seed}/MD/trajectory_raw.h5'
+    output:
+        topo_center='{mode}/{complex}/{mutation}/{seed}/MD/center/structure_end_center_{seed}.pdb',
+        traj_center='{mode}/{complex}/{mutation}/{seed}/MD/center/trajectory_centered.dcd',
+        traj_center_h5='{mode}/{complex}/{mutation}/{seed}/MD/center/trajectory_centered.h5'
+    priority: 3
+    shell:
+        """
+        center-traj --topo {input.topo} \
+                             --traj {input.traj} \
+                             --traj_center {output.traj_center} \
+                             --topo_center {output.topo_center} \
+                             --traj_center_h5 {output.traj_center_h5}
+        """
+
+rule metadynamics_run:
+    input:   
+        '{mode}/{complex}/{mutation}/{seed}/metadynamics/metadynamics_hill.txt'
+    output:
+        '{mode}/{complex}/{mutation}/{seed}/metadynamics/fes.dat'
+    shell:
+        "plumed sum_hills --hills {input} --outfile {output}"
+
+rule metadynamics_convergence:
+    input:
+        hills='{mode}/{complex}/{mutation}/{seed}/metadynamics/metadynamics_hill.txt'
+    output:
+        convergence='{mode}/{complex}/{mutation}/{seed}/metadynamics/convergence.png'
+    shell:
+        """
+        analyze-metadynamics-convergence --hills {input.hills} \
+                                         --convergence {output.convergence}
+        """
+
+rule metadynamics_ana:
+    input:
+        fes='{mode}/{complex}/{mutation}/{seed}/metadynamics/fes.dat',
+        colvar='{mode}/{complex}/{mutation}/{seed}/metadynamics/Colvar.dat',
+    output:
+        freeenergy='{mode}/{complex}/{mutation}/{seed}/metadynamics/freeenergy.png',
+        colvar_fig='{mode}/{complex}/{mutation}/{seed}/metadynamics/colvar.png',
+    shell:
+        """
+        analyze-collective-vars --colvar {input.colvar} --colvar_fig {output.colvar_fig} &&
+        analyze-metadynamics-hills --fes {input.fes} --freeenergy {output.freeenergy}
+        """
+
+visualize_alignment_pymol = str(Path(sysconfig.get_path("scripts")) / "visualize_aligned_structures.py")
+
+# TODO: Path is fragile
+rule visualize_structure_alignment:
+    input:
+        expand('{mode}/{complex}/{mutation}/{seed}/MD/center/structure_end_center_{seed}.pdb',complex=COMPLEXES, mutation=mutations, seed=seeds, mode=mode),
+    output:
+        'results/alignment/align.pse'
+    params: 
+        pml = visualize_alignment_pymol
+    shell:
+        "pymol -c {params.pml} --input {input} --output {output}"
+
+rule ana_aquaduct:
+    input:
+        topo_center = '{mode}/{complex}/{mutation}/{seed}/MD/center/structure_end_center_{seed}.pdb',
+        traj_center='{mode}/{complex}/{mutation}/{seed}/MD/center/trajectory_centered.dcd',
+        aquaduct_template='config/TEMPLATE_aquaduct.txt',
+    output:
+        aquaduct='{mode}/{complex}/{mutation}/{seed}/aquaduct/aquaduct.txt',
+        aquaduct_folder=directory('{mode}/{complex}/{mutation}/{seed}/aquaduct/'),
+        pymol_cmd='{mode}/{complex}/{mutation}/{seed}/aquaduct/6_visualize_results.py',
+    params:
+        directory('{mode}/{complex}/{mutation}/{seed}')
+    conda: "aquaduct"
+    shell:
+        """
+        sed  's|PREFIXINPUT|{params}|g' {input.aquaduct_template} > {output.aquaduct} &&
+        sed  -i 's|PREFIXOUT|{output.aquaduct_folder}|g' {output.aquaduct} &&
+        valve_run -c {output.aquaduct}
+        """
+
+rule ana_aquaduct_pymol:
+    input:
+        '{mode}/{complex}/{mutation}/{seed}/aquaduct/6_visualize_results.py',
+    output:
+        '{mode}/{complex}/{mutation}/{seed}/aquaduct/aquaduct.pse',
+    params:
+        directory('{complex}/{mutation}/{seed}')
+    shell:
+        "python3 {input} --save-session {output}"
+
+rule ana_trajectory_descriptive:
+    input:
+        topo='{mode}/{complex}/{mutation}/{seed}/MD/structure_end.cif',
+        traj='{mode}/{complex}/{mutation}/{seed}/MD/center/trajectory_centered.dcd',
+        stats='{mode}/{complex}/{mutation}/{seed}/MD/mdstats.csv'
+    output:
+        rmsf= report('{mode}/{complex}/{mutation}/{seed}/analysis/RMSF.html',caption="resources/RMSF.rst",category="RMSF",labels={"Complex": "{complex}", "Mutation": "{mutation}"}),
+        rmsd= report('{mode}/{complex}/{mutation}/{seed}/analysis/RMSD.svg',caption="resoucrs/RMSF.rst",category="RMSD",labels={"Complex": "{complex}", "Mutation": "{mutation}"}),
+        rmsd_raw= '{mode}/{complex}/{mutation}/{seed}/analysis/RMSD.csv',
+        bfactors='{mode}/{complex}/{mutation}/{seed}/analysis/bfactors.pdb',
+        stats='{mode}/{complex}/{mutation}/{seed}/analysis/Stats.svg',
+    params:
+        number_frames = n_frames
+    shell:
+        """
+        explore-trajectory --topo {input.topo} \
+                              --traj {input.traj} \
+                              --stats {input.stats} \
+                              --rmsf {output.rmsf} \
+                              --bfactors {output.bfactors} \
+                              --rmsd {output.rmsd} \
+                              --rmsd_raw {output.rmsd_raw} \
+                              --fig_stats {output.stats}
+        """
+
+rule ana_rmsf:
+    input:
+        topo = expand('{mode}/{complex}/{mutation}/{seed}/MD/structure_end.cif',complex=COMPLEXES, mutation=mutations, seed=seeds, mode=mode),
+        traj = expand('{mode}/{complex}/{mutation}/{seed}/MD/center/trajectory_centered.dcd',  complex=COMPLEXES, mutation=mutations, seed=seeds, mode=mode), 
+    output:
+        'results/rmsf/rmsf.parquet'
+    shell:
+        """
+        compute-rmsf --topo {input.topo} \
+                        --traj {input.traj} \
+                        --output {output}
+        """
+
+rule plot_rmsf:
+    input:
+        'results/rmsf/rmsf.parquet'
+    output:
+        'results/rmsf/rmsf.svg'
+    shell:
+        """
+        plot-rmsf --input {input} \
+                     --output {output}
+        """
+
+rule compute_posco_contacts:
+    input:
+        topo='{mode}/{complex}/{mutation}/{seed}/MD/structure_end.cif',
+        traj='{mode}/{complex}/{mutation}/{seed}/MD/center/trajectory_centered.dcd'
+    params:
+        number_frames = n_frames
+    output:
+        posco_parquet = '{mode}/{complex}/{mutation}/{seed}/po-sco/posco_interaction.parquet',
+        posco_interaction = '{mode}/{complex}/{mutation}/{seed}/po-sco/posco_interaction.txt'
+    threads: 4
+    shell:
+        """
+        compute-posco-contacts  --topo {input.topo} \
+                                --traj {input.traj} \
+                                --number_frames {params.number_frames} \
+                                --posco_parquet {output.posco_parquet} \
+                                --posco_interaction {output.posco_interaction} \
+                                --complex {wildcards.complex} \
+                                --mutation {wildcards.mutation} \
+                                --seed {wildcards.seed} \
+                                --threads {threads}
+        """
+
+rule merge_posco_contact:
+    input:
+        expand('{mode}/{complex}/{mutation}/{seed}/po-sco/posco_interaction.parquet', complex=COMPLEXES, mutation=mutations, seed=seeds, mode= mode),
+    output:
+        'results/posco/posco_interactions.parquet'
+    run:
+        import os
+        import pandas as pd
+
+        posco_df = pd.concat(
+            (pd.read_parquet(f) for f in input),
+            axis=0,
+            ignore_index=True
+        )
+        posco_df.to_parquet(output[0], index=False)
+
+
+rule plot_contacts_heatmap:
+    input:
+        data='results/posco/posco_interactions.parquet'
+    output:
+        lig_heatmap='results/posco/lig_heatmap.svg',
+        rec_heatmap='results/posco/rec_heatmap.svg',
+    shell:
+        "plot-contact-heatmap --input {input.data} --ligand_interaction {output.lig_heatmap} --receptor_interaction {output.rec_heatmap}"
+
+
+rule plot_contacts_barplot:
+    input:
+        'results/posco/posco_interactions.parquet'
+    output:
+        lig_barplot = expand('results/posco/lig_barplot_{complex}_{mutation}.svg', complex=COMPLEXES, mutation=mutations),
+        rec_barplot = expand('results/posco/rec_barplot_{complex}_{mutation}.svg', complex=COMPLEXES, mutation=mutations)
+    shell:
+        """
+        plot-contact-barplot --input {input}
+        """
+
+rule ana_prolif_contacts:
+    input:
+        topo='{mode}/{complex}/{mutation}/{seed}/MD/structure_end.cif',
+        traj='{mode}/{complex}/{mutation}/{seed}/MD/center/trajectory_centered.dcd',
+    output:
+        report('{mode}/{complex}/{mutation}/{seed}/fingerprint/fingerprint.parquet', labels=({"Name": "Interaction Analysis Prolif", "Type": "List"}),caption="resources/RMSF.rst",category="Interaction Fingerprint")
+    params:
+        number_frames = n_frames
+    threads: 4
+    shell:
+        """
+        compute-proflif-fingerprints --topo {input.topo} \
+                                       --traj  {input.traj} \
+                                       --output {output} \
+                                       --n_frames {params.number_frames} \
+                                       --threads {threads} \
+                                       --complex {wildcards.complex} \
+                                       --mutation {wildcards.mutation} \
+                                       --seed {wildcards.seed}
+        """
+
+rule plot_prolif_contacts:
+    input:
+        fingerprints=expand('{mode}/{complex}/{mutation}/{seed}/fingerprint/fingerprint.parquet', complex=COMPLEXES, mutation=mutations, seed=seeds, mode=mode),
+    output:
+        interactions = report('results/fingerprints/interactions.parquet',labels=({"Name": "Interaction Analysis Prolif", "Type": "List"}),caption="resources/RMSF.rst",category="Interaction Fingerprint"),
+        figure = report('results/fingerprints/fingerprints.html',labels=({"Name": "Interaction Analysis Prolif", "Type": "Plot"}),caption="resources/RMSF.rst",category="Interaction Fingerprint"),
+    params:
+        n_frames = n_frames
+    shell:
+        """
+        analyze-proflif-fingerprints --fingerprints {input.fingerprints} \
+                                        --interactions {output.interactions} \
+                                        --n_frames {params.n_frames} \
+                                        --figure {output.figure}
+        """
+
+rule visualize_interaction_surface:
+    input:
+        final_frame = f'{mode}/{{complex}}/{{mutation}}/{representative_seed}/MD/center/structure_end_center_{representative_seed}.pdb',
+        interactions= 'results/posco/posco_interactions.parquet',
+    output:
+        bfactor_pdbs = 'results/posco/{complex}.{mutation}.interaction.pdb',
+        pymol_cmd = 'results/posco/{complex}.{mutation}.pml',
+        pymol = report('results/posco/{complex}.{mutation}.final.pse',caption="resources/RMSF.rst",category="PyMol",labels=({"Complex": "{complex}", "Mutation": "{mutation}", "Type": "PyMol"})),
+        surface= report('results/posco/{complex}.{mutation}.png',caption="resources/RMSF.rst",category="PyMol", labels=({"Complex": "{complex}", "Mutation": "{mutation}", "Type": "Image"}))
+    params:
+        representative_seed = seeds[0],
+    shell:
+        """
+        visualize-interaction-surface --final_frame {input.final_frame} \
+                                      --interactions {input.interactions} \
+                                      --seed {params.representative_seed} \
+                                      --mutation {wildcards.mutation} \
+                                      --complex {wildcards.complex}
+        pymol -cQ {output.pymol_cmd}
+        """
+
+onsuccess:
+    print(f"Workflow finished without errors. Report for the mode {mode} will be generated")
+    shell(f"squeeze {mode} --report report.html")
+    print("Synchronize data to caracara")
+    shell("""rsync -auvz "$(pwd)" ~/caracara/Squeeze""")

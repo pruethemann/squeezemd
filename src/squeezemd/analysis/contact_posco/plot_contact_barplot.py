@@ -84,14 +84,14 @@ def plot_partner(df: pd.DataFrame, interaction_partner: str, complex_name: str, 
                 capsize=2,
                 error_kw={"elinewidth": 1.0, "capthick": 1.0, "ecolor": "#333333"},
             )
-            
-            axis.set_xticks(tick_positions)
-            axis.set_xticklabels(
-                [str(v) for v in tick_positions],
-                rotation=90,
-                ha="right",
-                fontsize=10,
-            )
+        axis.set_xticks(tick_positions)
+        axis.set_xticklabels(
+            [str(v) for v in tick_positions],
+            rotation=90,
+            ha="right",
+            fontsize=10,
+        )
+        axis.tick_params(axis="x", labelbottom=True)
         axis.axhline(y=0, color="black", linewidth=1.0, alpha=0.9)
         axis.yaxis.set_major_locator(MaxNLocator(nbins=6))
         axis.grid(axis="y", linestyle="--", linewidth=0.7, alpha=0.35)
@@ -99,9 +99,9 @@ def plot_partner(df: pd.DataFrame, interaction_partner: str, complex_name: str, 
         axis.spines["top"].set_visible(False)
         axis.spines["right"].set_visible(False)
         axis.set_ylabel("Energy (kcal/mol)")
+        axis.set_xlabel(f"{interaction_partner.capitalize()} residue", labelpad=10)
         axis.set_title(f"{label} | {complex_name} | {mutation}", fontsize=14, pad=12, weight="bold")
 
-    axes[-1].set_xlabel(f"{interaction_partner.capitalize()} residue", labelpad=10)
     fig.tight_layout(pad=1.2)
     #output_file.parent.mkdir(parents=True, exist_ok=True)
     fig.savefig(output_file, dpi=300, bbox_inches="tight")

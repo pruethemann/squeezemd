@@ -1,0 +1,86 @@
+##############################################################
+# squeezeMD Parameter File
+# User-friendly structure with two levels:
+#  1. BASIC PARAMETERS (safe to modify for normal use)
+#  2. ADVANCED PARAMETERS (power-users only)
+##############################################################
+
+##############################
+# BASIC PARAMETERS (User editable)
+##############################
+
+# Number of MD replicate runs for one system (protein complex)
+replicates: 8
+
+# Interval for saving trajectory frames (in ps)
+# Example: 5 ps = 200 frames per ns
+# TIPP: 1 ps for water motion. 5-20 ps for proteins
+recordingInterval: 20            
+
+# Number of final frames used in the binding interaction analysis (PoSco)
+# Effective analysis time = number_frames * recordingInterval
+# HINT: 0.5 ns total is a good starting range
+number_frames: 100
+
+# Total simulation length (in ns)
+time: 20
+
+##############################
+# ADVANCED PARAMETERS (Power-users only!)
+##############################
+
+# Integration timestep (fs)
+# Default: 2 fs (valid if HBonds constrained, unconstrained 1 fs)
+dt: 2   
+
+# Forcefield settings
+forcefield:
+  protein: amber19-all.xml         # options: amber14-all.xml, amber19-all.xml
+  water:   amber19/tip4pew.xml     # options: amber14/tip3p.xml, amber19/tip3pfb.xml
+  watermodel: tip4pew
+
+# Salt concentration
+salt: 0.15              # M for Na+ and Cl-
+
+# Thermostat and barostat
+temperature: 310         # Kelvin
+pressure: 1              # atm
+barostatInterval: 25     # integration steps
+
+# Set MD constraints
+constraints:
+  bonds: HBonds        # options: None, HBonds, AllBonds
+  rigidWater: True     # options: True, False
+
+# Non-bonded interaction settings
+nonbondedCutoff: 1.0          # in nm
+ewaldErrorTolerance: 0.0005   # PME tolerance
+
+# Seed to reproduce molecular dynamics simulations
+seed: 2025
+
+constraintTolerance: 0.0001 # 1e-5 high accuarcy for energy 1e-4: recommanded for amber
+
+# Equilibration
+NVT_heating:  5000 # 10 ps for each T
+NPT_equilibration: 50000 # 100 ps for 2 steps
+NPT_unrestrained:  100000 # 200 ps
+
+
+##############################
+# Metadynamics mode (Power-users only!)
+##############################
+
+# Metadynamics setup (optional)
+# List distances between atom IDs
+# NOTE: Add -1 to the pdb atom numbers to be consistent with the plumed ids which start at 0
+metadynamics:
+    - COM: 
+        - lig_grp: 0-1881       # Gigastasin atoms
+        - rec_grp: 1882-5946     # C1s atoms
+    - params:
+        - SIGMA: 0.2    # 0.1-0.5 nm. The width of each Gaussian hill deposited in the free-energy landscape.
+        - HEIGHT: 0.1  # 0.1–1.0 kJ/mol. The amplitude (energy) of each Gaussian hill
+        - PACE: 200     # 100-2000. Frequency of applying hill
+        - STRIDE: 50    # How often values of your collective variables are written to the COLVAR file.
+        

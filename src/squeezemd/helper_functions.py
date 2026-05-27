@@ -13,6 +13,55 @@ import MDAnalysis as mda
 import pandas as pd
 import yaml
 
+
+def update_md_overview(config):
+    exp = {}
+
+    # Find a solution for that. Save it in conda env?
+    md_overview = pd.read_parquet('/home/peter/caracara/Squeeze/md_overview.parquet')
+
+    exp['ID'] = config['ID']
+    exp['Time'] = config['simulation']['time_ns']
+    exp['Replicates'] = config['simulation']['replicates']
+
+    exp['Receptor'] = ','.join(config['receptors'].keys())
+    exp['Ligands'] = ','.join(config['ligands'])
+
+
+    exp['Mode'] = config['mode']
+    exp['Name'] = config['name']
+
+
+    exp_id = exp.pop('ID')
+    exp_df = pd.DataFrame([exp], index=pd.Index([exp_id], name='ID'))
+
+    if exp_id in md_overview.index:
+        md_overview.loc[exp_id] = exp_df.loc[exp_id]
+    else:
+        md_overview = pd.concat([md_overview, exp_df])
+
+    md_overview.to_parquet('/home/peter/caracara/Squeeze/md_overview.parquet')
+
+    print(md_overview)
+
+
+
+def setup_testrun(config):
+    if 'test' in config:
+        print("ATTENTION: This is a testrun")
+        test_md_config = files("squeezemd").joinpath("resources/md_test_config.yaml")
+        md_test = import_yaml(test_md_config)
+        config = config_deep_update(config, md_test)
+        save_yaml(config, 'config/md_test_config.yaml')
+
+        return 'config/md_test_config.yaml'
+    
+
+    print("Production run")
+    return 'config/md_config.yaml'
+
+
+
 def config_deep_update(base: dict, override: dict) -> dict:
     """Recursively merge nested dicts, updating ``base`` in place.
 
