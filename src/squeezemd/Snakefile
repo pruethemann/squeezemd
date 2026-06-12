@@ -46,8 +46,10 @@ LIGANDS = config['ligands']
 # 4. Save key MD settings in a overview list
 update_md_overview(config)
 
-# Seed generation
-seed = config.get('seed', 23)
+# Seed generation.
+# The master seed lives under config['simulation']['seed']; fall back to a
+# top-level 'seed' (legacy) and finally to 23 so existing configs keep working.
+seed = config['simulation'].get('seed', config.get('seed', 23))
 np.random.seed(seed)              # Ensure reproducibility
 seeds = np.random.randint(100, 1000, size=config['simulation']['replicates'])
 representative_seed = seeds[0] # First seeds is used as representation for surface interaction analysis
@@ -284,6 +286,8 @@ rule center_trajectory:
         topo_center='{mode}/{receptor}_{ligand}/{mutation}/{seed}/MD/center/structure_end_center_{seed}.pdb',
         traj_center='{mode}/{receptor}_{ligand}/{mutation}/{seed}/MD/center/trajectory_centered.dcd',
         traj_center_h5='{mode}/{receptor}_{ligand}/{mutation}/{seed}/MD/center/trajectory_centered.h5'
+    params:
+        stride=config['simulation'].get('analysis_stride', 10)   # keep every Nth frame in the analysis DCD
     priority: 3
     shell:
         """
@@ -291,7 +295,8 @@ rule center_trajectory:
                              --traj {input.traj} \
                              --traj_center {output.traj_center} \
                              --topo_center {output.topo_center} \
-                             --traj_center_h5 {output.traj_center_h5}
+                             --traj_center_h5 {output.traj_center_h5} \
+                             --stride {params.stride}
         """
 
 rule metadynamics_run:

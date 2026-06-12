@@ -90,6 +90,13 @@ def main():
     parser.add_argument(
         "--traj_center_h5", required=False, help="Centered output trajectory (.h5)", default="traj_center.h5"
     )
+    parser.add_argument(
+        "--stride",
+        type=int,
+        default=10,
+        help="Keep every Nth frame when exporting the DCD for analysis/visualization (default: 10). "
+        "Set to 1 to keep all frames; note downstream analyses operate on the strided DCD.",
+    )
     args = parser.parse_args()
 
     # Center protein in middle of water box and remove translation and rotation
@@ -98,7 +105,7 @@ def main():
     )
 
     # Transform h5 to DCD for PyMOL visualization
-    convert_h5_to_dcd(args.traj_center_h5, args.topo_center, args.traj_center)
+    convert_h5_to_dcd(args.traj_center_h5, args.topo_center, args.traj_center, stride=args.stride)
 
 
 if __name__ == "__main__":

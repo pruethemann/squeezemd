@@ -38,10 +38,12 @@ def add_positional_restraints(
     system, topology, positions, k=10.0, flexible_resids={}, verbose=False, flexible_ligand=True
 ):
     """
-    Add harmonic restraints to heavy atoms (kcal/mol/Å²).
-    Applied to all non-solvent heavy atoms.
-    This function is used for equilibation and for the data generation for AI which requires little
-    movement except the binding pocket.
+    Add harmonic positional restraints to heavy atoms.
+
+    The force constant ``k`` is applied in OpenMM MD units (kJ/mol/nm²), matching
+    the ``protein_k`` value in the config. Applied to all non-solvent heavy atoms.
+    Used for equilibration and for AI data generation, which requires little
+    movement except in the binding pocket.
     """
     restraint = CustomExternalForce("k*periodicdistance(x, y, z, x0, y0, z0)^2")
 
@@ -94,16 +96,21 @@ def energy_minimisation(simulation):
 
 def create_model_smallmolecule(modeller, salt_concentration, params, sdf):
     """
-    Build solvated system with ions.
-    This does only work for protein protein interaction. See legacy MD for small molecules
+    Build a solvated protein-small-molecule system with ions.
+
+    The small-molecule force field, partial-charge method, protonation pH and
+    solvent box padding can be overridden in the ``forcefield``/``system`` config
+    blocks; the defaults below reproduce the historical hard-coded behavior.
     """
-    protein_forcefield = params["simulation"]["forcefield"]["protein"]
-    water_model = params["simulation"]["forcefield"]["water"]
+    forcefield_cfg = params["simulation"]["forcefield"]
+    system_cfg = params["simulation"]["system"]
+    protein_forcefield = forcefield_cfg["protein"]
+    water_model = forcefield_cfg["water"]
 
     ligand = Molecule.from_file(sdf)
 
     # Assign partial charges
-    ligand.assign_partial_charges("am1bcc")
+    ligand.assign_partial_charges(forcefield_cfg.get("ligand_charge_method", "am1bcc"))
 
     ligand_topology = ligand.to_topology().to_openmm()
     ligand_positions = ligand.conformers[0].to_openmm()
@@ -121,7 +128,7 @@ def create_model_smallmolecule(modeller, salt_concentration, params, sdf):
     # 3. Use SystemGenerator to combine force fields
     generator = SystemGenerator(
         forcefields=[protein_forcefield, water_model],
-        small_molecule_forcefield="openff-2.2.0",  # TODO: make sure to update to 3.0 if released soon
+        small_molecule_forcefield=forcefield_cfg.get("small_molecule", "openff-2.2.0"),
         molecules=[ligand],
         cache=None,
         forcefield_kwargs=ff_kwargs,
@@ -131,19 +138,19 @@ def create_model_smallmolecule(modeller, salt_concentration, params, sdf):
     # Add ligand to modell
     modeller.add(ligand_topology, ligand_positions)
 
-    modeller.addHydrogens(generator.forcefield, pH=7.4)  # TODO: Check whether His protonation states are changed
+    modeller.addHydrogens(generator.forcefield, pH=system_cfg.get("ph", 7.4))
     modeller.addExtraParticles(generator.forcefield)  # Add dummy positions for orbitals (OPC, TIP4)
 
     # Add solvent
     modeller.addSolvent(
         generator.forcefield,
-        model=params["simulation"]["forcefield"]["watermodel"],
+        model=forcefield_cfg["watermodel"],
         boxShape="cube",
         ionicStrength=salt_concentration,
         positiveIon="Na+",
         negativeIon="Cl-",
         neutralize=True,
-        padding=1.2 * nanometers,
+        padding=system_cfg.get("box_padding_nm", 1.2) * nanometers,
     )
 
     # Create the MD system
@@ -153,29 +160,33 @@ def create_model_smallmolecule(modeller, salt_concentration, params, sdf):
 
 def create_model_ppi(modeller, salt_concentration, params):
     """
-    Build solvated system with ions.
-    This does only work for protein protein interaction. See legacy MD for small molecules
+    Build a solvated protein-protein system with ions.
+
+    Protonation pH and solvent box padding can be overridden in the
+    ``system`` config block; defaults reproduce the historical behavior.
     """
 
-    protein_forcefield = params["simulation"]["forcefield"]["protein"]
-    water_model = params["simulation"]["forcefield"]["water"]
+    forcefield_cfg = params["simulation"]["forcefield"]
+    system_cfg = params["simulation"]["system"]
+    protein_forcefield = forcefield_cfg["protein"]
+    water_model = forcefield_cfg["water"]
 
     print(f"Initializing ForceField: {protein_forcefield} + {water_model}")
     forcefield = app.ForceField(protein_forcefield, water_model)
 
-    modeller.addHydrogens(forcefield, pH=7.4)  # TODO: Check whether His protonation states are changed
+    modeller.addHydrogens(forcefield, pH=system_cfg.get("ph", 7.4))
     modeller.addExtraParticles(forcefield)  # Required for tip4p (orbital)
 
     # Add solvent
     modeller.addSolvent(
         forcefield,
-        model=params["simulation"]["forcefield"]["watermodel"],
+        model=forcefield_cfg["watermodel"],
         boxShape="cube",
         ionicStrength=salt_concentration,
         positiveIon="Na+",
         negativeIon="Cl-",
         neutralize=True,
-        padding=1.2 * nanometers,
+        padding=system_cfg.get("box_padding_nm", 1.2) * nanometers,
     )
 
     # Create the MD system
@@ -264,7 +275,9 @@ def simulate(args, params):
     # Stage 1: NVT heating with restraints
     # ---------------------
     print("\n=== Stage 1: Smooth NVT heating ===")
-    simulation.context.setVelocitiesToTemperature(50 * kelvin)
+    # Seed the initial Maxwell-Boltzmann velocities so a fixed --seed gives a
+    # reproducible equilibration trajectory (in addition to the integrator seed).
+    simulation.context.setVelocitiesToTemperature(50 * kelvin, args.seed)
 
     # Smooth temperature ramp 50 → 300 K
     temp_steps = [50, 100, 150, 200, 250, 300, params["simulation"]["system"]["temperature_K"]]
@@ -283,11 +296,12 @@ def simulate(args, params):
     barostat_interval_steps = params["simulation"]["system"]["barostat_interval_steps"]
 
     barostat = MonteCarloBarostat(pressure, temperature, barostat_interval_steps)
+    barostat.setRandomNumberSeed(args.seed)  # reproducible barostat MC moves for a fixed --seed
     system.addForce(barostat)
     simulation.context.reinitialize(preserveState=True)
 
     for k in [k / 2, k / 10]:  # usually k = 10 -> 5 -> 1
-        print(f"Tapering restraints to {k} kcal/mol/Å²")
+        print(f"Tapering restraints to {k} kJ/mol/nm²")
         # Update global k parameter (not per particle!)
         simulation.context.setParameter("k", k * kilojoule_per_mole / nanometers**2)
         print("k in context:", simulation.context.getParameter("k"))
@@ -325,7 +339,7 @@ def simulate(args, params):
     # ---------------------
 
     if args.mode in ("metadynamics_ppi", "metadynamics_molecule"):
-        print(f"\n=== Stage 4: Initiate Metadynamics")
+        print("\n=== Stage 4: Initiate Metadynamics ===")
         simulation.system = add_metadynamics_forces_welltempered(params, simulation.system, args, T)
         simulation.context.reinitialize(preserveState=True)  # keep positions/velocities
         # set_collective_variable()
@@ -367,7 +381,7 @@ def simulate(args, params):
     recordInterval = int(
         params["simulation"]["recording_interval_ps"] * 1000 / params["simulation"]["constraints"]["dt_fs"]
     )
-    total_steps = params["simulation"]["time_ns"] * 1e6 / dt_fs
+    total_steps = int(params["simulation"]["time_ns"] * 1e6 / dt_fs)
 
     HDF5Reporter = mdtraj.reporters.HDF5Reporter(args.traj, recordInterval)
     dataReporter = app.StateDataReporter(
