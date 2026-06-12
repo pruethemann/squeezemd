@@ -42,10 +42,11 @@ Follow the setup guide in [install/INSTALL.md](install/INSTALL.md).
 
 The core pipeline is defined in the Snakemake [src/squeezemd/Snakefile](src/squeezemd/Snakefile). You run it via the `squeeze` wrapper, which locates the packaged Snakefile and forwards arguments to Snakemake.
 
-Pipeline modes:
-- `protein_protein` (alias: `PPi`)
-- `protein_molecule` (alias: `molecule`)
-- `metadynamics`
+Pipeline modes (set `mode:` in `config/sim_config.yaml`):
+- `protein_protein`
+- `protein_molecule`
+- `metadynamics_ppi`
+- `metadynamics_molecule`
 - `protein` (apo protein only)
 
 Outputs are written per mode/complex/mutation/seed, plus summarized results in `results/`.
@@ -58,46 +59,49 @@ Outputs are written per mode/complex/mutation/seed, plus summarized results in `
 - `config/sim_config.yaml`
 - `config/md_config.yaml`
 
-2) Run the pipeline:
+2) Run the pipeline (the target/mode is read from `config/sim_config.yaml`; the
+`gpu`/`cpu` budgets come from the same file):
 
 ```bash
-squeeze PPi --resources gpu=1 -j4
+squeeze -n        # dry-run: show the DAG
+squeeze -j4       # run with 4 jobs
 ```
 
-Dry‑run first if needed:
+The wrapper writes an `execute.sh` with the full Snakemake command for
+reproducibility (re-run it with `squeeze continue`).
 
-```bash
-squeeze PPi --resources gpu=1 -j4 -n
-```
-
-The wrapper writes an `execute.sh` with the full Snakemake command for reproducibility.
+> A complete configuration schema, output description, and per-stage walkthrough
+> live in [Summary.md](Summary.md).
 
 ---
 
 ## Configuration
 
 ### sim_config.yaml
-Defines complexes and mutations for the Snakemake pipeline.
+Defines the complexes, mutations, mode, and resources for the pipeline.
 
 Expected structure (example):
 
 ```yaml
+mode: protein_protein          # protein_protein | protein_molecule | metadynamics_ppi | metadynamics_molecule | protein
+cpu: 4
+gpu: 1
 mutations:
   - WT
   - R65E
-complexes:
-  C1s_Gigastasin:
-    receptor: C1s
-    ligand: Gigastasin
-    pdb: /abs/path/to/complex.pdb
-    sdf: /abs/path/to/ligand.sdf   # required for protein_molecule mode
+receptors:
+  C1s:
+    pdb: pdb/C1s-BD001.pdb
+ligands:                       # PPI: the chain-A partner name; molecule mode: sdf basenames
+  - Gigastasin
 ```
-# modify pdb
-pdb4amber -i input.pdb input.amber.pdb
 
-rename resids in pymol
-alter (chain A), resv += 432
+Structure prep tips:
 
+```bash
+pdb4amber -i input.pdb -o input.amber.pdb      # clean/renumber a PDB
+# in PyMOL, shift chain A residue numbering:  alter (chain A), resv += 432
+```
 
 ### md_config.yaml
 Defines MD protocol and system parameters (equilibration, forcefield, salt, temperature, recording interval, etc.).
@@ -174,12 +178,13 @@ squeezeMD integrates several external tools. Most are installed via the conda en
 
 ## Demo
 
-There are demo folders under `demo/` for protein–protein workflows. From the repo root:
+There are demo folders under `demo/`. Each is a self-contained job directory
+(its own `config/` and inputs). For the protein–protein example:
 
 ```bash
-cd demo
-squeeze PPi --resources gpu=1 -j4 -n
-squeeze PPi --resources gpu=1 -j4
+cd demo/T-1_Gigastasin
+squeeze -n        # non-empty DAG for the C1s_Gigastasin run
+squeeze -j2       # run (debug: True uses the fast test MD profile)
 ```
 
 ---
