@@ -5,17 +5,26 @@
 This module groups small utilities used by multiple scripts, including
 YAML handling, command execution, and residue/chain remapping helpers
 for MDAnalysis/OpenMM interoperability.
+
+The heavy MD dependencies (MDAnalysis, OpenMM) are imported lazily inside the
+functions that need them, so the pure config/path helpers can be imported and
+unit-tested without the full native stack installed.
 """
+
+from __future__ import annotations
 
 import os
 import subprocess
 from importlib.resources import files
 from pathlib import Path
+from typing import TYPE_CHECKING
 
-import MDAnalysis as mda
-import openmm.app as app
 import pandas as pd
 import yaml
+
+if TYPE_CHECKING:
+    import MDAnalysis as mda
+    import openmm.app as app
 
 
 def parse_run_metadata(path) -> dict:
@@ -187,6 +196,7 @@ def extract_ligand_sequence(pdb_ligand: os.path):
     Assumes the ligand is on chain A and normalizes CYX -> CYS for
     compatibility with sequence extraction.
     """
+    import MDAnalysis as mda
 
     # Import pdb file with MDAnalysis
     u = mda.Universe(pdb_ligand)
@@ -225,9 +235,7 @@ def chain2resid(file_csv):
     """
     # Find start and end of chain A
 
-    renum = pd.read_csv(
-        file_csv, delim_whitespace=True, names=["resname", "chainID", "resid", "resname amber", "resid amber"]
-    )
+    renum = pd.read_csv(file_csv, sep=r"\s+", names=["resname", "chainID", "resid", "resname amber", "resid amber"])
 
     del renum["resname"]
     del renum["resname amber"]
