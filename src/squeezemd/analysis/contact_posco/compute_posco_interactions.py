@@ -6,25 +6,32 @@ executes PoSCo, and consolidates interactions into a parquet table with
 metadata (complex, mutation, seed, frame).
 """
 
+import argparse
 import multiprocessing
-import argparse, os
+import os
 import tempfile
-from ...helper_functions import remap_MDAnalysis, execute # Helper functions for execution and MDAnalysis remapping
-import openmm.app as app
-import pandas as pd
-import MDAnalysis as mda
 import warnings
 
-warnings.filterwarnings("ignore",category=DeprecationWarning,message=r"DCDReader currently makes independent timesteps")
-warnings.filterwarnings("ignore",category=UserWarning,message=r"Found no information for attr: '.*' Using default value of '.*'")
-warnings.filterwarnings("ignore",message="Element information missing for some atoms.*",category=UserWarning)
-warnings.filterwarnings("ignore",message="For absent elements, atomtype has been  set to 'X'.*",category=UserWarning)
+import MDAnalysis as mda
+import openmm.app as app
+import pandas as pd
+
+from ...helper_functions import execute, remap_MDAnalysis  # Helper functions for execution and MDAnalysis remapping
+
+warnings.filterwarnings(
+    "ignore", category=DeprecationWarning, message=r"DCDReader currently makes independent timesteps"
+)
+warnings.filterwarnings(
+    "ignore", category=UserWarning, message=r"Found no information for attr: '.*' Using default value of '.*'"
+)
+warnings.filterwarnings("ignore", message="Element information missing for some atoms.*", category=UserWarning)
+warnings.filterwarnings("ignore", message="For absent elements, atomtype has been  set to 'X'.*", category=UserWarning)
 import MDAnalysis as mda
 
 
 def parse_lipophilic(parts, sequence):
     """Parse a PoSCo lipophilic interaction line into a dict."""
-        
+
     interaction_info = parts[0].split()
     donor_acceptor = parts[1].strip().split()
 
@@ -38,33 +45,34 @@ def parse_lipophilic(parts, sequence):
 
     # if any of the conditions holds, swap everything
     should_swap = (
-        (ligand_resname == 'HOH' and sequence.loc[(receptor_resid, receptor_resname)]['protein'] == 'lig')  or
-        (receptor_resname == 'HOH' and sequence.loc[(ligand_resid, ligand_resname)]['protein'] == 'rec')    or
-        (sequence.loc[(ligand_resid, ligand_resname)]['protein'] == 'rec')
+        (ligand_resname == "HOH" and sequence.loc[(receptor_resid, receptor_resname)]["protein"] == "lig")
+        or (receptor_resname == "HOH" and sequence.loc[(ligand_resid, ligand_resname)]["protein"] == "rec")
+        or (sequence.loc[(ligand_resid, ligand_resname)]["protein"] == "rec")
     )
 
     if should_swap:
-    # swap ligand ↔ receptor
+        # swap ligand ↔ receptor
         (ligand_resid, receptor_resid) = (receptor_resid, ligand_resid)
-        (ligand_resname, receptor_resname) = (receptor_resname,ligand_resname)
+        (ligand_resname, receptor_resname) = (receptor_resname, ligand_resname)
         (ligand_atom, receptor_atom) = (receptor_atom, ligand_atom)
 
     distance = float(interaction_info[2].split("=")[1])
     energy = float(interaction_info[3].split("=")[1])
 
     interaction = {
-        "Interaction Type": 'lipophilic',
+        "Interaction Type": "lipophilic",
         "Distance (r)": distance,
         "Energy (e)": energy,
-        'receptor_resname' : receptor_resname,
-        'receptor_resid' : receptor_resid,
-        'ligand_resname' : ligand_resname,
-        'ligand_resid' : ligand_resid,
-        'receptor_atom' : receptor_atom,
-        'ligand_atom' : ligand_atom,
+        "receptor_resname": receptor_resname,
+        "receptor_resid": receptor_resid,
+        "ligand_resname": ligand_resname,
+        "ligand_resid": ligand_resid,
+        "receptor_atom": receptor_atom,
+        "ligand_atom": ligand_atom,
     }
 
     return interaction
+
 
 def parse_hbonds(parts, sequence):
     """Parse a PoSCo H‑bond interaction line into a dict."""
@@ -83,15 +91,15 @@ def parse_hbonds(parts, sequence):
     # TODO: That is only necessary because in posco I can't differeniate between ligand and receptors
     # TODO. Do this swap only once
     should_swap = (
-        (ligand_resname == 'HOH' and sequence.loc[(receptor_resid, receptor_resname)]['protein'] == 'lig')  or
-        (receptor_resname == 'HOH' and sequence.loc[(ligand_resid, ligand_resname)]['protein'] == 'rec')    or
-        (sequence.loc[(ligand_resid, ligand_resname)]['protein'] == 'rec')
+        (ligand_resname == "HOH" and sequence.loc[(receptor_resid, receptor_resname)]["protein"] == "lig")
+        or (receptor_resname == "HOH" and sequence.loc[(ligand_resid, ligand_resname)]["protein"] == "rec")
+        or (sequence.loc[(ligand_resid, ligand_resname)]["protein"] == "rec")
     )
 
     if should_swap:
-    # swap ligand ↔ receptor
+        # swap ligand ↔ receptor
         (ligand_resid, receptor_resid) = (receptor_resid, ligand_resid)
-        (ligand_resname, receptor_resname) = (receptor_resname,ligand_resname)
+        (ligand_resname, receptor_resname) = (receptor_resname, ligand_resname)
         (ligand_atom, receptor_atom) = (receptor_atom, ligand_atom)
 
     distance = float(interaction_info[2].split("=")[1])
@@ -99,30 +107,31 @@ def parse_hbonds(parts, sequence):
     energy = float(interaction_info[4].split("=")[1])
 
     # Include salt bridge data
-    marked =  "marked as salt-bridge" in parts[2]
+    marked = "marked as salt-bridge" in parts[2]
 
     interaction = {
-        "Interaction Type": 'H-bond',
+        "Interaction Type": "H-bond",
         "Distance (r)": distance,
         "Angle (a)": angle,
         "Energy (e)": energy,
-        'receptor_atom' : receptor_atom,
-        'receptor_resname' : receptor_resname,
-        'receptor_resid' : receptor_resid,
-        'ligand_atom' : ligand_atom,
-        'ligand_resname' : ligand_resname,
-        'ligand_resid' : ligand_resid,
-        "Marked as Salt-Bridge": marked
+        "receptor_atom": receptor_atom,
+        "receptor_resname": receptor_resname,
+        "receptor_resid": receptor_resid,
+        "ligand_atom": ligand_atom,
+        "ligand_resname": ligand_resname,
+        "ligand_resid": ligand_resid,
+        "Marked as Salt-Bridge": marked,
     }
 
     return interaction
+
 
 # Parse the input data into a pandas DataFrame
 def parse_posco(posco_output, metadata, frame_id, sequence):
     """
     parse the posco text file and extract relevant interaction data and save
     as parquet.
-    
+
     :param posco_output: Description
     :param metadata: Description
     :param frame_id: Description
@@ -130,17 +139,16 @@ def parse_posco(posco_output, metadata, frame_id, sequence):
     """
     data = []
 
-    metadata['target'] = metadata['complex'].split('_')[0]
-    metadata['ligand'] = metadata['complex'].split('_')[1]
+    metadata["target"] = metadata["complex"].split("_")[0]
+    metadata["ligand"] = metadata["complex"].split("_")[1]
 
     # In rare cases the same resname and resid can exist in rec and lig.
     # Keep the first occurrence to avoid ambiguity.
     if not sequence.index.is_unique:
-        sequence = sequence[~sequence.index.duplicated(keep='first')]
-    
-    with open(posco_output, 'r') as file:
-        for line in file:
+        sequence = sequence[~sequence.index.duplicated(keep="first")]
 
+    with open(posco_output, "r") as file:
+        for line in file:
             if line.startswith("Lipo_EXT:"):
                 parts = line.split("  !  ")
                 interaction = parse_lipophilic(parts, sequence)
@@ -154,14 +162,15 @@ def parse_posco(posco_output, metadata, frame_id, sequence):
     data = pd.DataFrame(data)
 
     # Determine metrics lables
-    data['name'] = metadata['complex']
-    data['target'] = metadata['target']
-    data['lig'] = metadata['ligand']
-    data['mutation'] = metadata['mutation']
-    data['frame'] = frame_id
-    data['seed'] = metadata['seed']
+    data["name"] = metadata["complex"]
+    data["target"] = metadata["target"]
+    data["lig"] = metadata["ligand"]
+    data["mutation"] = metadata["mutation"]
+    data["frame"] = frame_id
+    data["seed"] = metadata["seed"]
 
     return data
+
 
 def extract_sequence(ligand, receptor):
     """
@@ -169,22 +178,21 @@ def extract_sequence(ligand, receptor):
     """
 
     # Extract sequence
-    seq_ligand = {"resid": ligand.residues.resids,
-                  "resname": ligand.residues.resnames}
-    
-    seq_receptor = {"resid": receptor.residues.resids,
-                    "resname": receptor.residues.resnames}
-    
+    seq_ligand = {"resid": ligand.residues.resids, "resname": ligand.residues.resnames}
+
+    seq_receptor = {"resid": receptor.residues.resids, "resname": receptor.residues.resnames}
+
     seq_ligand = pd.DataFrame(seq_ligand)
     seq_receptor = pd.DataFrame(seq_receptor)
 
-    seq_ligand['protein'] = 'lig'
-    seq_receptor['protein'] = 'rec'
+    seq_ligand["protein"] = "lig"
+    seq_receptor["protein"] = "rec"
 
     seq = pd.concat([seq_ligand, seq_receptor])
-    seq = seq.set_index(['resid', 'resname'])
+    seq = seq.set_index(["resid", "resname"])
 
     return seq
+
 
 def extract_binding_surface(u, t=8):
     """
@@ -196,21 +204,23 @@ def extract_binding_surface(u, t=8):
 
     # TODO: Implement if statment which checks for protein molecule or protein protein interaction
     # check if a segid X exists, if not assume that it is a protein protein interaction and select segid A as ligand
-    if 'X' in u.segments.segids:
-        ligand_segid = 'X'
-    else:    
-        ligand_segid = 'A'       
+    if "X" in u.segments.segids:
+        ligand_segid = "X"
+    else:
+        ligand_segid = "A"
 
-    ligand = u.select_atoms(f'segid {ligand_segid}')
+    ligand = u.select_atoms(f"segid {ligand_segid}")
 
     # Select ligand and receptor proteins
-    receptor = u.select_atoms(f'not segid {ligand_segid} and protein')
+    receptor = u.select_atoms(f"not segid {ligand_segid} and protein")
 
     # Extract and save sequences information for posco
     sequence = extract_sequence(ligand, receptor)
 
     # Select water molecules within t Å of ligand and receptor
-    water_binding_site = u.select_atoms(f'resname HOH and (around {t} segid {ligand_segid}) and (around {t} (not segid {ligand_segid} and protein))')
+    water_binding_site = u.select_atoms(
+        f"resname HOH and (around {t} segid {ligand_segid}) and (around {t} (not segid {ligand_segid} and protein))"
+    )
 
     # Get the residues of selected water molecules
     water_residues = water_binding_site.residues
@@ -274,8 +284,9 @@ def _process_frame(args_tuple):
                     os.remove(p)
             except Exception:
                 pass
- 
+
     return df
+
 
 def parse_arguments():
     """
@@ -286,32 +297,36 @@ def parse_arguments():
     parser = argparse.ArgumentParser()
 
     # Input
-    parser.add_argument('--topo', required=False, help='Topology file for trajectory in cif format', default='center/structure_end.cif')
-    parser.add_argument('--traj', required=False, help='Centered trajectory', default='center/trajectory_centered.dcd')
-    
+    parser.add_argument(
+        "--topo", required=False, help="Topology file for trajectory in cif format", default="center/structure_end.cif"
+    )
+    parser.add_argument("--traj", required=False, help="Centered trajectory", default="center/trajectory_centered.dcd")
+
     # Parameters
-    parser.add_argument('--number_frames', type=int,required=False, help='Number of last frames to be extracted', default=1)
-    parser.add_argument('--complex', required=False, help='', default='C1s_Gigastasin')
-    parser.add_argument('--mutation', required=False, help='', default='R65E')
-    parser.add_argument('--seed', type=int,required=False, help='', default=222)
-    parser.add_argument('--threads', type=int,required=False, help='Number of threads for parallel processing', default=4)
+    parser.add_argument(
+        "--number_frames", type=int, required=False, help="Number of last frames to be extracted", default=1
+    )
+    parser.add_argument("--complex", required=False, help="", default="C1s_Gigastasin")
+    parser.add_argument("--mutation", required=False, help="", default="R65E")
+    parser.add_argument("--seed", type=int, required=False, help="", default=222)
+    parser.add_argument(
+        "--threads", type=int, required=False, help="Number of threads for parallel processing", default=4
+    )
 
     # Output
-    parser.add_argument('--posco_interaction', required=False, help='', default='posco.txt')
-    parser.add_argument('--posco_parquet', required=False, help='', default='posco.parquet')
+    parser.add_argument("--posco_interaction", required=False, help="", default="posco.txt")
+    parser.add_argument("--posco_parquet", required=False, help="", default="posco.parquet")
 
     return parser.parse_args()
+
 
 def main():
     # Parse command-line arguments
     args = parse_arguments()
 
-    metadata = {'complex': args.complex,
-                'mutation': args.mutation,
-                'seed': args.seed
-    }
+    metadata = {"complex": args.complex, "mutation": args.mutation, "seed": args.seed}
 
-    prefix = f'{args.complex}_{args.mutation}_{args.seed}' # used for tmp file paths
+    prefix = f"{args.complex}_{args.mutation}_{args.seed}"  # used for tmp file paths
 
     # Import Trajectory (kept here for quick checks; worker will recreate its own Universe)
     topo = app.PDBxFile(args.topo)
@@ -333,5 +348,6 @@ def main():
     posco_interactions = pd.concat(results, ignore_index=True)
     posco_interactions.to_parquet(args.posco_parquet)
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     main()

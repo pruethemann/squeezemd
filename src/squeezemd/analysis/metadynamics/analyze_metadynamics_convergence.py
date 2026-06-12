@@ -18,10 +18,10 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 
-
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
 
 def _read_fes(path: str) -> pd.DataFrame:
     """Parse a PLUMED fes.dat file into a DataFrame."""
@@ -82,12 +82,17 @@ def compute_convergence(hills_path: str, fractions: list[float], bound_cutoff_nm
             stride = max(1, int(n_hills * frac))
             fes_path = os.path.join(tmpdir, f"fes_{frac:.2f}.dat")
             cmd = [
-                "plumed", "sum_hills",
-                "--hills", hills_path,
-                "--outfile", fes_path,
-                "--stride", str(stride),
+                "plumed",
+                "sum_hills",
+                "--hills",
+                hills_path,
+                "--outfile",
+                fes_path,
+                "--stride",
+                str(stride),
                 "--mintozero",
-                "--kt", "2.479"
+                "--kt",
+                "2.479",
             ]
             result = subprocess.run(cmd, capture_output=True, text=True)
             if result.returncode != 0:
@@ -98,11 +103,15 @@ def compute_convergence(hills_path: str, fractions: list[float], bound_cutoff_nm
             # Pick the last one produced (= fullest coverage up to stride*n)
             produced = sorted(
                 [f for f in os.listdir(tmpdir) if f.startswith("fes_") and f.endswith(".dat")],
-                key=lambda x: int(x.replace("fes_", "").replace(".dat", "")) if x.replace("fes_", "").replace(".dat", "").isdigit() else 0,
+                key=lambda x: (
+                    int(x.replace("fes_", "").replace(".dat", ""))
+                    if x.replace("fes_", "").replace(".dat", "").isdigit()
+                    else 0
+                ),
             )
             # The file we requested directly (non-strided run) or the last strided one
-            target = fes_path if os.path.exists(fes_path) else (
-                os.path.join(tmpdir, produced[-1]) if produced else None
+            target = (
+                fes_path if os.path.exists(fes_path) else (os.path.join(tmpdir, produced[-1]) if produced else None)
             )
             if target is None or not os.path.exists(target):
                 continue
@@ -121,14 +130,13 @@ def compute_convergence(hills_path: str, fractions: list[float], bound_cutoff_nm
 # Plotting
 # ---------------------------------------------------------------------------
 
+
 def plot_convergence(conv_df: pd.DataFrame, output_path: str) -> None:
     """Plot ΔF vs fraction of simulation time."""
     fig, ax = plt.subplots(figsize=(6, 4))
 
-    ax.plot(conv_df["fraction"] * 100, conv_df["delta_F_kJmol"],
-            marker="o", linewidth=2, color="steelblue")
-    ax.axhline(conv_df["delta_F_kJmol"].iloc[-1], linestyle="--",
-               color="gray", linewidth=1, label="Final ΔF")
+    ax.plot(conv_df["fraction"] * 100, conv_df["delta_F_kJmol"], marker="o", linewidth=2, color="steelblue")
+    ax.axhline(conv_df["delta_F_kJmol"].iloc[-1], linestyle="--", color="gray", linewidth=1, label="Final ΔF")
 
     ax.set_xlabel("Simulation progress (%)")
     ax.set_ylabel("ΔF (kJ/mol)")
@@ -145,6 +153,7 @@ def plot_convergence(conv_df: pd.DataFrame, output_path: str) -> None:
 # CLI
 # ---------------------------------------------------------------------------
 
+
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description="Assess metadynamics convergence by computing FES at multiple time fractions."
@@ -152,12 +161,16 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--hills", required=True, help="Path to PLUMED HILLS file.")
     parser.add_argument("--convergence", required=True, help="Output PNG path for convergence plot.")
     parser.add_argument(
-        "--fractions", nargs="+", type=float,
+        "--fractions",
+        nargs="+",
+        type=float,
         default=[0.25, 0.50, 0.75, 1.00],
         help="Fractions of simulation to evaluate (default: 0.25 0.50 0.75 1.00).",
     )
     parser.add_argument(
-        "--bound_cutoff_nm", type=float, default=0.5,
+        "--bound_cutoff_nm",
+        type=float,
+        default=0.5,
         help="d1 threshold (nm) separating bound from unbound state (default: 0.5 nm).",
     )
     return parser.parse_args()

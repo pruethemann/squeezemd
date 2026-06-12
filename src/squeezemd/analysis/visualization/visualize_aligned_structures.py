@@ -6,8 +6,11 @@ Run inside PyMOL (batch) to load multiple structures, filter to
 protein + nearby solvent/ions, align to a reference, and save a session.
 """
 
+import argparse
+import os
+
 from pymol import cmd
-import argparse, os
+
 
 def align_structures(input_structures, output, cutoff=3.0):
     """
@@ -18,7 +21,7 @@ def align_structures(input_structures, output, cutoff=3.0):
     objects = []
 
     print(input_structures)
-   
+
     # Load all structures
     for struct_file in input_structures:
         mutation = struct_file.split("/")[-5]
@@ -26,10 +29,10 @@ def align_structures(input_structures, output, cutoff=3.0):
         complex = struct_file.split("/")[-6]
 
         # Import every final structure
-        obj = complex + '_' + '_' + seed + '_' + mutation
+        obj = complex + "_" + "_" + seed + "_" + mutation
         obj = obj + "_" + mutation
-        cmd.load(struct_file, obj) 
-        objects.append(obj)    
+        cmd.load(struct_file, obj)
+        objects.append(obj)
 
         # Define selections for this object
         protein_sel = f"({obj} and polymer.protein)"
@@ -63,12 +66,13 @@ def align_structures(input_structures, output, cutoff=3.0):
     cmd.save(output)
     print("✅ Alignment complete. Saved as alignment.pse")
 
+
 def parse_arguments():
     parser = argparse.ArgumentParser()
     # Input
-    parser.add_argument('--input', nargs='+', required=False)
+    parser.add_argument("--input", nargs="+", required=False)
     # Output
-    parser.add_argument('--output', required=False, default='align.pse', help='')
+    parser.add_argument("--output", required=False, default="align.pse", help="")
     return parser.parse_args()
 
 
@@ -78,8 +82,6 @@ def main():
     align_structures(args.input, args.output)
 
 
-
 print("Hello world")
 args = parse_arguments()
 align_structures(args.input, args.output)
-

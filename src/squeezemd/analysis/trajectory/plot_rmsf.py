@@ -2,10 +2,11 @@
 
 """Plot RMSF distributions from a parquet table."""
 
-import pandas as pd
-import matplotlib.pyplot as plt
-import seaborn as sns
 import argparse
+
+import matplotlib.pyplot as plt
+import pandas as pd
+import seaborn as sns
 
 
 def parse_arguments():
@@ -13,10 +14,10 @@ def parse_arguments():
     parser = argparse.ArgumentParser()
 
     # Input
-    parser.add_argument('--input', required=False)
+    parser.add_argument("--input", required=False)
 
     # Output
-    parser.add_argument('--output', required=False, default='rmsf.svg', help='')
+    parser.add_argument("--output", required=False, default="rmsf.svg", help="")
 
     return parser.parse_args()
 
@@ -27,13 +28,11 @@ def main():
     # Load RMSF data and plot with standard deviation shading
     rmsf_df = pd.read_parquet(args.input)
 
-    sns.lineplot(data=rmsf_df,
-                x='resid',
-                y='rmsf',
-                errorbar='sd')
-    
+    sns.lineplot(data=rmsf_df, x="resid", y="rmsf", errorbar="sd")
+
     plt.savefig(args.output)
     plt.close()
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     main()

@@ -3,12 +3,12 @@
 """Plot ligand–receptor total interaction energy matrix heatmaps for PoSCo output."""
 
 import argparse
-from pathlib import Path
 from os import path
+from pathlib import Path
 
 import pandas as pd
-from matplotlib import pyplot as plt
 import seaborn as sns
+from matplotlib import pyplot as plt
 
 
 def parse_arguments() -> argparse.Namespace:

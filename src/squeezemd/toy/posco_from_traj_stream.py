@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 """Stream PoSCo analysis from trajectory frames using FIFOs."""
+
 import argparse
 import os
 import shutil
@@ -13,14 +14,12 @@ import pandas as pd
 from .transform_contact_data import parse_lines  # adjust import path if needed
 
 
-
 def run_one_frame(extract_bin, posco_bin, topo, traj, frame, sequence_path, complex, mutation, seed):
     """Run PoSCo for a single frame using temporary FIFOs."""
 
     sequence = pd.read_parquet(sequence_path)
     if not sequence.index.is_unique:
-        sequence = sequence[~sequence.index.duplicated(keep='first')]
-
+        sequence = sequence[~sequence.index.duplicated(keep="first")]
 
     tmpdir = tempfile.mkdtemp(prefix="posco_stream_")
     lig_fifo = os.path.join(tmpdir, "lig.pdb")
@@ -41,12 +40,18 @@ def run_one_frame(extract_bin, posco_bin, topo, traj, frame, sequence_path, comp
         extract = subprocess.run(
             [
                 extract_bin,
-                "--topo", topo,
-                "--traj", traj,
-                "--frame", str(frame),
-                "--lig_frame", lig_fifo,
-                "--rec_frame", rec_fifo,
-                "--sequence", sequence_path,
+                "--topo",
+                topo,
+                "--traj",
+                traj,
+                "--frame",
+                str(frame),
+                "--lig_frame",
+                lig_fifo,
+                "--rec_frame",
+                rec_fifo,
+                "--sequence",
+                sequence_path,
             ],
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
@@ -70,6 +75,7 @@ def run_one_frame(extract_bin, posco_bin, topo, traj, frame, sequence_path, comp
 
     finally:
         shutil.rmtree(tmpdir, ignore_errors=True)
+
 
 def parse_arugments():
     """Parse CLI arguments for streaming PoSCo analysis."""

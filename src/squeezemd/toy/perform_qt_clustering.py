@@ -1,13 +1,13 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-'''
+"""
 Quality Threshold Clustering of Molecular Dynamics
 
-Clustering Molecular Dynamics trajectories is a common analysis that allows grouping together similar conformations. 
-Several algorithms have been designed and optimized to perform this routine task and among them, 
-Quality Threshold (QT) stands as a very attractive option. QT guarantees that in retrieved clusters, no pair of frames 
-will have a similarity value greater than a specified threshold and hence a set of strongly correlated frames is 
-obtained for each cluster. For more information about QT, please refer to Heyer et. al. work (Heyer, L. J.; Kruglyak, S.; 
+Clustering Molecular Dynamics trajectories is a common analysis that allows grouping together similar conformations.
+Several algorithms have been designed and optimized to perform this routine task and among them,
+Quality Threshold (QT) stands as a very attractive option. QT guarantees that in retrieved clusters, no pair of frames
+will have a similarity value greater than a specified threshold and hence a set of strongly correlated frames is
+obtained for each cluster. For more information about QT, please refer to Heyer et. al. work (Heyer, L. J.; Kruglyak, S.;
 Yooseph, S. Exploring Expression Data: Identification and Analysis of Coexpressed Genes. 1999, No. 213, 1106–1115. Genome Research).
 
 Code based on: https://github.com/rglez/QT
@@ -17,64 +17,104 @@ Code based on: https://github.com/rglez/QT
 
   | **Author      :** Roy Gonzalez Aleman
   | **Contact     :** [roy_gonzalez@fq.uh.cu, roy.gonzalez.aleman@gmail.com]
-'''
-import sys
+"""
+
 import argparse
+import sys
+
+import mdtraj as md
 import numpy as np
 import numpy.ma as ma
-import mdtraj as md
 
 
 def parse_arguments():
-    '''
+    """
     DESCRIPTION
     Parse all user arguments from the command line.
 
     Return:
         user_inputs (parser.argparse): namespace with user input arguments.
-    '''
+    """
 
     # Initializing argparse ---------------------------------------------------
-    desc = '\nQT: Implementation of the Quality Threshold Clustering algorithm by Heyer et. al.'
-    parser = argparse.ArgumentParser(description=desc,
-                                     add_help=True,
-                                     epilog='As simple as that ;)')
+    desc = "\nQT: Implementation of the Quality Threshold Clustering algorithm by Heyer et. al."
+    parser = argparse.ArgumentParser(description=desc, add_help=True, epilog="As simple as that ;)")
     # Arguments: loading trajectory -------------------------------------------
-    parser.add_argument('-top', dest='topology', action='store',
-                        help='path to topology file (psf/pdb)',
-                        type=str, required=False)
-    parser.add_argument('-traj', dest='trajectory', action='store',
-                        help='path to trajectory file',
-                        type=str)
-    parser.add_argument('-first', dest='first',  action='store',
-                        help='first frame to analyze (starting from 0)',
-                        type=int, required=False, default=0)
-    parser.add_argument('-last', dest='last', action='store',
-                        help='last frame to analyze (starting from 0)',
-                        type=int, required=False, default=-1)
-    parser.add_argument('-stride', dest='stride', action='store',
-                        help='stride of frames to analyze',
-                        type=int, required=False, default=1)
-    parser.add_argument('-sel', dest='selection', action='store',
-                        help='atom selection (MDTraj syntax)',
-                        type=str, required=False, default='all')
+    parser.add_argument(
+        "-top", dest="topology", action="store", help="path to topology file (psf/pdb)", type=str, required=False
+    )
+    parser.add_argument("-traj", dest="trajectory", action="store", help="path to trajectory file", type=str)
+    parser.add_argument(
+        "-first",
+        dest="first",
+        action="store",
+        help="first frame to analyze (starting from 0)",
+        type=int,
+        required=False,
+        default=0,
+    )
+    parser.add_argument(
+        "-last",
+        dest="last",
+        action="store",
+        help="last frame to analyze (starting from 0)",
+        type=int,
+        required=False,
+        default=-1,
+    )
+    parser.add_argument(
+        "-stride",
+        dest="stride",
+        action="store",
+        help="stride of frames to analyze",
+        type=int,
+        required=False,
+        default=1,
+    )
+    parser.add_argument(
+        "-sel",
+        dest="selection",
+        action="store",
+        help="atom selection (MDTraj syntax)",
+        type=str,
+        required=False,
+        default="all",
+    )
     # Arguments: clustering ---------------------------------------------------
-    parser.add_argument('-cutoff', action='store', dest='cutoff',
-                        help='RMSD cutoff for pairwise comparisons in A',
-                        type=float, required=False, default=1.0)
-    parser.add_argument('-minsize', action='store', dest='minsize',
-                        help='minimum number of frames inside returned clusters',
-                        type=int, required=False, default=2)
+    parser.add_argument(
+        "-cutoff",
+        action="store",
+        dest="cutoff",
+        help="RMSD cutoff for pairwise comparisons in A",
+        type=float,
+        required=False,
+        default=1.0,
+    )
+    parser.add_argument(
+        "-minsize",
+        action="store",
+        dest="minsize",
+        help="minimum number of frames inside returned clusters",
+        type=int,
+        required=False,
+        default=2,
+    )
     # Arguments: analysis -----------------------------------------------------
-    parser.add_argument('-odir', action='store', dest='outdir',
-                        help='output directory to store analysis',
-                        type=str, required=False, default='./')
+    parser.add_argument(
+        "-odir",
+        action="store",
+        dest="outdir",
+        help="output directory to store analysis",
+        type=str,
+        required=False,
+        default="./",
+    )
     user_inputs = parser.parse_args()
     return user_inputs
 
 
 def load_trajectory(args):
-    '''
+    """
     DESCRIPTION
     Load trajectory file using MDTraj. If trajectory format is h5/lh5/pdb,
     topology file is not required. Otherwise, a topology file is required.
@@ -83,18 +123,18 @@ def load_trajectory(args):
         args (argparse.Namespace): user input parameters parsed by argparse.
     Return:
         trajectory (mdtraj.Trajectory): trajectory object for further analysis.
-    '''
+    """
     topo = md.load(args.topology).topology
     print(topo)
 
     traj_file = args.trajectory
-    traj_ext = traj_file.split('.')[-1]
+    traj_ext = traj_file.split(".")[-1]
     # Does trajectory file format need topology ? -----------------------------
-    if traj_ext in ['h5', 'lh5', 'pdb']:
+    if traj_ext in ["h5", "lh5", "pdb"]:
         trajectory = md.load(traj_file)
     else:
         print("pdb toplogy")
-        #trajectory = md.load(traj_file, top=args.topology)
+        # trajectory = md.load(traj_file, top=args.topology)
 
         for trajectory in md.iterload(traj_file, top=args.topology, chunk=5000):
             print(trajectory)
@@ -103,33 +143,30 @@ def load_trajectory(args):
     print("sucess")
 
     # Reduce RAM consumption by loading selected atoms only -------------------
-    if args.selection != 'all':
+    if args.selection != "all":
         try:
             sel_indx = trajectory.topology.select(args.selection)
         except ValueError:
-            print('Specified selection is invalid')
+            print("Specified selection is invalid")
             sys.exit()
         if sel_indx.size == 0:
-            print('Specified selection in your system corresponds to no atoms')
+            print("Specified selection in your system corresponds to no atoms")
             sys.exit()
-        trajectory = trajectory.atom_slice(sel_indx)[args.first:args.last:args.stride]
+        trajectory = trajectory.atom_slice(sel_indx)[args.first : args.last : args.stride]
     else:
-        trajectory = trajectory[args.first:args.last:args.stride]
+        trajectory = trajectory[args.first : args.last : args.stride]
 
     # Center coordinates of loaded trajectory ---------------------------------
     trajectory.center_coordinates()
     return trajectory
 
 
-
-
 # ---- Write clustering results to disk ---------------------------------------
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     args = parse_arguments()
 
-# ---- Check that trajectory exists inside inputs -----------------------------
-
+    # ---- Check that trajectory exists inside inputs -----------------------------
 
     # =============================================================================
     # Preprocessing
@@ -137,7 +174,7 @@ if __name__ == '__main__':
 
     # ---- Load trajectory --------------------------------------------------------
     inputs = parse_arguments()
-    sms = '\n\n ATTENTION !!! No trajectory passed.Run with -h for help.'
+    sms = "\n\n ATTENTION !!! No trajectory passed.Run with -h for help."
     assert inputs.trajectory, sms
     print("before loading")
     trajectory = load_trajectory(inputs)
@@ -146,9 +183,9 @@ if __name__ == '__main__':
     # ---- Calculate matrix pairwise distances ------------------------------------
     matrix = np.ndarray((N, N), dtype=np.float16)
     for i in range(N):
-        rmsd_ = md.rmsd(trajectory, trajectory, i, precentered=True)*10
+        rmsd_ = md.rmsd(trajectory, trajectory, i, precentered=True) * 10
         matrix[i] = rmsd_
-    print('>>> Calculation of the RMSD matrix completed <<<')
+    print(">>> Calculation of the RMSD matrix completed <<<")
 
     # ---- Delete unuseful values from matrix (diagonal &  x>threshold) -----------
     matrix[matrix > inputs.cutoff] = np.inf
@@ -199,8 +236,7 @@ if __name__ == '__main__':
         # ---- Store cluster frames -----------------------------------------------
         clusters_arr[max_precluster] = ncluster
         ncluster += 1
-        print('>>> Cluster # {} found with {} frames at center {} <<<'.format(
-            ncluster, len_precluster, max_node))
+        print(">>> Cluster # {} found with {} frames at center {} <<<".format(ncluster, len_precluster, max_node))
 
         # ---- Update matrix & degrees (discard found clusters) -------------------
         matrix[max_precluster, :] = np.inf
@@ -210,17 +246,12 @@ if __name__ == '__main__':
         if (degrees == 0).all():
             break
 
-
-
-
-
     # simple format
-    np.savetxt('QT_Clusters.txt', clusters_arr, fmt='%i')
+    np.savetxt("QT_Clusters.txt", clusters_arr, fmt="%i")
 
     # NMRcluster format. VMD interface
-    with open('QT_Visualization.log', 'wt') as clq:
+    with open("QT_Visualization.log", "wt") as clq:
         for numcluster in np.unique(clusters_arr):
-            clq.write('{}:\n'.format(numcluster))
-            members = ' '.join([str(x + 1)
-                                for x in np.where(clusters_arr == numcluster)[0]])
-            clq.write('Members: ' + members + '\n\n')
+            clq.write("{}:\n".format(numcluster))
+            members = " ".join([str(x + 1) for x in np.where(clusters_arr == numcluster)[0]])
+            clq.write("Members: " + members + "\n\n")

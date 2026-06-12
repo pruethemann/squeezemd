@@ -1,5 +1,5 @@
 """Top-level package metadata for squeezeMD."""
 
 __author__ = """Rüthemann Peter"""
-__email__ = 'peter.ruethemann@gmail.com'
-__version__ = '0.1.0'
+__email__ = "peter.ruethemann@gmail.com"
+__version__ = "0.1.0"

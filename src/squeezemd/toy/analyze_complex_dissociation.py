@@ -1,14 +1,17 @@
 #!/usr/bin/env python
 
 """Toy analysis for complex dissociation (RMSD and distances)."""
+
+import argparse
+from glob import glob
+
+import matplotlib.pyplot as plt
+import MDAnalysis as mda
+import numpy as np
 import pandas as pd
 import seaborn as sns
-import matplotlib.pyplot as plt
-from glob import glob
-import argparse
 from MDAnalysis.analysis import distances
-import numpy as np
-import MDAnalysis as mda
+
 
 def rmsd_analysis(args):
     """Aggregate RMSD files and plot time series by receptor."""
@@ -22,38 +25,34 @@ def rmsd_analysis(args):
     for rmsd in rmsd_files:
         print(rmsd)
 
-        seed = rmsd.split('/')[-3]
-        target = rmsd.split('/')[-4]
+        seed = rmsd.split("/")[-3]
+        target = rmsd.split("/")[-4]
 
         rmsd_df = pd.read_csv(rmsd)
 
-        rmsd_df['rec'] = target
-        rmsd_df['seed'] = seed
+        rmsd_df["rec"] = target
+        rmsd_df["seed"] = seed
 
         data.append(rmsd_df)
 
     data = pd.concat(data)
 
-    del data['Unnamed: 0']
+    del data["Unnamed: 0"]
 
-    data['Frame'] = data['Frame'].astype(int)
+    data["Frame"] = data["Frame"].astype(int)
 
     print(data.info())
 
     # Consider only every 25th frame
-    data = data[data.Frame %25  == 0]
+    data = data[data.Frame % 25 == 0]
 
     data.reset_index(inplace=True)
 
-    sns.lineplot(data=data,
-                 x="Time (ns)",
-                 y="BD001",
-                 hue="rec")
+    sns.lineplot(data=data, x="Time (ns)", y="BD001", hue="rec")
 
     data.to_csv(args.rmsd)
     plt.savefig(args.rmsd_png)
     plt.show()
-
 
 
 def get_distances(u, group_a, group_b):
@@ -61,12 +60,14 @@ def get_distances(u, group_a, group_b):
     timeseries = []
     for ts in u.trajectory[::2]:
         # calculate distances between group_a and group_b
-        distance = distances.distance_array(group_a,group_b, box=u.dimensions)
+        distance = distances.distance_array(group_a, group_b, box=u.dimensions)
 
         timeseries.append([ts.frame, distance[0][0]])
     return np.array(timeseries)
 
+
 # 20 ns simulations
+
 
 def calculate_distances(args):
     """Compute selected distances across centered trajectories."""
@@ -77,7 +78,6 @@ def calculate_distances(args):
     dataset = []
 
     for topo, traj in zip(topos, trajs):
-
         print(topo, traj)
 
         seed = topo.split("/")[-4]
@@ -114,25 +114,23 @@ def calculate_distances(args):
         trp_grp = u.select_atoms(trp)
         enzyme_grp = u.select_atoms(enzyme)
 
-
         dists_N = get_distances(u, trp_grp, enzyme_grp)
-        dists_N = pd.DataFrame(dists_N, columns=['time', 'distance'])
+        dists_N = pd.DataFrame(dists_N, columns=["time", "distance"])
 
-        dists_N['sim'] = sim
-        dists_N['seed'] = seed
-        dists_N['dist'] = "N"
-
+        dists_N["sim"] = sim
+        dists_N["seed"] = seed
+        dists_N["dist"] = "N"
 
         # core distances
         group1 = u.select_atoms(trp_grp)
         group2 = u.select_atoms(enzyme_grp)
 
         dists_core = get_distances(u, group1, group2)
-        dists_core = pd.DataFrame(dists_core, columns=['time', 'distance'])
+        dists_core = pd.DataFrame(dists_core, columns=["time", "distance"])
 
-        dists_core['sim'] = sim
-        dists_core['seed'] = seed
-        dists_core['dist'] = "core"
+        dists_core["sim"] = sim
+        dists_core["seed"] = seed
+        dists_core["dist"] = "core"
 
         dists = pd.concat([dists_core, dists_N])
         dataset.append(dists)
@@ -144,18 +142,17 @@ def calculate_distances(args):
     dataset.to_csv(args.distances)
 
 
-if __name__ == '__main__':
-
+if __name__ == "__main__":
     # Parse Arguments
     parser = argparse.ArgumentParser()
 
     # Output
-    parser.add_argument('--rmsd', required=False, default='rmsd.csv')
-    parser.add_argument('--rmsd_png', required=False, default='rsmd.png')
-    parser.add_argument('--distances', required=False, default='distances.png')
+    parser.add_argument("--rmsd", required=False, default="rmsd.csv")
+    parser.add_argument("--rmsd_png", required=False, default="rsmd.png")
+    parser.add_argument("--distances", required=False, default="distances.png")
 
     args = parser.parse_args()
 
     calculate_distances(args)
 
-    #rmsd_analysis(args)
+    # rmsd_analysis(args)

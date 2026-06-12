@@ -7,9 +7,10 @@ YAML handling, command execution, and residue/chain remapping helpers
 for MDAnalysis/OpenMM interoperability.
 """
 
-import subprocess
 import os
+import subprocess
 from importlib.resources import files
+
 import MDAnalysis as mda
 import pandas as pd
 import yaml
@@ -19,49 +20,47 @@ def update_md_overview(config):
     exp = {}
 
     # Find a solution for that. Save it in conda env?
-    md_overview = pd.read_parquet('/home/peter/caracara/Squeeze/md_overview.parquet')
+    md_overview = pd.read_parquet("/home/peter/caracara/Squeeze/md_overview.parquet")
 
-    exp['ID'] = config['ID']
-    exp['Time'] = config['simulation']['time_ns']
-    exp['Replicates'] = config['simulation']['replicates']
+    exp["ID"] = config["ID"]
+    exp["Time"] = config["simulation"]["time_ns"]
+    exp["Replicates"] = config["simulation"]["replicates"]
 
-    exp['Receptor'] = ','.join(config['receptors'].keys())
-    exp['Ligands'] = ','.join(config['ligands'])
+    exp["Receptor"] = ",".join(config["receptors"].keys())
+    exp["Ligands"] = ",".join(config["ligands"])
 
+    exp["Mode"] = config["mode"]
+    exp["Name"] = config["name"]
 
-    exp['Mode'] = config['mode']
-    exp['Name'] = config['name']
-
-
-    exp_id = exp.pop('ID')
-    exp_df = pd.DataFrame([exp], index=pd.Index([exp_id], name='ID'))
+    exp_id = exp.pop("ID")
+    exp_df = pd.DataFrame([exp], index=pd.Index([exp_id], name="ID"))
 
     if exp_id in md_overview.index:
         md_overview.loc[exp_id] = exp_df.loc[exp_id]
     else:
         md_overview = pd.concat([md_overview, exp_df])
 
-    md_overview.to_parquet('/home/peter/caracara/Squeeze/md_overview.parquet')
+    md_overview.to_parquet("/home/peter/caracara/Squeeze/md_overview.parquet")
 
     print(md_overview)
 
 
 def setup_testrun(config):
-    if 'debug' in config and config['debug']:
+    if "debug" in config and config["debug"]:
         print("ATTENTION: This is a testrun")
         test_md_config = files("squeezemd").joinpath("resources", "md_test_config.yaml")
         md_test = import_yaml(test_md_config)
         config = config_deep_update(config, md_test)
 
         # Clear all ligand entries for the test run
-        config['ligands'] = config['ligands'][0:3]
+        config["ligands"] = config["ligands"][0:3]
 
-        save_yaml(config, 'config/md_test_config.yaml')
+        save_yaml(config, "config/md_test_config.yaml")
 
-        return ('config/md_test_config.yaml', config)
+        return ("config/md_test_config.yaml", config)
 
     print("Production run")
-    return ('config/md_config.yaml', config)
+    return ("config/md_config.yaml", config)
 
 
 def config_deep_update(base: dict, override: dict) -> dict:
@@ -75,15 +74,12 @@ def config_deep_update(base: dict, override: dict) -> dict:
         New values to merge into ``base``.
     """
     for key, value in override.items():
-        if (
-            key in base
-            and isinstance(base[key], dict)
-            and isinstance(value, dict)
-        ):
+        if key in base and isinstance(base[key], dict) and isinstance(value, dict):
             config_deep_update(base[key], value)
         else:
             base[key] = value
     return base
+
 
 def save_file(content, output_file):
     """
@@ -93,8 +89,9 @@ def save_file(content, output_file):
     :return:
     """
 
-    with open(output_file, 'w') as file:
+    with open(output_file, "w") as file:
         file.write(content)
+
 
 def execute(command):
     """
@@ -106,6 +103,7 @@ def execute(command):
     output_text = subprocess.check_output(command, shell=True)
     return output_text
 
+
 def import_yaml(yaml_path: os.path):
     """
     Opens yaml file containing hyper parameters.
@@ -114,7 +112,7 @@ def import_yaml(yaml_path: os.path):
     :return: dictionary with parameters
     """
     try:
-        with open(yaml_path, 'r') as stream:
+        with open(yaml_path, "r") as stream:
             return yaml.safe_load(stream)
     except yaml.YAMLError as exc:
         print(exc)
@@ -127,7 +125,7 @@ def extract_ligand_sequence(pdb_ligand: os.path):
     compatibility with sequence extraction.
     """
 
-     # Import pdb file with MDAnalysis
+    # Import pdb file with MDAnalysis
     u = mda.Universe(pdb_ligand)
 
     # --- Normalize CYX → CYS ---
@@ -136,12 +134,13 @@ def extract_ligand_sequence(pdb_ligand: os.path):
             res.resname = "CYS"
 
     # Extract ligand at chain A
-    ligand = u.select_atoms('chainID A')
+    ligand = u.select_atoms("chainID A")
 
     # Return sequence
     sequence = ligand.residues.sequence().seq
-    
+
     return str(sequence)
+
 
 def save_yaml(d, filepath):
     """
@@ -151,7 +150,8 @@ def save_yaml(d, filepath):
     :return:
     """
     import yaml
-    with open(filepath, 'w') as file:
+
+    with open(filepath, "w") as file:
         documents = yaml.dump(d, file)
 
 
@@ -164,18 +164,19 @@ def chain2resid(file_csv):
     """
     # Find start and end of chain A
 
-    renum = pd.read_csv(file_csv,
-                        delim_whitespace=True,
-                        names=['resname', 'chainID', 'resid', 'resname amber', 'resid amber'])
+    renum = pd.read_csv(
+        file_csv, delim_whitespace=True, names=["resname", "chainID", "resid", "resname amber", "resid amber"]
+    )
 
-    del renum['resname']
-    del renum['resname amber']
+    del renum["resname"]
+    del renum["resname amber"]
 
-    chain_min = renum.groupby('chainID').min().rename(columns={'resid amber': 'amber_start', 'resid': 'start'})
-    chain_max = renum.groupby('chainID').max().rename(columns={'resid amber': 'amber_end', 'resid': 'end'})
+    chain_min = renum.groupby("chainID").min().rename(columns={"resid amber": "amber_start", "resid": "start"})
+    chain_max = renum.groupby("chainID").max().rename(columns={"resid amber": "amber_end", "resid": "end"})
 
     chains = pd.concat([chain_min, chain_max], axis=1)
     return chains
+
 
 def is_numeric(character):
     """
@@ -187,6 +188,7 @@ def is_numeric(character):
     if len(character) != 1:
         raise ValueError("Input must be a single character.")
     return character.isdigit()
+
 
 def remap_MDAnalysis_V1(u: mda.Universe, topo):
     """
@@ -204,16 +206,20 @@ def remap_MDAnalysis_V1(u: mda.Universe, topo):
 
     # Currently resets the segment ID to the original chainID
     for chain_cont, chainID in zip(u.segments, topo.topology.chains()):
-        if chainID.id == '1': continue
-        if chainID.id == '2': continue
-        if chainID.id == '3': continue
-        if chainID.id == '4': continue
-        if chainID.id == '5': continue
+        if chainID.id == "1":
+            continue
+        if chainID.id == "2":
+            continue
+        if chainID.id == "3":
+            continue
+        if chainID.id == "4":
+            continue
+        if chainID.id == "5":
+            continue
         selected_segid = u.select_atoms(f"segid {chain_cont.segid}")
         selected_segid.segments.segids = chainID.id
 
     for res_cont, resid in zip(u.residues, topo.topology.residues()):
-
         if is_numeric(resid.chain.id):
             continue
         resid_sele = u.select_atoms(f"resid {int(res_cont.resid)}")
@@ -221,7 +227,9 @@ def remap_MDAnalysis_V1(u: mda.Universe, topo):
 
     return u
 
+
 import openmm.app as app
+
 
 def remap_MDAnalysis(u: mda.Universe, topo: app.PDBxFile):
     """
@@ -276,7 +284,6 @@ def remap_amber(mapping_file, u):
 
     # 2. Renumber resids
     for chainID, r in chains.iterrows():
-
         # Assign chain ID to amber resid numbering
         chain = u.select_atoms(f"chainID {chainID}")
 

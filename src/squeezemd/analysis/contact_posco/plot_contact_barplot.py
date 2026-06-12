@@ -3,13 +3,13 @@
 """Plot PoSCo interaction energy barplots by residue."""
 
 import argparse
+from os import path
 from pathlib import Path
+
 import pandas as pd
+import seaborn as sns
 from matplotlib import pyplot as plt
 from matplotlib.ticker import MaxNLocator
-from os import path
-import seaborn as sns
-
 
 INTERACTION_TYPES = ["total", "H-bond", "lipophilic", "Salt bridge"]
 INTERACTION_STYLES = {
@@ -22,7 +22,13 @@ INTERACTION_STYLES = {
 
 def parse_arguments() -> argparse.Namespace:
     parser = argparse.ArgumentParser()
-    parser.add_argument("-i","--input",required=False,help="Define interaction input file, .parquet or .csv",default="results/posco/posco_interactions.parquet",)
+    parser.add_argument(
+        "-i",
+        "--input",
+        required=False,
+        help="Define interaction input file, .parquet or .csv",
+        default="results/posco/posco_interactions.parquet",
+    )
     return parser.parse_args()
 
 
@@ -53,13 +59,24 @@ def aggregate_partner_energy(df: pd.DataFrame, interaction_partner: str, interac
 
     frame_count = max(filtered["frame"].nunique(), 1)
     # Note: don't group by mean beacuse we want to sum energies across residues for each seed before averaging across seeds, to avoid underestimating the energy of residues that have multiple interactions. This is a manual implementation of a groupby with nested aggregation to achieve this.
-    per_seed = (filtered.groupby([resid_col, "seed"], as_index=False)["Energy (e)"].sum().assign(seed_energy=lambda x: x["Energy (e)"] / frame_count))
+    per_seed = (
+        filtered.groupby([resid_col, "seed"], as_index=False)["Energy (e)"]
+        .sum()
+        .assign(seed_energy=lambda x: x["Energy (e)"] / frame_count)
+    )
     # Now we can group by residue to get the mean and standard deviation across seeds / replicates
-    out = (per_seed.groupby(resid_col, as_index=False)["seed_energy"].agg(mean="mean", sd="std").fillna({"sd": 0.0}).sort_values(resid_col))
+    out = (
+        per_seed.groupby(resid_col, as_index=False)["seed_energy"]
+        .agg(mean="mean", sd="std")
+        .fillna({"sd": 0.0})
+        .sort_values(resid_col)
+    )
     return out
 
 
-def plot_partner(df: pd.DataFrame, interaction_partner: str, complex_name: str, mutation: str, output_file: Path) -> None:
+def plot_partner(
+    df: pd.DataFrame, interaction_partner: str, complex_name: str, mutation: str, output_file: Path
+) -> None:
     resid_col = f"{interaction_partner}_resid"
     sns.set_theme(style="whitegrid", context="talk")
     fig, axes = plt.subplots(4, 1, figsize=(16, 18), sharex=True)
@@ -103,7 +120,7 @@ def plot_partner(df: pd.DataFrame, interaction_partner: str, complex_name: str, 
         axis.set_title(f"{label} | {complex_name} | {mutation}", fontsize=14, pad=12, weight="bold")
 
     fig.tight_layout(pad=1.2)
-    #output_file.parent.mkdir(parents=True, exist_ok=True)
+    # output_file.parent.mkdir(parents=True, exist_ok=True)
     fig.savefig(output_file, dpi=300, bbox_inches="tight")
     plt.close(fig)
 
@@ -114,8 +131,8 @@ def main() -> None:
 
     # Loop through each complex/mutation group and generate plots for ligand and receptor interactions
     for (complex_name, mutation), group_df in df.groupby(["name", "mutation"], dropna=False):
-        lig_output = path.join('results', 'posco', f'lig_barplot_{complex_name}_{mutation}.svg')
-        rec_output = path.join('results', 'posco', f'rec_barplot_{complex_name}_{mutation}.svg')
+        lig_output = path.join("results", "posco", f"lig_barplot_{complex_name}_{mutation}.svg")
+        rec_output = path.join("results", "posco", f"rec_barplot_{complex_name}_{mutation}.svg")
         plot_partner(group_df, "ligand", str(complex_name), str(mutation), lig_output)
         plot_partner(group_df, "receptor", str(complex_name), str(mutation), rec_output)
 

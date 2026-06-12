@@ -4,6 +4,7 @@ This module currently provides a minimal CLI stub. It is kept for
 packaging and to reserve the top-level entrypoint while the full
 command interface is implemented elsewhere (e.g., Snakemake wrapper).
 """
+
 import argparse
 import sys
 
@@ -17,12 +18,11 @@ def main():
     exists to keep the CLI entrypoint stable during development.
     """
     parser = argparse.ArgumentParser()
-    parser.add_argument('_', nargs='*')
+    parser.add_argument("_", nargs="*")
     args = parser.parse_args()
 
     print("Arguments: " + str(args._))
-    print("Replace this message by putting your code into "
-          "squeezemd.cli.main")
+    print("Replace this message by putting your code into squeezemd.cli.main")
     return 0
 
 

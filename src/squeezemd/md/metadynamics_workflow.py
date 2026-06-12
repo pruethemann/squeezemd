@@ -32,8 +32,7 @@ import os
 import sys
 
 import numpy as np
-from openmm import CustomCentroidBondForce, Platform, XmlSerializer, unit
-
+from openmm import CustomCentroidBondForce, LangevinMiddleIntegrator, Platform, XmlSerializer, unit
 from openmm.app import (
     DCDReporter,
     ForceField,
@@ -41,7 +40,6 @@ from openmm.app import (
     Simulation,
     StateDataReporter,
 )
-from openmm import LangevinMiddleIntegrator
 
 
 def _import_metadynamics_module(source_dir: str):
@@ -89,9 +87,7 @@ def _load_system(args, pdb):
 
 
 def build_parser():
-    parser = argparse.ArgumentParser(
-        description="Simple metadynamics workflow for a protein-ligand complex."
-    )
+    parser = argparse.ArgumentParser(description="Simple metadynamics workflow for a protein-ligand complex.")
     parser.add_argument(
         "--pdb",
         default="structure_equilibrated.pdb",
@@ -193,9 +189,12 @@ def main():
 
     distance_cv = biasvar_cls(
         cv_force,
-        0.0 * unit.nanometer, # args.cv_min *  the lower bound of the CV range, in nm. In your script it defaults to 0.0, so the bias starts at zero separation.
-        3.0 * unit.nanometer, # args.cv_max the upper bound of the CV range, in nm. It defaults to 3.0, so the bias is tabulated up to 3 nm.
-        0.02 * unit.nanometer, # args.cv_widththe Gaussian width used when adding metadynamics hills, in nm. It defaults to 0.02, so each deposited hill is fairly narrow.
+        0.0
+        * unit.nanometer,  # args.cv_min *  the lower bound of the CV range, in nm. In your script it defaults to 0.0, so the bias starts at zero separation.
+        3.0
+        * unit.nanometer,  # args.cv_max the upper bound of the CV range, in nm. It defaults to 3.0, so the bias is tabulated up to 3 nm.
+        0.02
+        * unit.nanometer,  # args.cv_widththe Gaussian width used when adding metadynamics hills, in nm. It defaults to 0.02, so each deposited hill is fairly narrow.
         periodic=False,
         gridWidth=args.cv_grid,
     )
@@ -222,9 +221,7 @@ def main():
         biasDir=bias_dir,
     )
 
-    simulation.reporters.append(
-        DCDReporter(os.path.join(args.output_dir, "trajectory.dcd"), 5000)
-    )
+    simulation.reporters.append(DCDReporter(os.path.join(args.output_dir, "trajectory.dcd"), 5000))
     simulation.reporters.append(
         StateDataReporter(
             os.path.join(args.output_dir, "state.log"),

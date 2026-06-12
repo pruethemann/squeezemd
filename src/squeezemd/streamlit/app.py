@@ -8,11 +8,11 @@ validation via Pydantic models.
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Dict, Any, Optional, List
+from typing import Any, Dict, List, Optional
 
+import pandas as pd
 import streamlit as st
 import yaml
-import pandas as pd
 from pydantic import BaseModel, Field, ValidationError, model_validator
 
 
@@ -92,6 +92,7 @@ class MetadynamicsConfig(BaseModel):
 
 from pydantic import model_validator
 
+
 class SimulationConfig(BaseModel):
     replicates: int = Field(default=2, ge=1, le=100)
     time_ns: float = Field(default=3.0, gt=0.0, le=50000.0)
@@ -115,9 +116,7 @@ class SimulationConfig(BaseModel):
 
             # sanity check on number_frames (disk)
             if self.number_frames > 5_000_000:
-                raise ValueError(
-                    f"Too many frames ({self.number_frames:,}). Reduce number_frames."
-                )
+                raise ValueError(f"Too many frames ({self.number_frames:,}). Reduce number_frames.")
 
             # sanity check on effective interval (performance)
             if effective_interval_ps < 0.1:
@@ -130,8 +129,7 @@ class SimulationConfig(BaseModel):
             n_frames_est = total_ps / self.recording_interval_ps
             if n_frames_est > 5_000_000:
                 raise ValueError(
-                    f"Too many frames (~{int(n_frames_est):,}). "
-                    "Increase recording_interval_ps or reduce time_ns."
+                    f"Too many frames (~{int(n_frames_est):,}). Increase recording_interval_ps or reduce time_ns."
                 )
 
         return self
@@ -192,7 +190,7 @@ def init_defaults():
     # Minimal defaults aligned to your uploaded examples
     return (
         {"simulation": SimulationConfig().model_dump()},  # md
-        {"mutations": ["WT"], "complexes": {}},           # sim
+        {"mutations": ["WT"], "complexes": {}},  # sim
     )
 
 
@@ -264,33 +262,54 @@ with tab_md:
 
     # Simulation basics
     c0, c1, c2, c3, c4 = st.columns(5)
-    #sim["mode"] = int(c0.number_input("test", min_value=1, max_value=100, value=int(sim.get("test", 2))))
-    sim["replicates"] = int(c1.number_input("replicates", min_value=1, max_value=100, value=int(sim.get("replicates", 2))))
+    # sim["mode"] = int(c0.number_input("test", min_value=1, max_value=100, value=int(sim.get("test", 2))))
+    sim["replicates"] = int(
+        c1.number_input("replicates", min_value=1, max_value=100, value=int(sim.get("replicates", 2)))
+    )
     sim["time_ns"] = float(c2.number_input("time_ns", min_value=0.0001, value=float(sim.get("time_ns", 3.0))))
-    sim["recording_interval_ps"] = float(c3.number_input("recording_interval_ps", min_value=0.001, value=float(sim.get("recording_interval_ps", 1.0))))
+    sim["recording_interval_ps"] = float(
+        c3.number_input("recording_interval_ps", min_value=0.001, value=float(sim.get("recording_interval_ps", 1.0)))
+    )
     sim["seed"] = int(c4.number_input("seed", min_value=0, value=int(sim.get("seed", 2025))))
 
     sim["mode"] = c0.selectbox(
-    "Mode",
-    options=["single_protein", "protein_small_molecule", "protein_protein"],
-    index=["single_protein", "protein_small_molecule", "protein_protein"].index(sim.get("mode", "protein_small_molecule")),
-)
-
+        "Mode",
+        options=["single_protein", "protein_small_molecule", "protein_protein"],
+        index=["single_protein", "protein_small_molecule", "protein_protein"].index(
+            sim.get("mode", "protein_small_molecule")
+        ),
+    )
 
     # Constraints (dt_fs needed for conversions)
     st.markdown("### constraints")
     constraints = sim.get("constraints", {}) if isinstance(sim.get("constraints", {}), dict) else {}
     cc1, cc2, cc3 = st.columns(3)
     constraints["dt_fs"] = float(cc1.number_input("dt_fs", min_value=0.1, value=float(constraints.get("dt_fs", 2.0))))
-    constraints["bonds"] = cc2.selectbox("bonds", options=["None", "HBonds", "AllBonds"], index=["None", "HBonds", "AllBonds"].index(constraints.get("bonds", "HBonds")))
+    constraints["bonds"] = cc2.selectbox(
+        "bonds",
+        options=["None", "HBonds", "AllBonds"],
+        index=["None", "HBonds", "AllBonds"].index(constraints.get("bonds", "HBonds")),
+    )
     constraints["rigid_water"] = cc3.checkbox("rigid_water", value=bool(constraints.get("rigid_water", True)))
 
     cc4, cc5, cc6 = st.columns(3)
-    constraints["cutoff_nm"] = float(cc4.number_input("cutoff_nm", min_value=0.1, value=float(constraints.get("cutoff_nm", 1.0))))
-    constraints["ewald_error_tolerance"] = float(cc5.number_input("ewald_error_tolerance", min_value=1e-8, value=float(constraints.get("ewald_error_tolerance", 0.0005))))
-    constraints["constraint_tolerance"] = float(cc6.number_input("constraint_tolerance", min_value=1e-8, value=float(constraints.get("constraint_tolerance", 0.0001))))
+    constraints["cutoff_nm"] = float(
+        cc4.number_input("cutoff_nm", min_value=0.1, value=float(constraints.get("cutoff_nm", 1.0)))
+    )
+    constraints["ewald_error_tolerance"] = float(
+        cc5.number_input(
+            "ewald_error_tolerance", min_value=1e-8, value=float(constraints.get("ewald_error_tolerance", 0.0005))
+        )
+    )
+    constraints["constraint_tolerance"] = float(
+        cc6.number_input(
+            "constraint_tolerance", min_value=1e-8, value=float(constraints.get("constraint_tolerance", 0.0001))
+        )
+    )
 
-    constraints["friction_ps"] = float(st.number_input("friction_ps", min_value=1e-6, value=float(constraints.get("friction_ps", 1.0))))
+    constraints["friction_ps"] = float(
+        st.number_input("friction_ps", min_value=1e-6, value=float(constraints.get("friction_ps", 1.0)))
+    )
     sim["constraints"] = constraints
 
     dt_fs = float(constraints["dt_fs"])
@@ -299,7 +318,9 @@ with tab_md:
     st.markdown("### equilibration")
     eq = sim.get("equilibration", {}) if isinstance(sim.get("equilibration", {}), dict) else {}
 
-    eq["protein_k"] = float(st.number_input("protein_k (harmonic)", min_value=0.0, value=float(eq.get("protein_k", 10.0))))
+    eq["protein_k"] = float(
+        st.number_input("protein_k (harmonic)", min_value=0.0, value=float(eq.get("protein_k", 10.0)))
+    )
 
     entry_mode = st.radio(
         "Equilibration input mode",
@@ -346,19 +367,31 @@ with tab_md:
     sysc = sim.get("system", {}) if isinstance(sim.get("system", {}), dict) else {}
     s1, s2, s3, s4 = st.columns(4)
     sysc["salt_molar"] = float(s1.number_input("salt_molar", min_value=0.0, value=float(sysc.get("salt_molar", 0.0))))
-    sysc["temperature_K"] = float(s2.number_input("temperature_K", min_value=1.0, value=float(sysc.get("temperature_K", 300.0))))
-    sysc["pressure_atm"] = float(s3.number_input("pressure_atm", min_value=0.1, value=float(sysc.get("pressure_atm", 1.0))))
-    sysc["barostat_interval_steps"] = int(s4.number_input("barostat_interval_steps", min_value=1, value=int(sysc.get("barostat_interval_steps", 25))))
+    sysc["temperature_K"] = float(
+        s2.number_input("temperature_K", min_value=1.0, value=float(sysc.get("temperature_K", 300.0)))
+    )
+    sysc["pressure_atm"] = float(
+        s3.number_input("pressure_atm", min_value=0.1, value=float(sysc.get("pressure_atm", 1.0)))
+    )
+    sysc["barostat_interval_steps"] = int(
+        s4.number_input("barostat_interval_steps", min_value=1, value=int(sysc.get("barostat_interval_steps", 25)))
+    )
     sim["system"] = sysc
 
     # Flexible binding pocket (simple editor)
     st.markdown("### flexible_binding_pocket")
     fbp = sim.get("flexible_binding_pocket", {}) if isinstance(sim.get("flexible_binding_pocket", {}), dict) else {}
-    fbp["protein_k"] = float(st.number_input("flexible_binding_pocket.protein_k", min_value=0.0, value=float(fbp.get("protein_k", 5000.0))))
+    fbp["protein_k"] = float(
+        st.number_input("flexible_binding_pocket.protein_k", min_value=0.0, value=float(fbp.get("protein_k", 5000.0)))
+    )
 
     # flexible_resids: show as table (resid:int, aa:str)
     flex = fbp.get("flexible_resids", {}) if isinstance(fbp.get("flexible_resids", {}), dict) else {}
-    flex_df = pd.DataFrame([{"resid": int(k), "aa": str(v)} for k, v in flex.items()]).sort_values("resid") if flex else pd.DataFrame(columns=["resid", "aa"])
+    flex_df = (
+        pd.DataFrame([{"resid": int(k), "aa": str(v)} for k, v in flex.items()]).sort_values("resid")
+        if flex
+        else pd.DataFrame(columns=["resid", "aa"])
+    )
     flex_df = st.data_editor(
         flex_df,
         num_rows="dynamic",
@@ -498,7 +531,9 @@ with tab_export:
     with cA:
         st.markdown("### md_config.yaml")
         st.code(md_yaml, language="yaml")
-        st.download_button("Download md_config.yaml", data=md_yaml.encode("utf-8"), file_name="md_config.yaml", mime="text/yaml")
+        st.download_button(
+            "Download md_config.yaml", data=md_yaml.encode("utf-8"), file_name="md_config.yaml", mime="text/yaml"
+        )
 
         md_save_path = st.text_input("Save md_config.yaml to path", value=md_default_path, key="md_save_path")
         if st.button("Save md_config.yaml to path"):
@@ -512,7 +547,9 @@ with tab_export:
     with cB:
         st.markdown("### sim_config.yaml")
         st.code(sim_yaml, language="yaml")
-        st.download_button("Download sim_config.yaml", data=sim_yaml.encode("utf-8"), file_name="sim_config.yaml", mime="text/yaml")
+        st.download_button(
+            "Download sim_config.yaml", data=sim_yaml.encode("utf-8"), file_name="sim_config.yaml", mime="text/yaml"
+        )
 
         sim_save_path = st.text_input("Save sim_config.yaml to path", value=sim_default_path, key="sim_save_path")
         if st.button("Save sim_config.yaml to path"):

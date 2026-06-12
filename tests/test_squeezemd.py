@@ -4,7 +4,6 @@
 
 import pytest
 
-
 from squeezemd import squeezemd
 
 

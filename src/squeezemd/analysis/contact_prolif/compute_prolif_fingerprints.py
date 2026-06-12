@@ -4,12 +4,23 @@
 
 import argparse
 import os
-import prolif as plf
+
 import MDAnalysis as mda
 import openmm.app as app
+import prolif as plf
 from Helper import remap_MDAnalysis
 
-def create_interaction_fingerprint(topology_file, trajectory_file, output_file, n_frames=100, threads=4, complex_name='Target_Ligand', mutation='Wildtype', seed=-1):
+
+def create_interaction_fingerprint(
+    topology_file,
+    trajectory_file,
+    output_file,
+    n_frames=100,
+    threads=4,
+    complex_name="Target_Ligand",
+    mutation="Wildtype",
+    seed=-1,
+):
     """
     Generates and exports interaction fingerprints for a given molecular dynamics simulation.
 
@@ -40,46 +51,62 @@ def create_interaction_fingerprint(topology_file, trajectory_file, output_file, 
     protein = universe.select_atoms("not segid A and protein")
 
     # Initialize interaction fingerprint analysis
-    fingerprint = plf.Fingerprint(["Hydrophobic", "HBDonor", "HBAcceptor", "PiStacking", "PiCation", "CationPi", "Anionic", "Cationic"], count=True)
+    fingerprint = plf.Fingerprint(
+        ["Hydrophobic", "HBDonor", "HBAcceptor", "PiStacking", "PiCation", "CationPi", "Anionic", "Cationic"],
+        count=True,
+    )
     fingerprint.run(universe.trajectory[-n_frames:], ligand, protein, n_jobs=threads)
 
     # Extract number of residues in ligand
-    n_residues_ligand = len( str(ligand.residues.sequence().seq))
+    n_residues_ligand = len(str(ligand.residues.sequence().seq))
 
     # Exporting results
     interactions_df = fingerprint.to_dataframe()
     interactions_df.attrs = {
-        'description': 'Fingerprint metadata',
-        'complex': complex_name,
-        'mutation': mutation,
-        'target': complex_name.split('_')[0],
-        'ligand': complex_name.split('_')[1],
-        'seed': seed,
-        'n_residues_ligand': n_residues_ligand
+        "description": "Fingerprint metadata",
+        "complex": complex_name,
+        "mutation": mutation,
+        "target": complex_name.split("_")[0],
+        "ligand": complex_name.split("_")[1],
+        "seed": seed,
+        "n_residues_ligand": n_residues_ligand,
     }
 
     interactions_df.to_parquet(output_file)
-    interactions_df.to_csv(output_file.replace('.parquet', '.csv'))
+    interactions_df.to_csv(output_file.replace(".parquet", ".csv"))
+
 
 def parse_arguments():
     """Parse CLI arguments for fingerprint calculation."""
-    parser = argparse.ArgumentParser(description="Generate interaction fingerprints from molecular dynamics simulations.")
+    parser = argparse.ArgumentParser(
+        description="Generate interaction fingerprints from molecular dynamics simulations."
+    )
     # Inputs
-    parser.add_argument('--topo', required=True, help='Topology file in CIF format')
-    parser.add_argument('--traj', required=True, help='Trajectory file')
+    parser.add_argument("--topo", required=True, help="Topology file in CIF format")
+    parser.add_argument("--traj", required=True, help="Trajectory file")
     # Parameters
-    parser.add_argument('--n_frames', type=int, default=100, help='Number of frames to analyze from the end. Default: 100')
-    parser.add_argument('--threads', type=int, default=4, help='Number of threads for analysis. Default: 4')
-    parser.add_argument('--complex', default='Target_Ligand', help='Name of target and ligand as Target_Ligand. Default: "Target_Ligand"')
-    parser.add_argument('--mutation', default='Wildtype', help='Mutation in ligand. Default: "Wildtype"')
-    parser.add_argument('--seed', type=int, default=-1, help='Seed used during simulation. Default: -1')
+    parser.add_argument(
+        "--n_frames", type=int, default=100, help="Number of frames to analyze from the end. Default: 100"
+    )
+    parser.add_argument("--threads", type=int, default=4, help="Number of threads for analysis. Default: 4")
+    parser.add_argument(
+        "--complex",
+        default="Target_Ligand",
+        help='Name of target and ligand as Target_Ligand. Default: "Target_Ligand"',
+    )
+    parser.add_argument("--mutation", default="Wildtype", help='Mutation in ligand. Default: "Wildtype"')
+    parser.add_argument("--seed", type=int, default=-1, help="Seed used during simulation. Default: -1")
     # Output
-    parser.add_argument('--output', default='output.parquet', help='Output file path. Default: "output.parquet"')
+    parser.add_argument("--output", default="output.parquet", help='Output file path. Default: "output.parquet"')
     return parser.parse_args()
+
 
 def main():
     args = parse_arguments()
-    create_interaction_fingerprint(args.topo, args.traj, args.output, args.n_frames, args.threads, args.complex, args.mutation, args.seed)
+    create_interaction_fingerprint(
+        args.topo, args.traj, args.output, args.n_frames, args.threads, args.complex, args.mutation, args.seed
+    )
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     main()

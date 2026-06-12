@@ -1,34 +1,38 @@
 #!/usr/bin/env python
 
 """Compute ligand potential energy components from an MD trajectory."""
-import numpy as np
-import mdtraj as md
-from openmm import unit, Platform, Context, app, VerletIntegrator
-from openmm.openmm import System
+
 import argparse
+
+import mdtraj as md
+import numpy as np
 import pandas as pd
-from openmmforcefields.generators import SystemGenerator
 from openff.toolkit.topology import Molecule
+from openmm import Context, Platform, VerletIntegrator, app, unit
+from openmm.openmm import System
+from openmmforcefields.generators import SystemGenerator
+
 
 def generate_ligand_system(ligand_path):
     """Build an OpenMM system for the ligand only (OpenFF parameters)."""
     ligand = Molecule.from_file(ligand_path)
     ligand_topology = ligand.to_topology().to_openmm()
-    ligand.assign_partial_charges('gasteiger')   
+    ligand.assign_partial_charges("gasteiger")
 
-    protein_forcefield = "amber19-all.xml" # params['simulation']['forcefield']['protein']
-    water_model = "amber19/tip4pew.xml"#params['simulation']['forcefield']['water']
+    protein_forcefield = "amber19-all.xml"  # params['simulation']['forcefield']['protein']
+    water_model = "amber19/tip4pew.xml"  # params['simulation']['forcefield']['water']
 
     # 3. Use SystemGenerator to combine force fields
     generator = SystemGenerator(
         forcefields=[protein_forcefield, water_model],
-        small_molecule_forcefield="openff-2.2.0",           # TODO: make sure to update to 3.0 if released soon
+        small_molecule_forcefield="openff-2.2.0",  # TODO: make sure to update to 3.0 if released soon
         molecules=[ligand],
-        cache=None
+        cache=None,
     )
 
     ligand_system = generator.create_system(ligand_topology)
     return ligand_system
+
 
 def generate_residue_system(top_path: str, traj_h5: str, selection: str) -> tuple[System, dict]:
     """
@@ -38,19 +42,15 @@ def generate_residue_system(top_path: str, traj_h5: str, selection: str) -> tupl
 
     traj = md.load(traj_h5, top=top_path, frame=0)
     idx = traj.topology.select(selection)
-    if idx.size == 0: raise ValueError(f"No atoms matched selection='{selection}'")
+    if idx.size == 0:
+        raise ValueError(f"No atoms matched selection='{selection}'")
 
     sub_top = traj.topology.subset(idx).to_openmm()
     # NOTE: positions are taken from trajectory frames later; only topology needed here.
 
     ff = app.ForceField("amber19-all.xml", "amber19/tip4pew.xml")
     # No periodicity for isolated fragments (avoid PME assumptions on fragments)
-    system = ff.createSystem(
-        sub_top,
-        nonbondedMethod=app.NoCutoff,
-        constraints=app.HBonds,
-        rigidWater=True
-    )   
+    system = ff.createSystem(sub_top, nonbondedMethod=app.NoCutoff, constraints=app.HBonds, rigidWater=True)
     return system
 
 
@@ -64,17 +64,15 @@ def assign_force_groups(system):
         print(force)
         force.setForceGroup(i)
         # Ignore CMmotion
-        if force.__class__.__name__.startswith('CM'):
+        if force.__class__.__name__.startswith("CM"):
             continue
         group_map[force.__class__.__name__] = i
     return group_map
 
+
 def compute_potential_energy(
-    traj_h5: str,
-    top: str,
-    ligand_selection: str,
-    ligand_system: System,
-    group_map) -> np.ndarray:
+    traj_h5: str, top: str, ligand_selection: str, ligand_system: System, group_map
+) -> np.ndarray:
     """
     Compute ligand internal potential energy per frame using a provided ligand-only OpenMM System.
 
@@ -99,7 +97,8 @@ def compute_potential_energy(
     traj = md.load(traj_h5, top=top)
     lig_idx = traj.topology.select(ligand_selection)
 
-    if lig_idx.size == 0: raise ValueError(f"No atoms matched ligand_selection='{ligand_selection}'")
+    if lig_idx.size == 0:
+        raise ValueError(f"No atoms matched ligand_selection='{ligand_selection}'")
 
     lig_traj = traj.atom_slice(lig_idx)
     lig_positions_nm = lig_traj.xyz  # shape (n_frames, n_atoms, 3) in nm
@@ -107,16 +106,17 @@ def compute_potential_energy(
     # Integrator is not used, but OpenMM requires an integrator instance
     integrator = VerletIntegrator(1.0 * unit.femtoseconds)
 
-    #platform = Platform.getPlatformByName('CUDA')
-    platform = Platform.getPlatformByName('CUDA')
+    # platform = Platform.getPlatformByName('CUDA')
+    platform = Platform.getPlatformByName("CUDA")
     context = Context(ligand_system, integrator, platform)
 
-    energies = {'potential':np.empty(lig_traj.n_frames, dtype=float),
-                'NonbondedForce':np.empty(lig_traj.n_frames, dtype=float),
-                'HarmonicBondForce':np.empty(lig_traj.n_frames, dtype=float),
-                'PeriodicTorsionForce':np.empty(lig_traj.n_frames, dtype=float),
-                'PeriodicTorsionForce':np.empty(lig_traj.n_frames, dtype=float),
-                'HarmonicAngleForce':np.empty(lig_traj.n_frames, dtype=float),
+    energies = {
+        "potential": np.empty(lig_traj.n_frames, dtype=float),
+        "NonbondedForce": np.empty(lig_traj.n_frames, dtype=float),
+        "HarmonicBondForce": np.empty(lig_traj.n_frames, dtype=float),
+        "PeriodicTorsionForce": np.empty(lig_traj.n_frames, dtype=float),
+        "PeriodicTorsionForce": np.empty(lig_traj.n_frames, dtype=float),
+        "HarmonicAngleForce": np.empty(lig_traj.n_frames, dtype=float),
     }
 
     # Calculate the potential energy for every frame
@@ -127,14 +127,13 @@ def compute_potential_energy(
         # Extract all energy terms individually
         for ene_name, g in group_map.items():
             state = context.getState(getEnergy=True, groups=(1 << g))
-            energies[ene_name][i] = state.getPotentialEnergy().value_in_unit(unit.kilojoule_per_mole)       
+            energies[ene_name][i] = state.getPotentialEnergy().value_in_unit(unit.kilojoule_per_mole)
 
         # Extract total energy: sum of all components
         state = context.getState(getEnergy=True)
-        energies['potential'][i] = state.getPotentialEnergy().value_in_unit(unit.kilojoule_per_mole)
+        energies["potential"][i] = state.getPotentialEnergy().value_in_unit(unit.kilojoule_per_mole)
 
     return energies
-
 
 
 def parse_arguments():
@@ -142,15 +141,16 @@ def parse_arguments():
     parser = argparse.ArgumentParser()
 
     # Input
-    parser.add_argument('--topo')
-    parser.add_argument('--traj')
-    parser.add_argument('--sdf')
-    parser.add_argument('--selection', default='resname UNK')
-    parser.add_argument('--config', default='resname UNK')
+    parser.add_argument("--topo")
+    parser.add_argument("--traj")
+    parser.add_argument("--sdf")
+    parser.add_argument("--selection", default="resname UNK")
+    parser.add_argument("--config", default="resname UNK")
 
     # Output
-    parser.add_argument('--energy')
+    parser.add_argument("--energy")
     return parser.parse_args()
+
 
 def main():
     args = parse_arguments()
@@ -159,25 +159,27 @@ def main():
     ligand_system = generate_ligand_system(args.sdf)
 
     # define residue system
-    selection = "resid 35" # 79
-    #residue_system = generate_residue_system(args.topo, args.traj, selection)
+    selection = "resid 35"  # 79
+    # residue_system = generate_residue_system(args.topo, args.traj, selection)
 
     # Define bonded and non-bonded energy terms
     group_map = assign_force_groups(ligand_system)
 
     # Compute the energies from the trajectory
-    energy = compute_potential_energy(traj_h5=args.traj,
-                                      top=args.topo, 
-                                      ligand_selection=args.selection, 
-                                      ligand_system=ligand_system,
-                                      group_map=group_map)
+    energy = compute_potential_energy(
+        traj_h5=args.traj,
+        top=args.topo,
+        ligand_selection=args.selection,
+        ligand_system=ligand_system,
+        group_map=group_map,
+    )
 
     data_df = pd.DataFrame(energy)
-    data_df['frame'] = data_df.index
+    data_df["frame"] = data_df.index
 
     print(data_df)
     data_df.to_parquet(args.energy)
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     main()
-    

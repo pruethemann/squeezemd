@@ -8,8 +8,9 @@ for convergence checks.
 
 import argparse
 import subprocess
-import pandas as pd
+
 import matplotlib.pyplot as plt
+import pandas as pd
 
 
 def plot_fes(df, label=None):
@@ -43,6 +44,7 @@ def get_fes_from_hills(hills_path, outfile):
     cmd = ["plumed", "sum_hills", "--hills", hills_path, "--outfile", outfile, "--mintozero"]
     subprocess.run(cmd, check=True)
 
+
 def parse_args():
     parser = argparse.ArgumentParser()
 
@@ -53,12 +55,13 @@ def parse_args():
     parser.add_argument("--freeenergy", help="Path to HILLS file", required=False)
 
     # parameters
-    parser.add_argument("--fractions", nargs="+", type=float,
-                        default=[0.25, 0.50, 0.75, 1.00])
-    
+    parser.add_argument("--fractions", nargs="+", type=float, default=[0.25, 0.50, 0.75, 1.00])
+
     return parser.parse_args()
 
+
 import seaborn as sns
+
 
 # -----------------------------
 # Main CLI
@@ -66,13 +69,13 @@ import seaborn as sns
 def main():
     args = parse_args()
 
-    df = pd.read_csv(args.fes, sep=r'\s+', comment="#", header=None)
+    df = pd.read_csv(args.fes, sep=r"\s+", comment="#", header=None)
     n_cols = df.shape[1]
     if n_cols >= 5:
         df = df.iloc[:, :5]
-        df.columns = ['d1', 'c1', 'F', 'der_d1', 'der_c1']
+        df.columns = ["d1", "c1", "F", "der_d1", "der_c1"]
     elif n_cols == 3:
-        df.columns = ['d1', 'F', 'der_d1']
+        df.columns = ["d1", "F", "der_d1"]
     else:
         raise ValueError(f"Unexpected FES format with {n_cols} columns in {args.fes}")
 
@@ -85,20 +88,18 @@ def main():
 
     Use gradients to find transition states
     """
-    if 'c1' in df.columns:
-        heatmap = df.pivot_table(index='c1', columns='d1', values='F', aggfunc='mean')
-        sns.heatmap(heatmap.sort_index().sort_index(axis=1), cmap='viridis')
-        plt.xlabel('d1 (COM distance)')
-        plt.ylabel('c1 (contacts)')
-        plt.title('Free Energy Surface (2D)')
+    if "c1" in df.columns:
+        heatmap = df.pivot_table(index="c1", columns="d1", values="F", aggfunc="mean")
+        sns.heatmap(heatmap.sort_index().sort_index(axis=1), cmap="viridis")
+        plt.xlabel("d1 (COM distance)")
+        plt.ylabel("c1 (contacts)")
+        plt.title("Free Energy Surface (2D)")
     else:
-        sns.lineplot(data=df,
-                     x='d1',
-                     y='F')
-        plt.xlabel('d1 (collective variable)')
-        plt.ylabel('Free Energy')
-        plt.title('Free Energy Surface (1D)')
-    
+        sns.lineplot(data=df, x="d1", y="F")
+        plt.xlabel("d1 (collective variable)")
+        plt.ylabel("Free Energy")
+        plt.title("Free Energy Surface (1D)")
+
     plt.savefig(args.freeenergy)
     plt.close()
 

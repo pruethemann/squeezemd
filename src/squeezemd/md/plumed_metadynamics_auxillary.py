@@ -16,11 +16,12 @@ Those are 1 based: used for plumed and pymol
 
 """
 
-from openmmplumed import PlumedForce
 import os
-from openmm.unit import kelvin
+
 import MDAnalysis as mda
 import numpy as np
+from openmm.unit import kelvin
+from openmmplumed import PlumedForce
 
 
 def add_metadynamics_forces_welltempered(params, system, args, T=300):
@@ -42,8 +43,7 @@ def add_metadynamics_forces_welltempered(params, system, args, T=300):
     height = meta["HEIGHT"]
     pace = meta["PACE"]
     stride = meta["STRIDE"]
-    biasfactor = float(meta.get("BIASFACTOR", 10.0)) # 10-20 for small molecule 5-15 for ppi # TODO make this tunable
-
+    biasfactor = float(meta.get("BIASFACTOR", 10.0))  # 10-20 for small molecule 5-15 for ppi # TODO make this tunable
 
     # Smooth contact switching function parameters
     # R_0 in nm (0.45 nm ~ 4.5 Å is a common start); NN controls steepness
@@ -79,11 +79,11 @@ def add_metadynamics_forces_welltempered(params, system, args, T=300):
             MOLINFO STRUCTURE={args.equilibrated}
 
             # Keep molecules whole across PBC
-            WHOLEMOLECULES ENTITY0={idx['lig_min']}-{idx['lig_max']} ENTITY1={idx['rec_min']}-{idx['rec_max']}
+            WHOLEMOLECULES ENTITY0={idx["lig_min"]}-{idx["lig_max"]} ENTITY1={idx["rec_min"]}-{idx["rec_max"]}
 
             # --- Groups for COM (backbone only, already precomputed as explicit atom lists) ---
-            grp_lig_com: GROUP ATOMS={idx['lig_backbone']}
-            grp_rec_com: GROUP ATOMS={idx['rec_backbone']}
+            grp_lig_com: GROUP ATOMS={idx["lig_backbone"]}
+            grp_rec_com: GROUP ATOMS={idx["rec_backbone"]}
 
             lig: COM ATOMS=grp_lig_com
             rec: COM ATOMS=grp_rec_com
@@ -91,8 +91,8 @@ def add_metadynamics_forces_welltempered(params, system, args, T=300):
 
             # --- Groups for CONTACTS ---
             # Interface-focused subsets to keep contact CV cheap for protein-protein systems.
-            grp_lig_cnt: GROUP ATOMS={idx['lig_contacts']}
-            grp_rec_cnt: GROUP ATOMS={idx['rec_contacts']}
+            grp_lig_cnt: GROUP ATOMS={idx["lig_contacts"]}
+            grp_rec_cnt: GROUP ATOMS={idx["rec_contacts"]}
 
             # CV2: Smooth coordination number (interface contacts)
             c1: COORDINATION GROUPA=grp_lig_cnt GROUPB=grp_rec_cnt R_0={r0} NN={nn} MM=0
@@ -172,11 +172,11 @@ def add_metadynamics_forces_classical(params, system, args, T=300):
             MOLINFO STRUCTURE={args.equilibrated}
 
             # Keep molecules whole across PBC
-            WHOLEMOLECULES ENTITY0={idx['lig_min']}-{idx['lig_max']} ENTITY1={idx['rec_min']}-{idx['rec_max']}
+            WHOLEMOLECULES ENTITY0={idx["lig_min"]}-{idx["lig_max"]} ENTITY1={idx["rec_min"]}-{idx["rec_max"]}
 
             # --- Groups for COM (backbone only, already precomputed as explicit atom lists) ---
-            grp_lig_com: GROUP ATOMS={idx['lig_backbone']}
-            grp_rec_com: GROUP ATOMS={idx['rec_backbone']}
+            grp_lig_com: GROUP ATOMS={idx["lig_backbone"]}
+            grp_rec_com: GROUP ATOMS={idx["rec_backbone"]}
 
             lig: COM ATOMS=grp_lig_com
             rec: COM ATOMS=grp_rec_com
@@ -184,8 +184,8 @@ def add_metadynamics_forces_classical(params, system, args, T=300):
 
             # --- Groups for CONTACTS ---
             # Interface-focused subsets to keep contact CV cheap for protein-protein systems.
-            grp_lig_cnt: GROUP ATOMS={idx['lig_contacts']}
-            grp_rec_cnt: GROUP ATOMS={idx['rec_contacts']}
+            grp_lig_cnt: GROUP ATOMS={idx["lig_contacts"]}
+            grp_rec_cnt: GROUP ATOMS={idx["rec_contacts"]}
 
             # CV2: Smooth coordination number (interface contacts)
             c1: COORDINATION GROUPA=grp_lig_cnt GROUPB=grp_rec_cnt R_0={r0} NN={nn} MM=0
@@ -209,25 +209,29 @@ def add_metadynamics_forces_classical(params, system, args, T=300):
     return system
 
 
-
-def extract_atom_indices(pdf_file: os.path,contact_atom_mode: str = "ca",contact_interface_cutoff_nm: float = 0.8,contact_max_atoms_per_partner: int = 120):
+def extract_atom_indices(
+    pdf_file: os.path,
+    contact_atom_mode: str = "ca",
+    contact_interface_cutoff_nm: float = 0.8,
+    contact_max_atoms_per_partner: int = 120,
+):
     """Extract ligand/receptor atom indices plus compact interface contact subsets for PLUMED."""
     u = mda.Universe(pdf_file)
 
     # Detect small molecule by resname UNK (OpenFF always assigns this).
     # segid-based detection is unreliable because OpenMM does not guarantee chain IDs.
-    is_small_molecule = u.select_atoms('resname UNK').n_atoms > 0
+    is_small_molecule = u.select_atoms("resname UNK").n_atoms > 0
 
     if is_small_molecule:
-        lig_sel = 'resname UNK'
-        rec_sel = 'protein'
+        lig_sel = "resname UNK"
+        rec_sel = "protein"
         # Small molecules have no backbone or CA atoms; use heavy atoms for COM
-        lig_backbone_sel = 'resname UNK and not name H*'
-        lig_contact_mode = 'heavy'
+        lig_backbone_sel = "resname UNK and not name H*"
+        lig_contact_mode = "heavy"
     else:  # Protein-protein interaction: ligand is chain A
-        lig_sel = 'segid A'
-        rec_sel = 'not segid A and protein'
-        lig_backbone_sel = 'segid A and backbone'
+        lig_sel = "segid A"
+        rec_sel = "not segid A and protein"
+        lig_backbone_sel = "segid A and backbone"
         lig_contact_mode = contact_atom_mode
 
     lig = u.select_atoms(lig_sel)
@@ -237,7 +241,7 @@ def extract_atom_indices(pdf_file: os.path,contact_atom_mode: str = "ca",contact
     print(f"Receptor selection '{rec_sel}': {rec.n_atoms} atoms")
 
     lig_backbone = u.select_atoms(lig_backbone_sel)
-    rec_backbone = u.select_atoms(f'({rec_sel}) and backbone')
+    rec_backbone = u.select_atoms(f"({rec_sel}) and backbone")
 
     lig_contacts, rec_contacts = select_interface_contact_atoms(
         u,
@@ -339,12 +343,16 @@ def select_interface_contact_atoms(
     if lig_mask.any():
         lig_interface = _cap_by_smallest_min_distance(lig_interface, min_lig[lig_mask], max_atoms_per_partner)
     else:
-        lig_interface = _cap_by_smallest_min_distance(lig_interface, min_lig[np.argsort(min_lig)[:lig_interface.n_atoms]], max_atoms_per_partner)
+        lig_interface = _cap_by_smallest_min_distance(
+            lig_interface, min_lig[np.argsort(min_lig)[: lig_interface.n_atoms]], max_atoms_per_partner
+        )
 
     if rec_mask.any():
         rec_interface = _cap_by_smallest_min_distance(rec_interface, min_rec[rec_mask], max_atoms_per_partner)
     else:
-        rec_interface = _cap_by_smallest_min_distance(rec_interface, min_rec[np.argsort(min_rec)[:rec_interface.n_atoms]], max_atoms_per_partner)
+        rec_interface = _cap_by_smallest_min_distance(
+            rec_interface, min_rec[np.argsort(min_rec)[: rec_interface.n_atoms]], max_atoms_per_partner
+        )
 
     if lig_interface.n_atoms == 0 or rec_interface.n_atoms == 0:
         lig_interface = _cap_by_smallest_min_distance(lig_mode, min_lig, max_atoms_per_partner)
