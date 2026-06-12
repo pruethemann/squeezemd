@@ -47,6 +47,9 @@ mutate = "squeezemd.preprocessing.mutate_structure:main"
 center-traj = "squeezemd.md.center_trajectory:main"
 run-md = "squeezemd.md.run_md:main"
 
+# show status of performed MDs
+show-md = "squeezemd.preprocessing.show_overview:main"
+
 # Analysis - Posco
 compute-posco-contacts = "squeezemd.analysis.contact_posco.compute_posco_interactions:main"
 plot-contact-barplot = "squeezemd.analysis.contact_posco.plot_contact_barplot:main"

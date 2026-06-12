@@ -92,6 +92,12 @@ complexes:
     pdb: /abs/path/to/complex.pdb
     sdf: /abs/path/to/ligand.sdf   # required for protein_molecule mode
 ```
+# modify pdb
+pdb4amber -i input.pdb input.amber.pdb
+
+rename resids in pymol
+alter (chain A), resv += 432
+
 
 ### md_config.yaml
 Defines MD protocol and system parameters (equilibration, forcefield, salt, temperature, recording interval, etc.).

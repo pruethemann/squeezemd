@@ -72,7 +72,7 @@ rule protein_molecule:
         'results/posco/posco_interactions.parquet',
         'results/alignment/align.pse',
         'results/rmsf/rmsf.svg',
-        #expand('molecule/{receptor}_{ligand}/{mutation}/{seed}/aquaduct/aquaduct.pse',receptor=RECEPTORS, ligand=LIGANDS, mutation=mutations, seed=seeds)
+        expand('protein_molecule/{receptor}_{ligand}/{mutation}/{seed}/aquaduct/aquaduct.pse',receptor=RECEPTORS, ligand=LIGANDS, mutation=mutations, seed=seeds)
 
 rule metadynamics_ppi:
     input:
@@ -341,7 +341,7 @@ rule visualize_structure_alignment:
 
 rule ana_aquaduct:
     input:
-        topo_center = '{mode}/{receptor}_{ligand}/{mutation}/{seed}/MD/center/structure_end_center_{seed}.pdb',
+        topo_center ='{mode}/{receptor}_{ligand}/{mutation}/{seed}/MD/center/structure_end_center_{seed}.pdb',
         traj_center='{mode}/{receptor}_{ligand}/{mutation}/{seed}/MD/center/trajectory_centered.dcd',
         aquaduct_template='config/TEMPLATE_aquaduct.txt',
     output:
@@ -538,6 +538,6 @@ rule visualize_interaction_surface:
 
 onsuccess:
     print(f"Workflow finished without errors. Report for the mode {mode} will be generated")
-    shell(f"squeeze {mode} --report report.html")
+    shell(f"squeeze --report report.html")
     print("Synchronize data to caracara")
     shell("""rsync -auvz "$(pwd)" ~/caracara/Squeeze""")

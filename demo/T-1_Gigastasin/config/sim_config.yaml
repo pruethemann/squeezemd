@@ -11,6 +11,6 @@ mutations:
 
 receptors:
     C1s:
-      pdb: pdb/13_C1s-BD001.pdb
+      pdb: pdb/C1s-BD001.pdb
 
 ligands:
