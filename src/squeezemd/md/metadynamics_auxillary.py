@@ -118,6 +118,12 @@ def add_metadynamics_forces_welltempered(params, system, args, T=300):
             # CV2: Smooth coordination number (interface contacts)
             c1: COORDINATION GROUPA=grp_lig_cnt GROUPB=grp_rec_cnt R_0={r0} NN={nn} MM=0
 
+            # FIXME(review): two METAD actions below bias the SAME CVs and write the SAME
+            # FILE={{hills_path}} (one plain, one well-tempered). This is almost certainly a
+            # bug: PLUMED will deposit both biases and interleave hills into one file, so the
+            # resulting FES/convergence is not a clean well-tempered run. Keep exactly ONE
+            # METAD line (the well-tempered one). Behavior left unchanged pending author
+            # confirmation of intent.
             # Plain metadynamics bias on both CVs
             METAD ARG=d1,c1 SIGMA={sigma_com},{sigma_contacts} HEIGHT={height} PACE={pace} FILE={hills_path}
 

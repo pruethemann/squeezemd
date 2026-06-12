@@ -2,7 +2,7 @@
 name = "squeezemd"
 version = "1.9.0"
 description = "SqueezeMD is a autmated Molecular dynamics workflow with extensive post-analysis for PPi"
-readme = "README.rst"
+readme = "README.md"
 authors = [
   {name = "Rüthemann Peter", email = "peter.ruethemann@gmail.com"}
 ]
@@ -56,8 +56,8 @@ plot-contact-barplot = "squeezemd.analysis.contact_posco.plot_contact_barplot:ma
 plot-contact-heatmap = "squeezemd.analysis.contact_posco.plot_contact_heatmap:main"
 
 # Analysis Prolif
-compute-proflif-fingerprints = "squeezemd.analysis.contact_prolif.compute_prolif_fingerprints:main"
-analyze-proflif-fingerprints = "squeezemd.analysis.contact_prolif.analyze_prolif_fingerprints:main"
+compute-prolif-fingerprints = "squeezemd.analysis.contact_prolif.compute_prolif_fingerprints:main"
+analyze-prolif-fingerprints = "squeezemd.analysis.contact_prolif.analyze_prolif_fingerprints:main"
 
 # Analysis Trajectory
 analyze-potential-energy = "squeezemd.analysis.trajectory.analyze_potential_energy:main"

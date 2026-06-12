@@ -489,7 +489,7 @@ rule ana_prolif_contacts:
     threads: 4
     shell:
         """
-        compute-proflif-fingerprints --topo {input.topo} \
+        compute-prolif-fingerprints --topo {input.topo} \
                                        --traj  {input.traj} \
                                        --output {output} \
                                        --n_frames {params.number_frames} \
@@ -509,7 +509,7 @@ rule plot_prolif_contacts:
         n_frames = n_frames
     shell:
         """
-        analyze-proflif-fingerprints --fingerprints {input.fingerprints} \
+        analyze-prolif-fingerprints --fingerprints {input.fingerprints} \
                                         --interactions {output.interactions} \
                                         --n_frames {params.n_frames} \
                                         --figure {output.figure}

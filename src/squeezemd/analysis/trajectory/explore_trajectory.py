@@ -106,18 +106,18 @@ def calculate_RMSF_and_secondary_structure(u: mda.Universe, args):
 
     # Calculate bfactors
     c_alphas = u.select_atoms("protein and name CA")
-    R = mda.analysis.rms.RMSF(c_alphas).run()
-    calculate_bfactors(R)
+    R = rms.RMSF(c_alphas).run()
+    calculate_bfactors(R, u, args.bfactors)
 
 
-def calculate_bfactors(R):
+def calculate_bfactors(R, u: mda.Universe, bfactors_path):
     """Write RMSF values into the B‑factor column for visualization."""
     u.add_TopologyAttr("tempfactors")  # add empty attribute for all atoms
     protein = u.select_atoms("protein")  # select protein atoms
     for residue, r_value in zip(protein.residues, R.results.rmsf):
         residue.atoms.tempfactors = r_value
 
-    u.atoms.write(args.bfactors)
+    u.atoms.write(bfactors_path)
 
 
 def predict_secondary_structure(u: mda.Universe, chainID: str):

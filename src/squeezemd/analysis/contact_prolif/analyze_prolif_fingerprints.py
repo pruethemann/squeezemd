@@ -10,12 +10,13 @@ import plotly.graph_objects as go
 import plotly.subplots as sp
 
 
-def import_data(fingerprints):
+def import_data(fingerprints, n_frames):
     """
     Imports and processes fingerprint data from a list of file paths.
 
     Parameters:
     - fingerprints: A list of file paths to fingerprint data files.
+    - n_frames: Number of frames used to normalize the interaction counts.
 
     Returns:
     - A combined DataFrame containing processed fingerprint data from all files.
@@ -30,7 +31,7 @@ def import_data(fingerprints):
         # Import data
         try:
             fp = pd.read_parquet(fp_path)
-            fp = data_engineering(fp, args.n_frames)
+            fp = data_engineering(fp, n_frames)
         except FileNotFoundError:
             print("Error with import from: ", fp_path)
             continue
@@ -86,7 +87,7 @@ def data_engineering(data, n_frames):
     data_agg["interaction_type"] = data_agg["interaction"].map(interaction_map)
 
     # extract residue indices from labels
-    data_agg["resid"] = data_agg["ligand"].str.extract("(\d+)").astype(int)
+    data_agg["resid"] = data_agg["ligand"].str.extract(r"(\d+)").astype(int)
     return data_agg
 
 
@@ -182,7 +183,7 @@ def main():
     args = parse_arguments()
 
     # Import all fingerprints data
-    fingerprints = import_data(args.fingerprints)
+    fingerprints = import_data(args.fingerprints, args.n_frames)
 
     create_fig(fingerprints, args.figure)
 

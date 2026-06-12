@@ -8,7 +8,8 @@ import os
 import MDAnalysis as mda
 import openmm.app as app
 import prolif as plf
-from Helper import remap_MDAnalysis
+
+from ...helper_functions import remap_MDAnalysis
 
 
 def create_interaction_fingerprint(
