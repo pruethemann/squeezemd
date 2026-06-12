@@ -1,38 +1,74 @@
 #!/usr/bin/env bash
 
+# squeezeMD wrapper around snakemake. Lets you run the pipeline from any working
+# directory that contains config/sim_config.yaml and config/md_config.yaml,
+# without having to locate the packaged Snakefile.
+#
+# Usage:
+#   squeeze [snakemake args...]   run the pipeline (target/mode read from config)
+#   squeeze -n                    dry-run
+#   squeeze continue              re-run the last saved command (execute.sh)
+#   squeeze upgrade               reinstall the package from the git checkout
+#
+# The pipeline target (mode) is taken from config/sim_config.yaml; any extra
+# arguments are forwarded to snakemake (e.g. -j4, -n, --keep-going).
 
-# SqueezeMD specific wrapper around snakemake. Allows to execute squeezeMD in every folder
-# without defining the location of the squeezeMD Snakefile required for the pipeline
+set -euo pipefail
 
-# Check whether the package requires an upgrade
-if [ "$1" == "upgrade" ]; then
-    # Execute the bash script "upgrade_package.sh" to install the current python package
-    # only works for Linux notebook
+if [ "${1:-}" == "upgrade" ]; then
+    # Reinstall the current python package (Linux dev convenience).
     upgrade_package.sh
 
-elif [ "$1" = "continue" ]; then
-    echo "Continue with squeeze MD"
+elif [ "${1:-}" = "continue" ]; then
+    echo "Continuing squeezeMD from execute.sh"
+    if [ ! -x ./execute.sh ]; then
+        echo "ERROR: ./execute.sh not found. Run 'squeeze ...' once first." >&2
+        exit 1
+    fi
     ./execute.sh
 
 else
-    # Read mode from sim_config.yaml
-    mode=$(python3 -c "import yaml; cfg=yaml.safe_load(open('config/sim_config.yaml')); print(cfg['mode'])")
-    gp=$(python3 -c "import yaml; cfg=yaml.safe_load(open('config/sim_config.yaml')); print(cfg['gpu'])")
-    cpu=$(python3 -c "import yaml; cfg=yaml.safe_load(open('config/sim_config.yaml')); print(cfg['cpu'])")
+    CONFIG="config/sim_config.yaml"
+    if [ ! -f "$CONFIG" ]; then
+        echo "ERROR: $CONFIG not found. Run squeeze from a directory containing" >&2
+        echo "       config/sim_config.yaml and config/md_config.yaml." >&2
+        exit 1
+    fi
 
-    # Execute snakemake with all provided arguments
-    # Find Snakefile from active environment
-    CONDA_BASE_PATH=$CONDA_PREFIX
-    echo $CONDA_BASE_PATH
+    # Read the pipeline mode (required) plus gpu/cpu resources (optional, with
+    # defaults) from the simulation config. Fails clearly if 'mode' is missing.
+    cfg_vals=$(python3 - "$CONFIG" <<'PY'
+import sys, yaml
+cfg = yaml.safe_load(open(sys.argv[1])) or {}
+mode = cfg.get("mode")
+valid = ("protein_protein", "protein_molecule", "metadynamics_ppi", "metadynamics_molecule", "protein")
+if not mode:
+    sys.stderr.write(
+        "ERROR: 'mode' is not set in config/sim_config.yaml. Expected one of: "
+        + ", ".join(valid) + ".\n"
+    )
+    sys.exit(1)
+print(mode, cfg.get("gpu", 1), cfg.get("cpu", 4))
+PY
+    ) || exit 1
+    read -r mode gp cpu <<< "$cfg_vals"
 
+    # Locate the packaged Snakefile from the active environment.
     SNAKEFILE=$(python3 -c 'from importlib.resources import files; print(files("squeezemd").joinpath("Snakefile"))')
-    snakemake_cmd="snakemake --use-conda -s $SNAKEFILE $mode --resources gpu=$gp --cores $cpu $@"
 
-    echo $snakemake_cmd
+    # Assemble the command. --rerun-incomplete recovers from interrupted jobs;
+    # forward any extra user arguments (e.g. -j4, -n, --keep-going).
+    set -- snakemake --use-conda -s "$SNAKEFILE" "$mode" \
+        --resources gpu="$gp" --cores "$cpu" --rerun-incomplete "$@"
 
-    # save command
-    echo -e "#!/bin/bash\n$snakemake_cmd" > execute.sh
+    # Persist the exact, properly-quoted command for reproducibility / 'squeeze continue'.
+    {
+        printf '#!/bin/bash\n'
+        printf '%q ' "$@"
+        printf '\n'
+    } > execute.sh
+    chmod +x execute.sh
 
-    # execute command
-    $snakemake_cmd  
+    echo "Running: $*"
+    "$@"
 fi

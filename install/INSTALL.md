@@ -53,7 +53,7 @@ chmod +x install/install_bins_linux.sh
 Verify installation:
 
 ```sh
-foldx_20251231 --version
+foldx_20261231 --version
 po-sco --version
 ```
 

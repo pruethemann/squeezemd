@@ -52,8 +52,8 @@ def setup_testrun(config):
         md_test = import_yaml(test_md_config)
         config = config_deep_update(config, md_test)
 
-        # Clear all ligand entries for the test run
-        config["ligands"] = config["ligands"][0:3]
+        # Keep only the first few ligands to speed up the test run
+        config["ligands"] = (config.get("ligands") or [])[0:3]
 
         save_yaml(config, "config/md_test_config.yaml")
 
@@ -106,16 +106,59 @@ def execute(command):
 
 def import_yaml(yaml_path: os.path):
     """
-    Opens yaml file containing hyper parameters.
+    Open a YAML configuration file and return it as a dict.
+
+    Raises a clear error if the file is missing or malformed instead of
+    silently returning ``None`` (which used to surface much later as a
+    confusing ``NoneType`` error).
 
     :param yaml_path: File path to yaml
     :return: dictionary with parameters
     """
     try:
-        with open(yaml_path, "r") as stream:
+        with open(yaml_path) as stream:
             return yaml.safe_load(stream)
     except yaml.YAMLError as exc:
-        print(exc)
+        raise ValueError(f"Could not parse YAML file '{yaml_path}': {exc}") from exc
+
+
+# Keys that must be present in the merged sim+md configuration.
+REQUIRED_CONFIG_KEYS = ("mode", "receptors", "ligands", "mutations", "simulation")
+REQUIRED_SIMULATION_KEYS = ("replicates", "time_ns", "number_frames")
+
+
+def validate_config(config: dict) -> None:
+    """Fail fast with a clear message if the merged config is incomplete.
+
+    Called from the Snakefile after sim_config.yaml and md_config.yaml have been
+    merged. Catches the common mistakes (missing ``mode``, empty ``ligands``,
+    missing ``simulation`` block) before any expensive rule runs.
+    """
+    missing = [key for key in REQUIRED_CONFIG_KEYS if key not in config or config[key] is None]
+    if missing:
+        raise ValueError(
+            f"Invalid squeezemd configuration: missing required key(s) {missing}. "
+            "Define them in config/sim_config.yaml (mode, receptors, ligands) "
+            "and config/md_config.yaml (simulation)."
+        )
+
+    if not config["ligands"]:
+        raise ValueError(
+            "Invalid squeezemd configuration: 'ligands' is empty. "
+            "List at least one ligand (for protein-protein runs, the name of the "
+            "binding partner present in the PDB, e.g. 'Gigastasin')."
+        )
+
+    if not config["receptors"]:
+        raise ValueError("Invalid squeezemd configuration: 'receptors' is empty.")
+
+    sim = config["simulation"]
+    missing_sim = [key for key in REQUIRED_SIMULATION_KEYS if key not in sim]
+    if missing_sim:
+        raise ValueError(
+            f"Invalid squeezemd configuration: config['simulation'] is missing {missing_sim}. "
+            "Check config/md_config.yaml."
+        )
 
 
 def extract_ligand_sequence(pdb_ligand: os.path):

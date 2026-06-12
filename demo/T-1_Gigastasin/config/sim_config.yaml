@@ -1,6 +1,7 @@
 ID: T-1
 name: Test_C1s_Gigastasin
-comment: Classical Testrun for protein protein interactions
+comment: Classical testrun for protein-protein interactions
+mode: protein_protein
 
 cpu: 4
 gpu: 1
@@ -13,4 +14,7 @@ receptors:
     C1s:
       pdb: pdb/C1s-BD001.pdb
 
+# For protein-protein runs the "ligand" is the binding partner present in the
+# PDB on chain A. Here chain A (resid 1-122) is Gigastasin; chains B/C are C1s.
 ligands:
+  - Gigastasin
