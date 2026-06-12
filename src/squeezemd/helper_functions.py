@@ -10,10 +10,29 @@ for MDAnalysis/OpenMM interoperability.
 import os
 import subprocess
 from importlib.resources import files
+from pathlib import Path
 
 import MDAnalysis as mda
 import pandas as pd
 import yaml
+
+
+def parse_run_metadata(path) -> dict:
+    """Recover the run identity from a squeezemd result path.
+
+    Result paths follow ``<mode>/<receptor>_<ligand>/<mutation>/<seed>/MD/...``.
+    Using the ``MD`` directory as an anchor, return the ``mode``, ``complex``
+    (``receptor_ligand``), ``mutation`` and ``seed`` so per-run analysis outputs
+    can be traced back to the exact simulation that produced them.
+    """
+    parts = Path(path).parts
+    if "MD" not in parts:
+        raise ValueError(f"Cannot parse run metadata from path without an 'MD' component: {path!r}")
+    md_idx = len(parts) - 1 - parts[::-1].index("MD")  # last 'MD'
+    if md_idx < 4:
+        raise ValueError(f"Path is too shallow to contain <mode>/<complex>/<mutation>/<seed>/MD/...: {path!r}")
+    mode, complex_name, mutation, seed = parts[md_idx - 4 : md_idx]
+    return {"mode": mode, "complex": complex_name, "mutation": mutation, "seed": seed}
 
 
 def update_md_overview(config):

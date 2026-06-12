@@ -236,9 +236,11 @@ def calculate_RMSD(u: mda.Universe, args):
     """
 
     print("Init RMSD analysis")
-    # CHAINIDENTIFICAITON
+    # Convention: chain A is the ligand; the receptor is every other protein chain.
+    # (Previously the receptor was hard-coded to chain B, silently ignoring any
+    # additional receptor chains such as chain C.)
     ligand = u.select_atoms("chainID A")
-    receptor = u.select_atoms("chainID B")
+    receptor = u.select_atoms("protein and not chainID A")
 
     # Compute RMSD for receptor and ligand
     RMSD_ligand = rms.RMSD(ligand, ref_frame=0).run()

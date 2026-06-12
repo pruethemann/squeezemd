@@ -8,15 +8,21 @@ import mdtraj as md
 import numpy as np
 import pandas as pd
 from openff.toolkit.topology import Molecule
-from openmm import Context, Platform, VerletIntegrator, app, unit
+from openmm import Context, OpenMMException, Platform, VerletIntegrator, unit
 from openmm.openmm import System
 from openmmforcefields.generators import SystemGenerator
+
+from ...helper_functions import parse_run_metadata
 
 
 def generate_ligand_system(ligand_path):
     """Build an OpenMM system for the ligand only (OpenFF parameters)."""
     ligand = Molecule.from_file(ligand_path)
     ligand_topology = ligand.to_topology().to_openmm()
+    # FIXME(review): this uses 'gasteiger' charges, but the production MD
+    # (run_md.create_model_smallmolecule) parameterizes the ligand with 'am1bcc'.
+    # The ligand internal energies computed here are therefore not on the same
+    # charge model as the trajectory. Left unchanged pending author confirmation.
     ligand.assign_partial_charges("gasteiger")
 
     protein_forcefield = "amber19-all.xml"  # params['simulation']['forcefield']['protein']
@@ -34,26 +40,6 @@ def generate_ligand_system(ligand_path):
     return ligand_system
 
 
-def generate_residue_system(top_path: str, traj_h5: str, selection: str) -> tuple[System, dict]:
-    """
-    Build an OpenMM System for atoms matched by an MDTraj selection.
-    Returns (system, group_map). Atom order matches traj.atom_slice(selection).
-    """
-
-    traj = md.load(traj_h5, top=top_path, frame=0)
-    idx = traj.topology.select(selection)
-    if idx.size == 0:
-        raise ValueError(f"No atoms matched selection='{selection}'")
-
-    sub_top = traj.topology.subset(idx).to_openmm()
-    # NOTE: positions are taken from trajectory frames later; only topology needed here.
-
-    ff = app.ForceField("amber19-all.xml", "amber19/tip4pew.xml")
-    # No periodicity for isolated fragments (avoid PME assumptions on fragments)
-    system = ff.createSystem(sub_top, nonbondedMethod=app.NoCutoff, constraints=app.HBonds, rigidWater=True)
-    return system
-
-
 def assign_force_groups(system):
     """
     Assign each Force in the system to its own force group (0..31).
@@ -61,7 +47,6 @@ def assign_force_groups(system):
     """
     group_map = {}
     for i, force in enumerate(system.getForces()):
-        print(force)
         force.setForceGroup(i)
         # Ignore CMmotion
         if force.__class__.__name__.startswith("CM"):
@@ -106,18 +91,18 @@ def compute_potential_energy(
     # Integrator is not used, but OpenMM requires an integrator instance
     integrator = VerletIntegrator(1.0 * unit.femtoseconds)
 
-    # platform = Platform.getPlatformByName('CUDA')
-    platform = Platform.getPlatformByName("CUDA")
+    # Prefer the GPU but fall back to CPU so this analysis also runs on CPU-only hosts.
+    try:
+        platform = Platform.getPlatformByName("CUDA")
+    except OpenMMException:
+        print("ATTENTION: No CUDA GPU detected. Computing potential energy on CPU.")
+        platform = Platform.getPlatformByName("CPU")
     context = Context(ligand_system, integrator, platform)
 
-    energies = {
-        "potential": np.empty(lig_traj.n_frames, dtype=float),
-        "NonbondedForce": np.empty(lig_traj.n_frames, dtype=float),
-        "HarmonicBondForce": np.empty(lig_traj.n_frames, dtype=float),
-        "PeriodicTorsionForce": np.empty(lig_traj.n_frames, dtype=float),
-        "PeriodicTorsionForce": np.empty(lig_traj.n_frames, dtype=float),
-        "HarmonicAngleForce": np.empty(lig_traj.n_frames, dtype=float),
-    }
+    # Allocate one array per force-group term (plus the total). Building this from
+    # group_map avoids a duplicate-key bug and silently dropping force types such
+    # as UreyBradley / CMAP that the ligand force field may contain.
+    energies = {name: np.empty(lig_traj.n_frames, dtype=float) for name in (*group_map.keys(), "potential")}
 
     # Calculate the potential energy for every frame
     for i in range(lig_traj.n_frames):
@@ -144,8 +129,8 @@ def parse_arguments():
     parser.add_argument("--topo")
     parser.add_argument("--traj")
     parser.add_argument("--sdf")
-    parser.add_argument("--selection", default="resname UNK")
-    parser.add_argument("--config", default="resname UNK")
+    parser.add_argument("--selection", default="resname UNK", help="MDTraj selection for the ligand")
+    parser.add_argument("--config", default=None, help="MD config (reserved; currently unused)")
 
     # Output
     parser.add_argument("--energy")
@@ -155,14 +140,8 @@ def parse_arguments():
 def main():
     args = parse_arguments()
 
-    # define the system if energies
+    # Build the ligand-only OpenMM system and assign per-term force groups.
     ligand_system = generate_ligand_system(args.sdf)
-
-    # define residue system
-    selection = "resid 35"  # 79
-    # residue_system = generate_residue_system(args.topo, args.traj, selection)
-
-    # Define bonded and non-bonded energy terms
     group_map = assign_force_groups(ligand_system)
 
     # Compute the energies from the trajectory
@@ -177,7 +156,10 @@ def main():
     data_df = pd.DataFrame(energy)
     data_df["frame"] = data_df.index
 
-    print(data_df)
+    # Tag with the run identity so the energy table is traceable to its simulation.
+    for key, value in parse_run_metadata(args.topo).items():
+        data_df[key] = value
+
     data_df.to_parquet(args.energy)
 
 

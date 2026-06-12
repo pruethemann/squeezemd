@@ -25,10 +25,17 @@ def parse_arguments():
 def main():
     args = parse_arguments()
 
-    # Load RMSF data and plot with standard deviation shading
+    # Load RMSF data and plot with standard deviation shading.
     rmsf_df = pd.read_parquet(args.input)
 
-    sns.lineplot(data=rmsf_df, x="resid", y="rmsf", errorbar="sd")
+    # Colour by mutation when the metadata is present and distinguishes curves,
+    # so different variants are visually separable rather than averaged together.
+    hue = "mutation" if "mutation" in rmsf_df.columns and rmsf_df["mutation"].nunique() > 1 else None
+
+    sns.lineplot(data=rmsf_df, x="resid", y="rmsf", hue=hue, errorbar="sd")
+    plt.xlabel("Residue")
+    plt.ylabel("RMSF (Å)")
+    plt.tight_layout()
 
     plt.savefig(args.output)
     plt.close()
