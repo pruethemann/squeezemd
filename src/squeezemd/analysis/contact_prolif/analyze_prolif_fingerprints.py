@@ -108,7 +108,7 @@ def create_fig(fp_df, fig_path):
     # Define a color map for mutations
     unique_mutations = df_grouped["mutation"].unique()
     color_map = px.colors.qualitative.Plotly[: len(unique_mutations)]  # Use Plotly's color scheme
-    mutation_color_mapping = dict(zip(unique_mutations, color_map))
+    mutation_color_mapping = dict(zip(unique_mutations, color_map, strict=False))
 
     # Create subplots for each interaction_type with consistent colors for mutations
     interaction_types = df_grouped["interaction_type"].unique()

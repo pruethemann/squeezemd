@@ -15,13 +15,8 @@ os.environ["OPENCL_VENDOR_PATH"] = "/dev/null"
 import argparse
 from importlib.resources import files
 
-import matplotlib.pyplot as plt
 import MDAnalysis as mda
 import pandas as pd
-import seaborn as sns
-
-plt.style.use("ggplot")
-sns.set_style("ticks")
 
 
 def create_pml_script(ligand_resids, receptor_resids, pdb, output_file, pymol_script, output_png):
@@ -38,7 +33,7 @@ def create_pml_script(ligand_resids, receptor_resids, pdb, output_file, pymol_sc
 
     pymol_template = files("squeezemd").joinpath("resources", "pymol_template.pml")
 
-    with open(pymol_template, "r") as template_file:
+    with open(pymol_template) as template_file:
         content = template_file.read().format(
             input_pdb=pdb,
             ligand_resids=ligand_resids,
@@ -82,49 +77,6 @@ def set_residue_interaction_intensity(pdb_path, ligand_resids, receptor_resids, 
     # Save pdb of protein only
     protein = u.select_atoms("protein")
     protein.write(interaction_pdb)
-
-
-def data_aggregation(data):
-    """
-    please provide a pandas dataframe, such as .parquet read by pd.read_parquet
-    """
-
-    # based on "observed" interaction partner
-    try:
-        seq_range = import_sequence_range(seq_path[0], interaction_partner[:3])
-        seq_range = range(seq_range[0], seq_range[1])
-    except Exception:
-        raise Exception("Error: Interaction partner not found.")
-
-    resid = f"{interaction_partner}_resid"
-
-    # number of unique seeds for manual calculation of mean energy over seeds
-    n_frames = len(df_interaction.frame.unique())
-    n_seeds = len(df_interaction.seed.unique())
-
-    df_interaction = data
-
-    # data wrangling/aggregating for desired values, leaving frames
-    frame_avg = df_interaction.groupby([resid, "seed"])["Energy (e)"].sum().reset_index()
-    frame_avg["Energy (e)"] = frame_avg["Energy (e)"].div(n_frames)
-
-    # data wrangling/aggregating for desired values, leaving seeds
-    seed_avg = frame_avg.groupby([resid])["Energy (e)"].sum().reset_index()
-    seed_avg["Energy (e)"] = seed_avg["Energy (e)"].div(n_seeds)
-    seed_avg.rename(columns={"Energy (e)": "mean"}, inplace=True)
-
-    seed_sd = frame_avg.groupby([resid])["Energy (e)"].std().reset_index()
-    seed_sd.rename(columns={"Energy (e)": "sd"}, inplace=True)
-
-    combined = pd.merge(seed_avg, seed_sd, on=resid, how="outer")
-
-    all_resid = pd.DataFrame({resid: seq_range})
-    final = pd.merge(combined, all_resid, on=resid, how="left")
-
-    # get maximum binding energy for cbar value limit
-    emax = seed_avg["mean"].min()
-
-    return final, emax
 
 
 def parse_arguments():

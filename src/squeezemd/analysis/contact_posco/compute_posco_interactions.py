@@ -26,7 +26,6 @@ warnings.filterwarnings(
 )
 warnings.filterwarnings("ignore", message="Element information missing for some atoms.*", category=UserWarning)
 warnings.filterwarnings("ignore", message="For absent elements, atomtype has been  set to 'X'.*", category=UserWarning)
-import MDAnalysis as mda
 
 
 def parse_lipophilic(parts, sequence):
@@ -147,7 +146,7 @@ def parse_posco(posco_output, metadata, frame_id, sequence):
     if not sequence.index.is_unique:
         sequence = sequence[~sequence.index.duplicated(keep="first")]
 
-    with open(posco_output, "r") as file:
+    with open(posco_output) as file:
         for line in file:
             if line.startswith("Lipo_EXT:"):
                 parts = line.split("  !  ")

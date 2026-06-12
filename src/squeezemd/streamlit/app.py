@@ -8,25 +8,25 @@ validation via Pydantic models.
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 import pandas as pd
 import streamlit as st
 import yaml
-from pydantic import BaseModel, Field, ValidationError, model_validator
+from pydantic import BaseModel, Field, model_validator
 
 
 # -----------------------------
 # YAML helpers
 # -----------------------------
-def load_yaml(path: Path) -> Dict[str, Any]:
+def load_yaml(path: Path) -> dict[str, Any]:
     data = yaml.safe_load(path.read_text()) or {}
     if not isinstance(data, dict):
         raise ValueError("YAML must contain a mapping (top-level dict).")
     return data
 
 
-def dump_yaml(data: Dict[str, Any]) -> str:
+def dump_yaml(data: dict[str, Any]) -> str:
     return yaml.safe_dump(data, sort_keys=False, default_flow_style=False)
 
 
@@ -79,7 +79,7 @@ class ConstraintsConfig(BaseModel):
 
 class FlexibleBindingPocketConfig(BaseModel):
     protein_k: float = Field(default=5000.0, ge=0.0)
-    flexible_resids: Dict[int, str] = Field(default_factory=dict)
+    flexible_resids: dict[int, str] = Field(default_factory=dict)
 
 
 class MetadynamicsConfig(BaseModel):
@@ -88,9 +88,6 @@ class MetadynamicsConfig(BaseModel):
     HEIGHT: float = Field(default=0.03, gt=0.0)
     PACE: int = Field(default=1000, ge=1)
     STRIDE: int = Field(default=50, ge=1)
-
-
-from pydantic import model_validator
 
 
 class SimulationConfig(BaseModel):
@@ -150,8 +147,8 @@ class ComplexEntry(BaseModel):
 
 
 class SimConfig(BaseModel):
-    mutations: List[str] = Field(default_factory=lambda: ["WT"])
-    complexes: Dict[str, ComplexEntry] = Field(default_factory=dict)
+    mutations: list[str] = Field(default_factory=lambda: ["WT"])
+    complexes: dict[str, ComplexEntry] = Field(default_factory=dict)
 
     @model_validator(mode="after")
     def sanity(self):
@@ -226,17 +223,17 @@ elif load_sim_from_path:
         st.sidebar.error(f"Failed to load SIM from path: {e}")
 
 
-raw_md: Dict[str, Any] = st.session_state.raw_md
-raw_sim: Dict[str, Any] = st.session_state.raw_sim
+raw_md: dict[str, Any] = st.session_state.raw_md
+raw_sim: dict[str, Any] = st.session_state.raw_sim
 
 
 # -----------------------------
 # Validate current configs
 # -----------------------------
-md_cfg: Optional[MDConfig] = None
-sim_cfg: Optional[SimConfig] = None
-md_error: Optional[str] = None
-sim_error: Optional[str] = None
+md_cfg: MDConfig | None = None
+sim_cfg: SimConfig | None = None
+md_error: str | None = None
+sim_error: str | None = None
 
 try:
     md_cfg = MDConfig.model_validate(raw_md)
@@ -491,7 +488,7 @@ with tab_sim:
     )
 
     # write back complexes dict
-    new_complexes: Dict[str, Dict[str, str]] = {}
+    new_complexes: dict[str, dict[str, str]] = {}
     for _, row in df.dropna(subset=["complex_name"]).iterrows():
         name = str(row["complex_name"]).strip()
         if not name:

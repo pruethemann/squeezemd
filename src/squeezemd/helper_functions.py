@@ -13,6 +13,7 @@ from importlib.resources import files
 from pathlib import Path
 
 import MDAnalysis as mda
+import openmm.app as app
 import pandas as pd
 import yaml
 
@@ -211,10 +212,8 @@ def save_yaml(d, filepath):
     :param filepath:
     :return:
     """
-    import yaml
-
     with open(filepath, "w") as file:
-        documents = yaml.dump(d, file)
+        yaml.dump(d, file)
 
 
 def chain2resid(file_csv):
@@ -252,47 +251,6 @@ def is_numeric(character):
     return character.isdigit()
 
 
-def remap_MDAnalysis_V1(u: mda.Universe, topo):
-    """
-    Remaps the correct residues Ids from the OpenMM topology to
-    a MDAnylsis universe.
-
-    TODO:
-    - Dicts not necessary
-    - Chain remapping not yet implemented. Adapt afterwards chainID selection
-
-    :param u: MDAnalysis Universe
-    :param topo: OpenMM Toplogy
-    :return: Mapping tables from chainIDs to original Ids
-    """
-
-    # Currently resets the segment ID to the original chainID
-    for chain_cont, chainID in zip(u.segments, topo.topology.chains()):
-        if chainID.id == "1":
-            continue
-        if chainID.id == "2":
-            continue
-        if chainID.id == "3":
-            continue
-        if chainID.id == "4":
-            continue
-        if chainID.id == "5":
-            continue
-        selected_segid = u.select_atoms(f"segid {chain_cont.segid}")
-        selected_segid.segments.segids = chainID.id
-
-    for res_cont, resid in zip(u.residues, topo.topology.residues()):
-        if is_numeric(resid.chain.id):
-            continue
-        resid_sele = u.select_atoms(f"resid {int(res_cont.resid)}")
-        resid_sele.residues.resids = int(resid.id)
-
-    return u
-
-
-import openmm.app as app
-
-
 def remap_MDAnalysis(u: mda.Universe, topo: app.PDBxFile):
     """
     Remaps the correct residue and chain IDs from the OpenMM PDBxFile topology
@@ -308,13 +266,13 @@ def remap_MDAnalysis(u: mda.Universe, topo: app.PDBxFile):
     if len(u.segments) != len(chains):
         raise ValueError("Mismatch in number of segments and chains")
 
-    for mda_seg, omm_chain in zip(u.segments, chains):
+    for mda_seg, omm_chain in zip(u.segments, chains, strict=True):
         mda_seg.segid = omm_chain.id  # Safe: assigns chainID
 
     if len(u.residues) != len(residues):
         raise ValueError("Mismatch in number of residues between MDAnalysis and OpenMM topology")
 
-    for mda_res, omm_res in zip(u.residues, residues):
+    for mda_res, omm_res in zip(u.residues, residues, strict=True):
         # Optional: Only remap if different
         mda_res.resid = int(omm_res.id)
         mda_res.resname = omm_res.name

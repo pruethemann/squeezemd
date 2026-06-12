@@ -53,7 +53,7 @@ def main():
 
     rmsf_data = []
 
-    for i, (topo_path, traj) in enumerate(zip(topos, trajs)):
+    for i, (topo_path, traj) in enumerate(zip(topos, trajs, strict=True)):
         # Recover the run identity from the topology path before opening the file.
         metadata = parse_run_metadata(topo_path)
 

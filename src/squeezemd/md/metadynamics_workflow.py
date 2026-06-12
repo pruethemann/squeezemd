@@ -73,7 +73,7 @@ def _select_chain_atom_indices(topology, chain_id: str):
 def _load_system(args, pdb):
     """Load pre-parameterized system XML or attempt direct force-field build."""
     if args.system_xml:
-        with open(args.system_xml, "r", encoding="utf-8") as handle:
+        with open(args.system_xml, encoding="utf-8") as handle:
             return XmlSerializer.deserialize(handle.read())
 
     forcefield = ForceField(*args.forcefield)

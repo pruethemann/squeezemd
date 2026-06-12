@@ -20,29 +20,8 @@ import os
 
 import MDAnalysis as mda
 import numpy as np
-from openmm import CustomCentroidBondForce, Platform, XmlSerializer, unit
 from openmm.unit import kelvin
 from openmmplumed import PlumedForce
-
-
-def set_collective_variable():
-    # 1D CV: centroid distance between protein chain A and ligand chain X.
-    cv_force = CustomCentroidBondForce(2, "distance(g1,g2)")
-    cv_force.addGroup(ligand_atoms)
-    cv_force.addGroup(protein_atoms)
-    cv_force.addBond([0, 1])
-    cv_force.setUsesPeriodicBoundaryConditions(True)
-
-    distance_cv = biasvar_cls(
-        cv_force,
-        args.cv_min * unit.nanometer,
-        args.cv_max * unit.nanometer,
-        args.cv_width * unit.nanometer,
-        periodic=False,
-        gridWidth=args.cv_grid,
-    )
-
-    return distance_cv
 
 
 def add_metadynamics_forces_welltempered(params, system, args, T=300):

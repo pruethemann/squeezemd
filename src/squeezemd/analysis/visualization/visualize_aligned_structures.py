@@ -7,7 +7,6 @@ protein + nearby solvent/ions, align to a reference, and save a session.
 """
 
 import argparse
-import os
 
 from pymol import cmd
 

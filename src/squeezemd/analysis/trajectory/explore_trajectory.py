@@ -114,7 +114,7 @@ def calculate_bfactors(R, u: mda.Universe, bfactors_path):
     """Write RMSF values into the B‑factor column for visualization."""
     u.add_TopologyAttr("tempfactors")  # add empty attribute for all atoms
     protein = u.select_atoms("protein")  # select protein atoms
-    for residue, r_value in zip(protein.residues, R.results.rmsf):
+    for residue, r_value in zip(protein.residues, R.results.rmsf, strict=True):
         residue.atoms.tempfactors = r_value
 
     u.atoms.write(bfactors_path)
@@ -296,9 +296,6 @@ def main():
     topo = app.PDBxFile(args.topo)
     u = mda.Universe(topo, args.traj, in_memory=False)
     u = remap_MDAnalysis(u, topo)
-
-    traj_length = len(u.trajectory)
-    # print(f'Number of frames: {traj_length}')
 
     calculate_RMSF_and_secondary_structure(u, args)
 

@@ -83,7 +83,7 @@ def plot_partner(
 
     tick_positions = df[resid_col].unique().tolist()
 
-    for axis, interaction_type in zip(axes, INTERACTION_TYPES):
+    for axis, interaction_type in zip(axes, INTERACTION_TYPES, strict=True):
         data = aggregate_partner_energy(df, interaction_partner, interaction_type)
 
         color, label = INTERACTION_STYLES[interaction_type]

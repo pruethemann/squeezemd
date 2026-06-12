@@ -28,14 +28,11 @@ from openmm.unit import atmospheres, femtoseconds, kelvin, kilojoule_per_mole, m
 from openmmforcefields.generators import SystemGenerator
 
 from ..helper_functions import import_yaml
-from .metadynamics_auxillary import (
-    add_metadynamics_forces_classical,
-    add_metadynamics_forces_welltempered,
-)  # , save_active_forces
+from .metadynamics_auxillary import add_metadynamics_forces_welltempered
 
 
 def add_positional_restraints(
-    system, topology, positions, k=10.0, flexible_resids={}, verbose=False, flexible_ligand=True
+    system, topology, positions, k=10.0, flexible_resids=None, verbose=False, flexible_ligand=True
 ):
     """
     Add harmonic positional restraints to heavy atoms.
@@ -45,6 +42,7 @@ def add_positional_restraints(
     Used for equilibration and for AI data generation, which requires little
     movement except in the binding pocket.
     """
+    flexible_resids = flexible_resids or {}
     restraint = CustomExternalForce("k*periodicdistance(x, y, z, x0, y0, z0)^2")
 
     system.addForce(restraint)
@@ -215,9 +213,6 @@ def save_pdb(simulation, pdb_file: os.path):
         app.PDBFile.writeFile(simulation.topology, positions, f, keepIds=True)
 
 
-from openmm import CustomCentroidBondForce, Platform, XmlSerializer, unit
-
-
 def simulate(args, params):
     """
     Set up and start the simulation
@@ -300,10 +295,10 @@ def simulate(args, params):
     system.addForce(barostat)
     simulation.context.reinitialize(preserveState=True)
 
-    for k in [k / 2, k / 10]:  # usually k = 10 -> 5 -> 1
-        print(f"Tapering restraints to {k} kJ/mol/nm²")
+    for k_taper in [k / 2, k / 10]:  # usually k = 10 -> 5 -> 1
+        print(f"Tapering restraints to {k_taper} kJ/mol/nm²")
         # Update global k parameter (not per particle!)
-        simulation.context.setParameter("k", k * kilojoule_per_mole / nanometers**2)
+        simulation.context.setParameter("k", k_taper * kilojoule_per_mole / nanometers**2)
         print("k in context:", simulation.context.getParameter("k"))
 
         # Run equilibration for each step
@@ -314,19 +309,12 @@ def simulate(args, params):
     # ---------------------
     print("\n=== Stage 3: Unrestrained NPT equilibration ===")
 
-    if args.verbose:
-        save_active_forces(system, simulation.context, logfile="before.txt")
-
     print("\n=== Removing positional restraints ===")
     for i, force in enumerate(system.getForces()):
-        # Remove 06 CustomExternalForce
+        # Remove the equilibration CustomExternalForce
         if force.__class__.__name__ == restraint_force.__class__.__name__:
             system.removeForce(i)
             break
-
-    if args.verbose:
-        # TODO: Currently deprecated, probably not worth maintaining this helper function if it only works for CustomExternalForce. Consider removing or generalizing.
-        save_active_forces(system, simulation.context, logfile="after.txt")
 
     simulation.context.reinitialize(preserveState=True)
     simulation.step(params["simulation"]["equilibration"]["NPT_unrestrained"])

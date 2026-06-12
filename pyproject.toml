@@ -98,6 +98,13 @@ analyze-metadynamics-convergence = "squeezemd.analysis.metadynamics.analyze_meta
 
 [tool.ruff]
 line-length = 120
+# Experimental / vendored / generated code that is intentionally not part of the
+# maintained, linted core (kept for reference; see toy/README.md).
+extend-exclude = [
+    "src/squeezemd/toy",
+    "auxillaryscripts",
+    "docs",
+]
 
 [tool.ruff.lint]
 select = [
@@ -108,6 +115,9 @@ select = [
     "B",   # flake8-bugbear
     "UP",  # pyupgrade
 ]
+# `ruff format` owns code line length; the remaining E501 hits are unsplittable
+# long strings/comments (PLUMED scripts, messages), so flagging them is noise.
+ignore = ["E501"]
 
 [tool.uv]
 package = true
