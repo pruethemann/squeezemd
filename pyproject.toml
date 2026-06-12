@@ -1,7 +1,7 @@
 [project]
 name = "squeezemd"
 version = "1.9.0"
-description = "SqueezeMD is a autmated Molecular dynamics workflow with extensive post-analysis for PPi"
+description = "SqueezeMD is an automated molecular dynamics workflow with extensive post-analysis for protein interactions"
 readme = "README.md"
 authors = [
   {name = "Rüthemann Peter", email = "peter.ruethemann@gmail.com"}
@@ -10,11 +10,27 @@ maintainers = [
   {name = "peter", email = "peter.ruethemann@gmail.com"}
 ]
 classifiers = [
-    # TODO
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Science/Research",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: POSIX :: Linux",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Scientific/Engineering :: Bio-Informatics",
+    "Topic :: Scientific/Engineering :: Chemistry",
 ]
 license = {text = "MIT"}
+# Only the lightweight, pip-installable runtime core is pinned here. The heavy
+# native/scientific stack (openmm, openmm-plumed, openmmforcefields, openff-toolkit,
+# mdanalysis, mdtraj, prolif, snakemake, pymol-open-source) plus the external FoldX
+# and PoSCo binaries are provided by the conda environment, which is the source of
+# truth for reproducible installs: see install/environment.yml and install/INSTALL.md.
 dependencies = [
-  "typer"
+  "typer",
+  "pyyaml",
+  "numpy",
+  "pandas",
+  "pyarrow",
 ]
 requires-python = ">= 3.12"
 
@@ -34,7 +50,7 @@ test = [
 
 [project.urls]
 bugs = "https://github.com/pruethemann/squeezemd"
-changelog = "https://github.com/pruethemann/squeezemd/blob/master/changelog.md"
+changelog = "https://github.com/pruethemann/squeezemd/blob/master/HISTORY.rst"
 homepage = "https://github.com/pruethemann/squeezemd"
 
 [project.scripts]

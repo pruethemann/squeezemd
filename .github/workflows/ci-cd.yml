@@ -1,54 +1,70 @@
-name: Publish Python Piddy
+name: CI / CD
 
-on: push
+on:
+  push:
+  pull_request:
 
 jobs:
+  lint-test:
+    name: Lint & test 🧪
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install package (lightweight core) + dev tools
+        run: |
+          python -m pip install --upgrade pip
+          # Only the pip-installable core is needed for the unit tests; the heavy
+          # native MD stack (openmm, mdanalysis, ...) is intentionally not required.
+          pip install -e ".[test]"
+      - name: Ruff lint
+        run: ruff check .
+      - name: Ruff format check
+        run: ruff format --check .
+      - name: Pytest
+        run: pytest -q
+
   build:
     name: Build distribution 📦
+    needs: lint-test
     runs-on: ubuntu-latest
-
     steps:
-    - uses: actions/checkout@v4
-    - name: Set up Python
-      uses: actions/setup-python@v4
-      with:
-        python-version: "3.x"
-    - name: Install pypa/build
-      run: >-
-        python3 -m
-        pip install
-        build
-        --user
-    - name: Build a binary wheel and a source tarball
-      run: python3 -m build
-    - name: Store the distribution packages
-      uses: actions/upload-artifact@v3
-      with:
-        name: python-package-distributions
-        path: dist/
-
-
+      - uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install build
+        run: python3 -m pip install --upgrade build
+      - name: Build a binary wheel and a source tarball
+        run: python3 -m build
+      - name: Store the distribution packages
+        uses: actions/upload-artifact@v4
+        with:
+          name: python-package-distributions
+          path: dist/
 
   publish-to-testpypi:
-    name: Publish Python to TestPyPI
-    needs:
-    - build
+    name: Publish to TestPyPI
+    # Only publish on tag pushes, not on every commit.
+    if: startsWith(github.ref, 'refs/tags/')
+    needs: build
     runs-on: ubuntu-latest
-
     environment:
       name: testpypi
       url: https://test.pypi.org/p/squeezemd
-
     permissions:
-      id-token: write  # IMPORTANT: mandatory for trusted publishing
-
+      id-token: write  # mandatory for trusted publishing
     steps:
-    - name: Download all the dists
-      uses: actions/download-artifact@v3
-      with:
-        name: python-package-distributions
-        path: dist/
-    - name: Publish distribution 📦 to TestPyPI
-      uses: pypa/gh-action-pypi-publish@release/v1
-      with:
-        repository-url: https://test.pypi.org/legacy/
+      - name: Download all the dists
+        uses: actions/download-artifact@v4
+        with:
+          name: python-package-distributions
+          path: dist/
+      - name: Publish distribution 📦 to TestPyPI
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          repository-url: https://test.pypi.org/legacy/
