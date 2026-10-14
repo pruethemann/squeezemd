@@ -1,0 +1,113 @@
+# =============================================================================
+#  S-15 | M2 peptide variants bound to C4BPalpha1-2 — standard-residue subset
+# =============================================================================
+#  Plain production MD. NO in-silico mutagenesis: the complexes were already
+#  built and prepared (Maestro / PrepWizard) in the sibling project
+#  /home/peter/caracara/projects/C4BP and exported to ./pdb/.
+#
+#  INVOCATION — `squeeze` must run from the directory CONTAINING this config/
+#  folder. Every relative path below resolves against that working directory,
+#  NOT against this file (Snakefile:18-20; Snakefile:124 -> :131 pastes the
+#  `pdb` value verbatim into a shell `cp`).
+#
+#      cd <job-dir>        # the dir holding config/ and pdb_md/
+#      squeeze -n          # dry run
+#      squeeze             # run; cpu/gpu budgets come from this file
+# -----------------------------------------------------------------------------
+
+ID: S-15
+# Primary key of /home/peter/caracara/Squeeze/md_overview.parquet, which
+# update_md_overview() READS AND REWRITES at Snakefile parse time — on every
+# invocation, including `squeeze -n` (helper_functions.py:52,72).
+# Re-using an existing ID silently OVERWRITES that row (helper_functions.py:67-70).
+# Taken under ~/caracara/Squeeze: S-1, S-11f, S-12, S-14. S-15/S-16 were free.
+# NOTE: that path is hard-coded. It must exist on the execution server or the
+# run fails before any job starts.
+
+name: M2_C4BP_std8_60ns
+# Required at runtime (helper_functions.py:62) even though validate_config does
+# not check it — a missing `name` is a KeyError at parse time.
+
+comment: >
+  8 of 14 M2 HVR peptide variants vs C4BPalpha1-2, as the deposited 2:2 assembly.
+  Chains A + C = M2 peptide (res 56-82, ACE/NMA capped) parallel coiled-coil dimer;
+  chains B + D = two copies of C4BPalpha1-2 (res 0-124).
+  Inputs are ./pdb_md/, i.e. ./pdb/ with the chain B/D C-terminus repaired
+  (Maestro wrote an HXT pseudo-aldehyde with no OXT, which matches no Amber
+  template) by scripts/prepare_c4b_for_md.py.
+  The remaining 6 variants carry non-standard residues and live in ../config-nsaa
+  (S-16); they cannot be parameterised until residue templates exist.
+# `comment` is read by nothing in src/squeezemd. Documentation only.
+
+mode: protein_protein
+# This string is BOTH the Snakemake target rule (Snakefile:63) and the first
+# path component of every output. Exactly one of:
+#   protein_protein | protein_molecule | metadynamics_ppi |
+#   metadynamics_molecule | protein
+# Membership is not validated in Python; a typo surfaces as "target rule not found".
+
+# ---------------------------------------------------------------------------
+#  Resources
+# ---------------------------------------------------------------------------
+cpu: 32
+# -> snakemake --cores 32 (scripts/squeeze:52). Set to the execution server's
+# core count. Bounds the CPU-side posco/ProLIF jobs (threads: 4 each).
+
+gpu: 1
+# -> snakemake --resources gpu=1. Every md_* rule declares `resources: gpu=1`
+# (Snakefile:172), so this is the number of CONCURRENT MD jobs.
+#
+# DO NOT set this to 4 on the 4-GPU server. run_md.py:222-223 builds the CUDA
+# platform with {"Precision":"mixed","DeterministicForces":"true"} and NO
+# DeviceIndex, and nothing in the package honours CUDA_VISIBLE_DEVICES per job.
+# With gpu: 4 Snakemake would start four run-md processes that all bind to
+# device 0. To use all four cards, launch four `squeeze` processes, each with
+# CUDA_VISIBLE_DEVICES=<n> and its own subset of receptors — or add DeviceIndex
+# support to run_md.py first.
+
+debug: False
+# MUST stay False. If truthy, setup_testrun (helper_functions.py:78-89) deep-merges
+# the packaged resources/md_test_config.yaml OVER md_config.yaml — forcing
+# time_ns: 0.1 and 10-step equilibration — AND truncates `ligands` to the first 3.
+# All three shipped demo sim_configs have debug: True; this one must not.
+
+# ---------------------------------------------------------------------------
+#  No in-silico mutagenesis
+# ---------------------------------------------------------------------------
+mutations:
+  - WT
+# The literal string "WT" takes the `cp {params.pdb} {output}` branch at
+# Snakefile:129-131. FoldX and the `mutate` CLI are never invoked. Each variant
+# is already its own prepared structure, so WT is the only mutation wildcard.
+
+# ---------------------------------------------------------------------------
+#  Complexes
+# ---------------------------------------------------------------------------
+# The 14 variants are RECEPTORS, not ligands. Snakefile:67 expands
+# receptor x ligand as a CROSS-PRODUCT: listing them as 14 ligands against one
+# receptor would run the SAME pdb 14 times, silently, into 14 output dirs.
+# Receptor names must contain no "_" and no "/" (wildcard_constraints,
+# Snakefile:60-61). Leading digits are fine.
+#
+# Output: protein_protein/<receptor>_M2pep/WT/<seed>/...
+#         8 receptors x 1 ligand x 1 mutation x 10 seeds = 80 MD jobs.
+receptors:
+  WT:   {pdb: pdb_md/WT.pdb}      # M2 wild type, natural ligand
+  NQ:   {pdb: pdb_md/NQ.pdb}      # N66Q — binder
+  ED:   {pdb: pdb_md/ED.pdb}      # E76D
+  FY:   {pdb: pdb_md/FY.pdb}      # F75Y
+  Neg:  {pdb: pdb_md/Neg.pdb}     # D62A + F75A — negative control
+  Q7:   {pdb: pdb_md/Q7.pdb}      # N66Q + F75W
+  R7:   {pdb: pdb_md/R7.pdb}      # N66Q + F75Y
+  T7:   {pdb: pdb_md/T7.pdb}      # N66Q + E76D
+
+ligands:
+  - M2pep
+# For protein_protein the "ligand" is the name of the chain-A binding partner.
+# Exactly ONE entry — see the cross-product note above.
+#
+# CAVEAT for analysis (not for MD): squeezeMD hard-codes "chain A = ligand,
+# everything else = receptor". In this 2:2 assembly that puts peptide copy C
+# into the receptor selection, so results/posco/ will mix A-C coiled-coil
+# contacts with real A-B interface contacts. Fix the analysis to carry segid
+# before making any figure from results/posco/.

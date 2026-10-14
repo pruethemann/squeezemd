@@ -1,0 +1,67 @@
+# =============================================================================
+#  S-16 | M2 peptide variants bound to C4BPalpha1-2 — NON-STANDARD residues
+# =============================================================================
+#  ####################################################################
+#  #  THIS SET DOES NOT RUN YET. It is blocked on force-field          #
+#  #  parameters for AIB, 4-fluoro-Phe and 3-chloro-Tyr.               #
+#  #  Verify with:                                                     #
+#  #    python scripts/preflight_forcefield.py pdb_md/<variant>.pdb    #
+#  ####################################################################
+#
+#  Identical in every respect to ../config (S-15) except ID, name and the
+#  receptor list. See ../config/sim_config.yaml for the full annotation of
+#  each field; only the differences are commented here.
+#
+#      cd <job-dir>
+#      squeeze -n --configfile config-nsaa/sim_config.yaml   # see note at bottom
+# -----------------------------------------------------------------------------
+
+ID: S-16
+name: M2_C4BP_nsaa6_60ns
+
+comment: >
+  The 6 of 14 M2 variants carrying non-standard residues, as the deposited 2:2
+  assembly. Same preparation as S-15 (inputs are ./pdb_md/, C-terminus repaired).
+  BLOCKED: amber19-all.xml has no template for any of these residues, so
+  Modeller.addHydrogens fails before any dynamics. Verified failures:
+    A6, J1 (AIB 66), E2 (AIB 81), F2 (AIB 82) — "similar to VAL, missing 2 H and 1 C"
+    4FF (PHE 75 + F, C-F 1.354 A)            — "has 1 F atom too many"
+    3ClY (TYR 75 + CL, C-Cl 1.739 A)         — "has 1 Cl atom too many"
+  Unblocking needs (a) a config key for additional force-field XML files —
+  run_md.py:169-173 currently splats exactly two scalars into app.ForceField —
+  and (b) residue templates. AIB is the tractable case: the atom naming in these
+  PDBs already matches OpenMM's canonical AIB template exactly, so only the
+  parameters are missing. The halogenated aromatics are harder (charges, and
+  arguably a sigma-hole virtual site for Cl).
+
+mode: protein_protein
+
+cpu: 32
+gpu: 1          # see ../config/sim_config.yaml — do NOT set 4 on the 4-GPU server
+debug: False
+
+mutations:
+  - WT          # no in-silico mutagenesis; each variant is its own structure
+
+# Output: protein_protein/<receptor>_M2pep/WT/<seed>/...
+#         6 receptors x 1 ligand x 1 mutation x 10 seeds = 60 MD jobs (once unblocked).
+receptors:
+  A6:   {pdb: pdb_md/A6.pdb}      # K65A + N66Aib — strongest binder (0.017 nM)
+  J1:   {pdb: pdb_md/J1.pdb}      # N66Aib        — 0.029 nM
+  E2:   {pdb: pdb_md/E2.pdb}      # V81Aib
+  F2:   {pdb: pdb_md/F2.pdb}      # E82Aib        — no spot
+  4FF:  {pdb: pdb_md/4FF.pdb}     # F75 -> 4-fluoro-Phe
+  3ClY: {pdb: pdb_md/3ClY.pdb}    # F75 -> 3-chloro-Tyr
+
+ligands:
+  - M2pep
+
+# NOTE ON RUNNING THIS SET
+# The Snakefile hard-codes config/sim_config.yaml and config/md_config.yaml
+# (Snakefile:18-20) and the `squeeze` wrapper checks ./config/sim_config.yaml
+# (scripts/squeeze:40-44). So this directory is authoring/version control only.
+# To execute S-16, copy it into place in its own job directory:
+#     mkdir -p ../S-16-nsaa && cp -r pdb_md ../S-16-nsaa/
+#     cp config-nsaa/*.yaml ../S-16-nsaa/config/
+# and run `squeeze` from there. Same applies if you ever want S-15 and S-16 to
+# run concurrently on different GPUs.
