@@ -7,6 +7,7 @@ from importlib.resources import files
 from helper_functions import config_deep_update, save_yaml, import_yaml, update_md_overview, setup_testrun, validate_config
 import sysconfig
 from pathlib import Path
+gpu_run = str(files("squeezemd").joinpath("resources", "gpu_run.sh"))   # pins each GPU job to one free GPU
 
 
 ############################
@@ -174,7 +175,7 @@ rule md_protein_protein:
     priority: 3
     shell:
         """
-        run-md --pdb {input.pdb} \
+        bash {gpu_run} run-md --pdb {input.pdb} \
                   --equilibrated {output.equilibrated} \
                   --topo_cif {output.topo_cif} \
                   --traj {output.traj} \
@@ -199,7 +200,7 @@ rule md_protein_molecule:
     retries: 1 
     shell:
         """
-        run-md --pdb {input.pdb} \
+        bash {gpu_run} run-md --pdb {input.pdb} \
                   --equilibrated {output.equilibrated} \
                   --topo_cif {output.topo_cif} \
                   --traj {output.traj} \
@@ -226,7 +227,7 @@ rule md_metadynamics_ppi:
     retries: 1
     shell:
         """
-        run-md --pdb {input.pdb} \
+        bash {gpu_run} run-md --pdb {input.pdb} \
                   --equilibrated {output.equilibrated} \
                   --topo_cif {output.topo_cif} \
                   --traj {output.traj} \
@@ -256,7 +257,7 @@ rule md_metadynamics_molecule:
     retries: 1
     shell:
         """
-        run-md --pdb {input.pdb} \
+        bash {gpu_run} run-md --pdb {input.pdb} \
                --sdf {input.sdf} \
                   --equilibrated {output.equilibrated} \
                   --topo_cif {output.topo_cif} \
@@ -282,7 +283,7 @@ rule ana_potential_energy:
     priority: 3
     shell:
         """
-        analyze-potential-energy --topo {input.topo} \
+        bash {gpu_run} analyze-potential-energy --topo {input.topo} \
                                     --traj {input.traj} \
                                     --config {input.md_config} \
                                     --sdf {input.sdf} \
